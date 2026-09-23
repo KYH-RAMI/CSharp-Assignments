@@ -27,6 +27,45 @@ Systemet ska kunna:
 - [x] Flytta fordon
 - [x] Hämta ut fordon
 
+## Prague Parking 1.1
+
+Version 1.1 bygger vidare på version 1.0.
+
+Koden har strukturerats om för att göra programmet lättare
+att läsa och för att separera olika delar av programmet.
+
+Bland annat har huvudmenyn flyttats till en egen metod och
+delar av platslogiken har delats upp i mindre metoder.
+
+Funktioner som redan finns från version 1.0:
+
+- [x] Visualisering av parkeringsplatser
+- [x] Validering av användarinput
+
+Funktioner som ska läggas till i version 1.1:
+
+- [ ] Optimering av MC-parkering med arbetsordrar
+- [ ] Automatisk tidsstämpling och beräkning av parkeringstid
+
+
+## Programstruktur
+
+`Program.cs` är uppdelad med `#region` för att göra koden
+lättare att navigera i.
+
+Koden är uppdelad i bland annat:
+
+- programstart och kärnprogram
+- användargränssnitt
+- inmatning och validering
+- sökning och logik
+- fordons- och platslogik
+- parkeringsfunktioner
+- sökning och visning
+
+Platslogiken har även delats upp så att kontroll, placering
+och borttagning av fordon kan hanteras i mindre metoder.
+
 
 ## Parkeringsplatser
 
@@ -42,6 +81,7 @@ Index 0 används som reserverad plats.
 Det gör att parkeringsplats 1 motsvarar `parkingGarage[1]`
 och parkeringsplats 100 motsvarar `parkingGarage[100]`.
 
+
 ## Lagringsformat
 
 En bil lagras t.ex. som:
@@ -56,12 +96,13 @@ Två MC på samma parkeringsplats lagras som:
 
 `MC#ABC123|MC#DEF456`
 
+
 ## Beroenden
 
-Projektet använder NuGet-paketet `Spectre.Console`
+Båda projekten använder NuGet-paketet `Spectre.Console`
 för huvudmenyn och konsolpresentationen.
 
-Paketet återställs normalt automatiskt när projektet
+Paketet återställs normalt automatiskt när projekten
 öppnas och byggs i Visual Studio.
 
 ## Avgränsningar

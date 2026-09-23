@@ -582,6 +582,133 @@ Nästa steg är att:
 1. göra de sista testerna av flyttfunktionen med olika kombinationer av MC,
 2. gå igenom hela version 1.0 och kontrollera att alla krav är uppfyllda,
 3. testa funktionerna tillsammans,
-4. gå igenom koden metod för metod så att jag själv kan förklara hur den fungerar,
+4. gå igenom programflödet och repetera hur de olika metoderna hänger ihop,
 5. se om det finns upprepad kod som senare kan förenklas eller återanvändas bättre,
 6. förbättra läsbarheten innan version 1.0 är helt klar.
+
+## 2026-09-23
+
+### Start av Prague Parking 1.1
+
+Idag började jag arbeta med Prague Parking 1.1.
+
+Jag skapade ett nytt projekt `PragueParking1.1` i samma solution
+och använde version 1.0 som grund.
+
+Jag installerade även samma version av `Spectre.Console` som i
+version 1.0 och flyttade över koden till det nya projektet.
+
+Efter genomgång med läraren fick jag bekräftat att det inte är något
+problem att vissa delar från 1.1 redan finns i min version 1.0.
+
+Jag behåller därför visualiseringen av parkeringen och valideringen
+som redan finns. I version 1.1 ska jag även lägga till optimering av
+MC-parkeringen och tidsstämpling/parkeringstid.
+
+
+### Strukturering av Program.cs
+
+När programmet blev större började `Program.cs` bli ganska svår att
+överblicka.
+
+Jag delade därför upp koden med `#region` för bland annat:
+
+- programstart och kärnprogram,
+- användargränssnitt,
+- inmatning och validering,
+- sökning och logik,
+- fordons- och platslogik,
+- parkeringsfunktioner,
+- sökning och visning.
+
+Det förändrar inte hur programmet fungerar, men gör det lättare att
+hitta mellan olika delar av koden.
+
+
+### Huvudmenyn
+
+Jag flyttade även huvudmenyn till en egen metod:
+
+`VisaHuvudmeny()`
+
+Metoden returnerar användarens val som en `string`.
+
+I huvudloopen kan jag därför använda:
+
+`string val = VisaHuvudmeny();`
+
+och sedan använda värdet i min `switch`.
+
+Det gjorde huvudprogrammet kortare och tydligare.
+
+
+### Förenkling av FlyttaFordon
+
+Jag fortsatte sedan med `FlyttaFordon()` eftersom den hade blivit en
+av de längsta metoderna i programmet.
+
+En stor del av logiken för att kontrollera och ändra
+parkeringsplatser låg direkt i metoden.
+
+Jag delade därför upp den delen i tre mindre metoder:
+
+- `KanFordonStåPåPlats()` kontrollerar om fordonet får stå på platsen.
+- `PlaceraFordonPåPlats()` placerar fordonet på den nya platsen.
+- `TaBortFordonFrånPlats()` tar bort fordonet från den gamla platsen.
+
+`KanFordonStåPåPlats()` returnerar bara `true` eller `false` och
+ändrar inget i parkeringsarrayen.
+
+Det gjorde det tydligare för mig att skilja på en metod som bara
+kontrollerar något och en metod som faktiskt ändrar informationen.
+
+
+### Programflöde
+
+Efter ändringen är delen i `FlyttaFordon()` enklare att följa.
+
+Programmet:
+
+1. hittar fordonet,
+2. frågar efter en ny plats,
+3. kontrollerar om fordonet får stå där,
+4. placerar fordonet på den nya platsen,
+5. tar bort det från den gamla platsen.
+
+Jag använde också `!` framför `KanFordonStåPåPlats()` för att
+kontrollera när resultatet är `false`.
+
+Det börjar bli tydligare för mig hur metoder som returnerar `bool`
+kan användas direkt i ett `if`-villkor.
+
+
+### Tester
+
+Efter ändringarna testade jag programmet igen.
+
+Jag testade bland annat:
+
+- parkering av CAR,
+- parkering av MC,
+- två MC på samma plats,
+- sökning,
+- flytt av fordon,
+- flytt av MC till en plats med en annan MC,
+- försök att flytta till en full plats,
+- uthämtning av fordon,
+- visning av parkeringen.
+
+Alla funktioner fungerar fortfarande efter att koden delades upp.
+
+
+### Nästa steg
+
+Nästa steg är att fortsätta gå igenom version 1.1 och se om det finns
+fler delar som kan förenklas utan att dela upp programmet i onödigt
+många små metoder.
+
+När grundstrukturen känns bra ska jag börja med de nya funktionerna
+för version 1.1:
+
+1. optimering av MC-parkeringen med arbetsordrar,
+2. tidsstämpling och beräkning av parkeringstid.
