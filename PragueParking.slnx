@@ -4,4 +4,5 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="Prague-Parking-V1/PragueParking1.0.csproj" />
+  <Project Path="PragueParking1.1/PragueParking1.1.csproj" Id="623555ca-1fd4-4d1f-8600-003f9f8b66de" />
 </Solution>

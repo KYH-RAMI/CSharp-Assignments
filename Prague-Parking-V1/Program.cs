@@ -1,6 +1,8 @@
 ﻿
 using Spectre.Console;
 
+Console.Title = "Prague Parking v1.0 - Rami I";
+
 bool programmetKörs = true;
 string[] parkingGarage = new string[101];
 parkingGarage[0] = "PERSONALPARKERING";
@@ -8,6 +10,7 @@ parkingGarage[0] = "PERSONALPARKERING";
 while (programmetKörs)
 {
     AnsiConsole.Clear();
+    
 
     AnsiConsole.Write(
         new FigletText("Prague Parking")
