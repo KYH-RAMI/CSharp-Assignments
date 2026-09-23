@@ -256,6 +256,66 @@ static int HittaPlatsFörFordon(string[] parkingGarage, string fordonstyp)
 
 #endregion
 
+//Kan fordon parkeras?, lägg till fordon och tabort fordon
+#region Fordon och platslogik
+
+static bool KanFordonStåPåPlats(
+    string[] parkingGarage,
+    int plats,
+    string fordon)
+{
+    if (string.IsNullOrEmpty(parkingGarage[plats]))
+    {
+        return true;
+    }
+
+    if (fordon.StartsWith("MC#") &&
+        parkingGarage[plats].StartsWith("MC#") &&
+        !parkingGarage[plats].Contains("|"))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+static void PlaceraFordonPåPlats(
+    string[] parkingGarage,
+    int plats,
+    string fordon)
+{
+    if (string.IsNullOrEmpty(parkingGarage[plats]))
+    {
+        parkingGarage[plats] = fordon;
+    }
+    else
+    {
+        parkingGarage[plats] += $"|{fordon}";
+    }
+}
+
+static void TaBortFordonFrånPlats(
+    string[] parkingGarage,
+    int plats,
+    string fordon)
+{
+    string[] fordonPåPlatsen = parkingGarage[plats].Split('|');
+
+    if (fordonPåPlatsen.Length == 1)
+    {
+        parkingGarage[plats] = string.Empty;
+    }
+    else if (fordonPåPlatsen[0] == fordon)
+    {
+        parkingGarage[plats] = fordonPåPlatsen[1];
+    }
+    else
+    {
+        parkingGarage[plats] = fordonPåPlatsen[0];
+    }
+}
+
+#endregion
 
 #region Parkeringsfunktioner
 
@@ -361,42 +421,16 @@ static void FlyttaFordon(string[] parkingGarage)
                 continue;
             }
 
-            // Tom plats
-            if (string.IsNullOrEmpty(parkingGarage[nyPlats]))
-            {
-                parkingGarage[nyPlats] = fordonAttFlytta;
-            }
-            // MC får dela med exakt en annan MC
-            else if (
-                fordonAttFlytta.StartsWith("MC#") &&
-                parkingGarage[nyPlats].StartsWith("MC#") &&
-                !parkingGarage[nyPlats].Contains("|"))
-            {
-                parkingGarage[nyPlats] += $"|{fordonAttFlytta}";
-            }
-            else
+            // Kontrollera om fordonet kan flyttas till den nya platsen
+            if (!KanFordonStåPåPlats(parkingGarage, nyPlats, fordonAttFlytta))
             {
                 AnsiConsole.MarkupLine(
                     "[red]\nDen nya platsen är upptagen. Välj en annan plats.[/]");
                 continue;
             }
 
-            // Uppdatera den gamla platsen
-            if (fordonPåPlatsen.Length == 1)
-            {
-                parkingGarage[plats] = string.Empty;
-            }
-            else
-            {
-                if (fordonPåPlatsen[0] == fordonAttFlytta)
-                {
-                    parkingGarage[plats] = fordonPåPlatsen[1];
-                }
-                else
-                {
-                    parkingGarage[plats] = fordonPåPlatsen[0];
-                }
-            }
+            PlaceraFordonPåPlats(parkingGarage, nyPlats, fordonAttFlytta);
+            TaBortFordonFrånPlats(parkingGarage, plats, fordonAttFlytta);
 
             AnsiConsole.MarkupLine(
                 $"[green]\nFordonet har flyttats från plats {plats} till plats {nyPlats}.[/]");
@@ -469,7 +503,6 @@ static void HämtaUtFordon(string[] parkingGarage)
 }
 
 #endregion
-
 
 #region Sök och Visning
 
@@ -562,3 +595,4 @@ static void VisaParkering(string[] parkingGarage)
 }
 
 #endregion
+
