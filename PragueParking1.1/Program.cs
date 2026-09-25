@@ -7,6 +7,7 @@ bool programmetKörs = true;
 string[] parkingGarage = new string[101];
 parkingGarage[0] = "PERSONALPARKERING";
 
+
 #endregion
 
 // Kärn programmet 
@@ -38,6 +39,9 @@ while (programmetKörs)
 
         case "Visa parkering":
             VisaParkering(parkingGarage);
+            break;
+        case "Optimera MC Parkering":
+            OptimeraMC(parkingGarage);
             break;
 
         case "Avsluta":
@@ -73,6 +77,7 @@ static string VisaHuvudmeny()
                 "Hämta ut fordon",
                 "Sök fordon",
                 "Visa parkering",
+                "Optimera MC Parkering",
                 "Avsluta"
             )
     );
@@ -350,7 +355,9 @@ static void ParkeraFordon(string[] parkingGarage)
         parkingGarage[plats] = $"{fordonstyp}#{registreringsnummer}";
     }
     AnsiConsole.MarkupLine($"[green]\nFordonet har parkerats på plats {plats}.[/]");
-    Console.WriteLine("\nTryck på en tangent för att gå tillbaka...");
+    AnsiConsole.MarkupLine(
+         "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
+
     Console.ReadKey();
 }
 
@@ -435,8 +442,9 @@ static void FlyttaFordon(string[] parkingGarage)
             AnsiConsole.MarkupLine(
                 $"[green]\nFordonet har flyttats från plats {plats} till plats {nyPlats}.[/]");
 
-            Console.WriteLine(
-                "\nTryck på en tangent för att gå tillbaka...");
+            AnsiConsole.MarkupLine(
+         "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
+
             Console.ReadKey();
 
             return;
@@ -496,103 +504,188 @@ static void HämtaUtFordon(string[] parkingGarage)
             AnsiConsole.MarkupLine($"[green]\nFordonet har hämtats ut från plats {plats}.[/]");
         }
 
-        Console.WriteLine("\nTryck på en tangent för att gå tillbaka...");
+        AnsiConsole.MarkupLine(
+         "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
+
         Console.ReadKey();
         return;
     }
+}
+
+static void OptimeraMC(string[] parkingGarage)
+{
+    AnsiConsole.Clear();
+    int antalArbetsOrdrar = 0;
+    AnsiConsole.MarkupLine(
+        "[bold white]=== Optimera MC Parkeringen ===[/]\n");
+
+    for (int plats = 1; plats < parkingGarage.Length; plats++)
+    {
+        string innehåll = parkingGarage[plats];
+
+        
+
+
+        if (!string.IsNullOrEmpty(innehåll) &&
+            innehåll.StartsWith("MC#") &&
+            !innehåll.Contains("|"))
+        {
+
+            for (int annanPlats = parkingGarage.Length - 1;
+                annanPlats > plats;
+                annanPlats--)
+            {
+                string annatInnehåll = parkingGarage[annanPlats];
+                if (!string.IsNullOrEmpty(annatInnehåll) &&
+            annatInnehåll.StartsWith("MC#") &&
+            !annatInnehåll.Contains("|"))
+                {
+                    
+                    AnsiConsole.MarkupLine(
+                        $"[green]Arbetsorder: [/][white]Flytta[/] [DarkOrange]{annatInnehåll}[/][white] från plats[/] [green]{annanPlats}[/] [white]till plats[/] [green]{plats}.[/]\n");
+
+                    //Flytta fordonet och placera på nya platsen!
+                    PlaceraFordonPåPlats(
+                        parkingGarage,
+                        plats,
+                        annatInnehåll);
+
+                    //Ta bort Fordonet från gamla platsen.
+                    TaBortFordonFrånPlats(
+                        parkingGarage,
+                        annanPlats,
+                        annatInnehåll);
+
+                    antalArbetsOrdrar++;
+
+            
+                    break;
+                }
+             
+            }
+        
+        }
+      
+    }
+
+    if (antalArbetsOrdrar == 0)
+    {
+        AnsiConsole.MarkupLine(
+            "\n[grey]Ingen optimering behövs.[/]");
+    }
+    else
+    {
+        AnsiConsole.MarkupLine(
+            $"\n[white]Optimeringen är klar![/]\n\n[green]Antal arbetsordrar: [/][white]{antalArbetsOrdrar}[/]");
+
+    }
+
+    AnsiConsole.MarkupLine(
+             "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
+
+        Console.ReadKey();
+    
 }
 
 #endregion
 
 #region Sök och Visning
 
-// SökFordon()
+    // SökFordon()
 
-static void SökFordon(string[] parkingGarage)
-{
-    AnsiConsole.Clear();
-
-    Console.WriteLine("=== Sök fordon ===");
-
-    string registreringsnummer = LäsRegistreringsnummer();
-
-    int plats = HittaFordon(parkingGarage, registreringsnummer);
-
-    if (plats == -1)
+    static void SökFordon(string[] parkingGarage)
     {
-        AnsiConsole.MarkupLine($"[red]\n\nFordonet hittades inte.[/]");
-    }
-    else
-    {
-        AnsiConsole.MarkupLine($"[green]\nFordonet finns på plats {plats}.[/]");
-    }
+        AnsiConsole.Clear();
 
-    Console.WriteLine("\nTryck på en tangent för att gå tillbaka...");
-    Console.ReadKey();
+        Console.WriteLine("=== Sök fordon ===");
 
-}
+        string registreringsnummer = LäsRegistreringsnummer();
 
-// VisaParkering()
+        int plats = HittaFordon(parkingGarage, registreringsnummer);
 
-static void VisaParkering(string[] parkingGarage)
-{
-
-    AnsiConsole.Clear();
-
-    AnsiConsole.MarkupLine("[bold green]=== Visa parkering ===[/]\n");
-
-    var table = new Table()
-        .Border(TableBorder.Rounded)
-        .BorderColor(Color.Blue)
-        .Title("[bold red]=== Parkeringen ===[/]")
-        .ShowRowSeparators();
-
-    //Kolumnrubriker 1-10
-    for (int i = 1; i <= 10; i++)
-    {
-        table.AddColumn($"[grey]{i}[/]");
-
-    }
-
-    //10 rader med 10 P-platser
-    for (int rad = 1; rad <= 10; rad++)
-    {
-        string[] row = new string[10];
-        for (int kolumn = 0; kolumn < 10; kolumn++)
+        if (plats == -1)
         {
+            AnsiConsole.MarkupLine($"[red]\n\nFordonet hittades inte.[/]");
+        }
+        else
+        {
+            AnsiConsole.MarkupLine($"[green]\nFordonet finns på plats {plats}.[/]");
+        }
 
-            int plats = (rad - 1) * 10 + kolumn + 1;
-            string innehåll;
+        AnsiConsole.MarkupLine(
+              "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
 
-            if (string.IsNullOrEmpty(parkingGarage[plats]))
-            {
-                innehåll = $"[bold white]P-{plats}[/]\n[grey]LEDIG[/]";
-            }
-            else if (parkingGarage[plats].StartsWith("CAR#"))
-            {
-                innehåll = $"[bold white]P-{plats}[/]\n[green]{parkingGarage[plats]}[/]";
-            }
-            else if (parkingGarage[plats].StartsWith("MC#"))
-            {
-                string mcVisning = parkingGarage[plats].Replace("|", "\n");
-                innehåll = $"[bold white]P-{plats}[/]\n[DarkOrange]{mcVisning}[/]";
-            }
-            else
-            {
-                innehåll = $"[bold white]P-{plats}[/]\n{parkingGarage[plats]}";
-            }
-            row[kolumn] = innehåll;
+        Console.ReadKey();
+
+    }
+
+    // VisaParkering()
+
+    static void VisaParkering(string[] parkingGarage)
+    {
+
+        AnsiConsole.Clear();
+
+        AnsiConsole.MarkupLine("[bold green]=== Visa parkering ===[/]\n");
+
+        var table = new Table()
+            .Border(TableBorder.Rounded)
+            .BorderColor(Color.Blue)
+            .Title("[bold red]=== Parkeringen ===[/]")
+            .ShowRowSeparators();
+
+        //Kolumnrubriker 1-10
+        for (int i = 1; i <= 10; i++)
+        {
+            table.AddColumn($"[grey]{i}[/]");
 
         }
 
+        //10 rader med 10 P-platser
+        for (int rad = 1; rad <= 10; rad++)
+        {
+            string[] row = new string[10];
+            for (int kolumn = 0; kolumn < 10; kolumn++)
+            {
 
-        table.AddRow(row);
+                int plats = (rad - 1) * 10 + kolumn + 1;
+                string innehåll;
+
+                if (string.IsNullOrEmpty(parkingGarage[plats]))
+                {
+                    innehåll = $"[bold white]P-{plats}[/]\n[grey]LEDIG[/]";
+                }
+                else if (parkingGarage[plats].StartsWith("CAR#"))
+                {
+                    innehåll = $"[bold white]P-{plats}[/]\n[green]{parkingGarage[plats]}[/]";
+                }
+                else if (parkingGarage[plats].StartsWith("MC#"))
+                {
+                    string mcVisning = parkingGarage[plats].Replace("|", "\n");
+                    innehåll = $"[bold white]P-{plats}[/]\n[DarkOrange]{mcVisning}[/]";
+                }
+                else
+                {
+                    innehåll = $"[bold white]P-{plats}[/]\n{parkingGarage[plats]}";
+                }
+                row[kolumn] = innehåll;
+
+            }
+
+
+            table.AddRow(row);
+        }
+        AnsiConsole.Write(table);
+        Console.WriteLine();
+
+
+
+
+        AnsiConsole.MarkupLine(
+             "\n[grey]Tryck på en tangent för att gå tillbaka...[/]");
+
+        Console.ReadKey();
     }
-    AnsiConsole.Write(table);
-    Console.WriteLine();
-    Console.WriteLine("Tryck på en tangent för att gå tillbaka...");
-    Console.ReadKey();
-}
 
 #endregion
 

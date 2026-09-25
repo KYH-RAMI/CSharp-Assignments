@@ -712,3 +712,342 @@ för version 1.1:
 
 1. optimering av MC-parkeringen med arbetsordrar,
 2. tidsstämpling och beräkning av parkeringstid.
+
+## 2026-09-25
+
+### Optimering av MC-parkeringen
+
+Idag fortsatte jag med en av funktionerna för Prague Parking 1.1,
+optimering av MC-parkeringen.
+
+Jag lade till ett nytt alternativ i huvudmenyn:
+
+`Optimera MC Parkering`
+
+som anropar metoden:
+
+`OptimeraMC(string[] parkingGarage)`
+
+
+### Hitta ensamma MC
+
+Jag började med att gå igenom parkeringsarrayen med en `for`-loop
+och kontrollera vilka platser som innehåller exakt en MC.
+
+För att räknas som en ensam MC kontrollerar jag att platsen:
+
+- inte är tom,
+- börjar med `MC#`,
+- inte innehåller `|`.
+
+Jag använder sedan en andra `for`-loop som söker bakifrån i
+parkeringen efter en annan ensam MC.
+
+På så sätt kan en MC på ett högt platsnummer flyttas till en
+ensam MC på ett lägre platsnummer.
+
+
+### Arbetsordrar och flyttning
+
+När två ensamma MC hittas skriver programmet ut en arbetsorder,
+till exempel:
+
+`Flytta MC#ABC123 från plats 99 till plats 1.`
+
+Jag återanvänder metoder som jag redan skapat tidigare:
+
+`PlaceraFordonPåPlats()`
+
+och:
+
+`TaBortFordonFrånPlats()`
+
+Det gjorde att jag inte behövde skriva ny kod för själva flytten.
+
+Efter en flytt används `break` för att avsluta den inre loopen
+och fortsätta söka efter nästa par av motorcyklar.
+
+Jag lade även till en räknare:
+
+`antalArbetsordrar`
+
+som ökas med:
+
+`antalArbetsordrar++;`
+
+varje gång en flytt genomförs.
+
+När optimeringen är färdig visas en summering med hur många
+arbetsordrar som skapades.
+
+
+### Tester
+
+För att slippa mata in många testfordon manuellt lade jag till
+tillfälliga testdata direkt i parkeringsarrayen.
+
+Jag testade bland annat:
+
+- ensamma MC på både låga och höga platsnummer,
+- CAR mellan motorcyklarna,
+- platser med två MC som redan är fulla,
+- jämnt antal ensamma MC,
+- udda antal ensamma MC.
+
+Optimeringen flyttar endast ensamma MC och lämnar en MC ensam
+om det inte finns någon annan kvar att para ihop den med.
+
+Jag kontrollerade även resultatet med parkeringsöversikten och
+såg att de högre parkeringsplatserna blev lediga efter flytten.
+
+
+### Val av funktioner för version 1.1
+
+Jag valde att inte implementera tidsstämpling och parkeringstid.
+
+Version 1.1 innehåller redan visualisering, säkrare användarinput
+och MC-optimering med arbetsordrar.
+
+För tidsstämpling hade jag behövt ändra lagringsformatet för
+fordonen eftersom datum och tid måste sparas tillsammans med
+fordonsinformationen. Det hade i sin tur gjort att flera delar
+av den befintliga koden som använder `Split()`, sökning och
+registreringsnummer behövt ändras.
+
+Principen för en sådan lösning känns ändå ganska tydlig.
+När ett fordon parkeras skulle aktuell tid kunna sparas med
+`DateTime.Now`. Vid uthämtning skulle den sparade tiden kunna
+jämföras med aktuell tid för att beräkna hur länge fordonet
+varit parkerat.
+
+Jag valde därför att behålla den fungerande grundkoden och
+avsluta version 1.1 med de tre förbättringar som redan fungerar.
+
+
+# Personlig reflektion – Prague Parking
+
+## 1. Sammanfattning
+
+När jag först såg uppgiften Prague Parking var min spontana tanke att
+den borde vara ganska enkel eftersom jag har programmerat tidigare och
+hade kunnat lösa något liknande ganska snabbt i Java en gång i tiden.
+
+När jag sedan började läsa uppgiften mer noggrant insåg jag att den var
+mer omfattande än jag först hade trott. Jag fick läsa vissa delar flera
+gånger för att vara säker på att jag hade förstått kraven rätt.
+
+Ibland kopierade jag även in delar av uppgiftstexten i Visual Studio så
+att jag kunde ha kraven framför mig samtidigt som jag skrev koden. Det
+gjorde det lättare att kontrollera att jag faktiskt arbetade mot rätt
+krav och inte bara utgick från hur jag själv trodde att lösningen skulle
+fungera.
+
+Det visade sig också ganska fort att jag hade underskattat hur mycket
+jag hade glömt efter många år utan programmering.
+
+
+## 2. Hur jag löste uppgiften
+
+Jag är ganska tävlingsinriktad och började med uppgiften tidigt.
+Jag lade också upp projektet på GitHub redan från början eftersom jag
+ville kunna följa utvecklingen och gärna få feedback när jag gjorde
+framsteg.
+
+Jag försökte först dela upp problemet i mindre delar. I stället för att
+tänka på hela parkeringssystemet samtidigt började jag med sådant som
+arrayen, huvudmenyn, registreringsnummer och att hitta en ledig
+parkeringsplats.
+
+Efter hand skapade jag fler metoder för att slippa ha all kod på samma
+ställe. Exempel är metoder för att hitta fordon, hitta en tom plats,
+kontrollera registreringsnummer och senare även kontrollera om ett
+fordon får stå på en viss plats.
+
+När koden började bli större märkte jag att jag hade svårt att snabbt
+hitta rätt delar i `Program.cs`. Då började jag använda `#region`,
+vilket jag tyckte var väldigt användbart.
+
+Det gjorde det möjligt att dela upp programmet i till exempel
+användargränssnitt, sökning och logik, parkeringsfunktioner och
+fordons- och platslogik.
+
+Jag upptäckte även Spectre.Console under kursen och började använda
+det för att göra programmet mer lättläst visuellt. Det var egentligen
+inget jag hade planerat från början, men när jag såg möjligheterna
+började jag experimentera med menyer, tabeller och färger.
+
+
+## 3. Utmaningar och hur de löstes
+
+En av de största utmaningarna har varit att komma tillbaka till
+programmeringstänket efter ett långt uppehåll. Vissa saker kändes
+bekanta från Java, men annat behövde jag lära mig nästan från början
+igen.
+
+Jag hade till exempel svårt att hålla reda på skillnaden mellan olika
+typer av metoder. `int` och `string` var ganska enkla att förstå när
+en metod skulle returnera ett värde, men jag blandade i början ihop
+`void`, `return` och hur metoder skulle anropas.
+
+Jag fick också vänja mig vid `static` i den struktur jag använder i
+programmet.
+
+En annan sak jag hade svårt med var `Split()` och `Join()`. När två MC
+ska kunna stå på samma parkeringsplats lagras de i samma string,
+exempelvis:
+
+`MC#ABC123|MC#DEF456`
+
+I början kändes det ganska rörigt att dela upp strängen och hitta rätt
+fordon. När Claes visade dokumentationen för `Split()` och `Join()` och
+vi pratade om hur det fungerade klickade det mycket bättre.
+
+Jag hade även problem med nästlade loopar. Ett exempel var
+`FlyttaFordon()`, där jag först hade en loop som hanterade både
+registreringsnummer och val av ny parkeringsplats.
+
+När användaren valde en upptagen plats gjorde `continue` att programmet
+hoppade tillbaka för långt och frågade efter registreringsnumret igen.
+Jag löste det genom att använda en separat inre loop för valet av ny
+plats.
+
+Parenteser och framför allt måsvingar `{ }` har också varit ett
+återkommande problem. När metoderna blev stora blev det lätt att tappa
+bort vilket block en viss rad tillhörde. Det märktes ännu tydligare när
+jag började använda nästlade `for`- och `while`-loopar.
+
+Det var en av anledningarna till att jag senare började dela upp stora
+metoder i mindre delar.
+
+`FlyttaFordon()` blev till exempel mycket lättare att läsa när jag
+flyttade ut delar av logiken till metoder som
+`KanFordonStåPåPlats()`, `PlaceraFordonPåPlats()` och
+`TaBortFordonFrånPlats()`.
+
+Jag har även använt den inbyggda AI-funktionen i Visual Studio som stöd
+under arbetet. Den har bland annat hjälpt mig med formatering av README
+och loggbok, hittat stavfel och ibland hjälpt till när jag haft en idé
+om vilken logik jag vill uppnå men inte fått koden att fungera.
+
+Samtidigt har den inte automatiskt löst alla problem. Jag har fortfarande
+behövt förstå vad som händer, särskilt vid exempelvis nästlade loopar,
+felplacerade måsvingar och problem med programflödet.
+
+
+## 4. Metoder och modeller jag använde
+
+Jag har försökt bygga programmet med ganska små metoder där varje metod
+helst ska ha ett tydligt ansvar.
+
+Ett exempel är `HittaFordon()`, som endast söker efter ett
+registreringsnummer och returnerar vilken parkeringsplats fordonet står
+på. Den behöver inte själv fråga användaren efter registreringsnummer
+eller skriva ut resultatet.
+
+På samma sätt skapade jag senare `KanFordonStåPåPlats()`, som bara
+returnerar `true` eller `false`.
+
+Den ändrar ingenting i arrayen utan svarar endast på frågan om ett
+fordon får placeras på den aktuella platsen.
+
+Det har hjälpt mig att förstå bättre skillnaden mellan metoder som
+kontrollerar något, metoder som returnerar information och metoder som
+faktiskt ändrar data.
+
+Jag har arbetat mycket med `for`, `foreach` och `while`, och under
+projektet har jag fått bättre förståelse för skillnaden mellan
+`continue`, `break` och `return`.
+
+MC-optimeringen blev också bra träning i nästlade `for`-loopar.
+Den första loopen söker efter en ensam MC på ett lågt parkeringsnummer
+och den andra söker bakifrån efter en annan ensam MC.
+
+När ett par hittas skapas en arbetsorder och den ena motorcykeln flyttas
+så att en parkeringsplats frigörs.
+
+
+## 5. Hur jag skulle lösa uppgiften nästa gång
+
+Om jag skulle börja om idag hade jag försökt planera programstrukturen
+mer innan jag började skriva själva funktionerna.
+
+Jag känner också igen ett mönster hos mig själv från tidigare
+programmering. Det är lätt för mig att börja på något och bli väldigt
+engagerad, men när något sedan inte fungerar som jag tänkt kan jag
+fastna länge och ibland börja tappa motivationen.
+
+Därför tror jag att det är viktigt för mig att dela upp problemen i
+mindre delar och försöka få en sak i taget att fungera.
+
+Nästa gång hade jag därför byggt programmet ännu mer stegvis och testat
+varje mindre del innan jag går vidare.
+
+Jag hade också försökt separera användargränssnitt och logik tidigare,
+i stället för att göra det först när metoderna började bli stora.
+
+Samtidigt tror jag att jag behövde göra misstagen den här gången för att
+förstå varför struktur och mindre metoder faktiskt spelar så stor roll.
+
+
+## 6. Slutsats om hemuppgiften
+
+Det roligaste med uppgiften har varit känslan när något som jag kämpat
+med till slut fungerar.
+
+Jag har också uppskattat själva arbetet med att göra koden mer läsbar.
+Visual Studio hjälper mycket med indrag, måsvingar och formatering,
+vilket är en stor skillnad mot hur jag programmerade tidigare.
+
+Förr satt jag mycket i exempelvis Notepad++ när jag arbetade med PHP
+och MySQL och fick själv hålla betydligt mer koll på strukturen.
+
+Jag tyckte däremot att en ren konsolapplikation kändes ganska tråkig
+visuellt. Därför blev Spectre.Console en rolig del av projektet.
+
+När jag upptäckte att jag kunde använda menyer, tabeller och färger blev
+det mycket roligare att fortsätta utveckla programmet.
+
+Jag har alltid gillat den visuella delen av programmering. När jag
+programmerade Java tidigare använde jag gärna Swing för att kunna bygga
+grafiska gränssnitt i stället för att bara arbeta med text i terminalen.
+
+Det som först såg ut som en enkel parkeringsuppgift blev betydligt mer
+omfattande än jag hade räknat med.
+
+Samtidigt blev det också en bra övning i att gå från en idé i huvudet
+till en lösning som faktiskt fungerar.
+
+
+## 7. Slutsats om kursen så här långt
+
+En sak jag känner igen från när jag programmerade tidigare är hur viktigt
+det är att själv söka information när man fastnar.
+
+När jag arbetade med PHP och MySQL satt jag mycket med dokumentationen,
+men jag använde också sidor som Phpportalen, Phpsidan och W3Schools.
+
+På Phpportalen och Phpsidan kunde man dessutom diskutera problem med
+andra och hjälpa varandra när någon hade fastnat.
+
+Jag känner igen samma arbetssätt nu, även om verktygen har förändrats.
+Idag använder jag Microsofts dokumentation, YouTube, läraren,
+klasskamrater och de hjälpmedel som finns direkt i utvecklingsmiljön.
+
+Det jag tycker är roligast med programmering är fortfarande samma sak
+som tidigare: känslan när man har suttit med ett problem och till slut
+får det att fungera som man tänkt.
+
+Samtidigt känner jag mig själv ganska väl. Jag kan bli väldigt engagerad
+när jag börjar med något, men om jag fastnar länge och inte får det att
+fungera kan jag börja tappa motivationen.
+
+Därför behöver jag bli bättre på att dela upp problem i mindre delar
+och inte försöka lösa allt på en gång.
+
+Jag tycker ändå att Prague Parking har gjort att mycket av mitt gamla
+programmeringstänk börjat komma tillbaka.
+
+Jag känner mig fortfarande som nybörjare på många delar av C#, men
+jämfört med när uppgiften började tänker jag mycket mer på programflöde,
+scope, metoder och hur koden ska struktureras för att vara lättare att
+förstå senare.
