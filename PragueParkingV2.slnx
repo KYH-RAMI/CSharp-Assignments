@@ -2,7 +2,7 @@
   <Folder Name="/docs/">
     <File Path="docs/class-diagram.md" />
     <File Path="docs/design-decisions.md" />
-    <File Path="requirements.md" />
+    <File Path="docs/requirements.md" />
   </Folder>
   <Folder Name="/Documentation/">
     <File Path="LOGGBOK.md" />
