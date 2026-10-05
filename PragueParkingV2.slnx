@@ -1,10 +1,10 @@
 <Solution>
   <Folder Name="/docs/">
-    <File Path="configuration.md" />
     <File Path="docs/class-diagram.md" />
+    <File Path="docs/configuration.md" />
     <File Path="docs/design-decisions.md" />
+    <File Path="docs/parking-data.md" />
     <File Path="docs/requirements.md" />
-    <File Path="parking-data.md" />
   </Folder>
   <Folder Name="/Documentation/">
     <File Path="LOGGBOK.md" />
