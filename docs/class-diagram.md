@@ -14,7 +14,7 @@ classDiagram
 ```text
 Vehicle:
 Representerar gemensam information och egenskaper som alla fordon behöver,
-exempelvis unik identifierare, ankomsttid och kapacitetsbehov.
+exempelvis unik identifierare och ankomsttid.
 
 Car:
 Representerar ett fordon av typen bil och ärver den gemensamma fordonsinformationen från Vehicle.
@@ -23,8 +23,8 @@ MC:
 Representerar ett fordon av typen MC och ärver den gemensamma fordonsinformationen från Vehicle.
 
 ParkingSpot:
-Representerar en fysisk parkeringsplats och ansvarar för sitt platsnummer,
-sin kapacitet och vilka fordon som använder platsens kapacitet.
+Representerar en fysisk parkeringsplats och ansvarar för sitt platsnummer
+samt vilka fordon som är parkerade på platsen.
 
 ParkingGarage:
 Representerar hela parkeringshuset och ansvarar för samlingen av ParkingSpot
@@ -62,9 +62,12 @@ ParkedVehicles
 ParkingSpot
 ----------------
 SpotNumber
-Capacity
 ParkedVehicles
 ```
+
+> Kapacitetsregler lagras inte som hårdkodade värden i `ParkingSpot`.  
+> På G-nivå hämtas de från konfigurationens `VehiclesPerSpot`.  
+> I VG ersätts detta med den generella storleksmodellen.
 
 ## Version 0.4 – ParkingGarage
 
@@ -74,4 +77,13 @@ ParkingGarage
 ParkingSpots
 ```
 
-## Version 0.5 – 
+## Version 0.5 – Relationer
+
+```mermaid
+classDiagram
+    Vehicle <|-- Car
+    Vehicle <|-- MC
+
+    ParkingGarage "1" --> "*" ParkingSpot : innehåller
+    ParkingSpot "1" --> "0..*" Vehicle : innehåller
+```

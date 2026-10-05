@@ -56,3 +56,35 @@ behöver därför inte hantera detaljerna för varje enskild plats utan kan frå
 
 **Motivering:**  
 Antalet kan härledas från samlingen. Ett separat värde skulle duplicera information och kunna bli inkonsekvent med det faktiska antalet parkeringsplatser.
+
+## DD-007 – ParkingSpot äger fordonsrelationen
+
+**Beslut:**  
+`ParkingSpot` innehåller referenser till de fordon som använder platsen.
+
+**Motivering:**  
+Placeringen hålls på ett enda ställe i modellen. `Vehicle` behöver därför inte lagra parkeringsplatsnummer, vilket minskar duplicerad information.
+
+## DD-008 – Konfiguration och parkeringsdata separeras
+
+**Beslut:**  
+Programinställningar lagras i `config.json`, medan det aktuella parkeringsläget lagras separat i `parking-data.json`.
+
+**Motivering:**  
+Konfiguration beskriver hur systemet ska fungera medan parkeringsdata beskriver systemets aktuella tillstånd. Separationen gör filerna enklare att förstå och minskar risken att användarinställningar blandas ihop med runtime-data.
+
+## DD-009 – G-versionen använder antal fordon per plats
+
+**Beslut:**  
+Prague Parking 2.0 använder konfigurerbara värden för hur många fordon av respektive typ som ryms på en parkeringsplats.
+
+**Motivering:**  
+Det följer G-kravet direkt. Den generella storleksmodellen med kapacitetsenheter införs först i Prague Parking 2.1 där cykel, MC, bil och buss uttryckligen får storlekarna 1, 2, 4 och 16.
+
+## DD-010 – Endast upptagna parkeringsplatser sparas
+
+**Beslut:**  
+`parking-data.json` lagrar endast parkeringsplatser som innehåller parkerade fordon.
+
+**Motivering:**  
+Det totala antalet parkeringsplatser definieras redan i `config.json`. Tomma parkeringsplatser kan därför återskapas vid programstart och behöver inte dupliceras i datafilen.
