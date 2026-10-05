@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/class-diagram.md" />
+    <File Path="docs/design-decisions.md" />
+    <File Path="requirements.md" />
+  </Folder>
+  <Folder Name="/Documentation/">
+    <File Path="LOGGBOK.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="PragueParkingV2.Data/PragueParkingV2.Data.csproj" />
+  <Project Path="PragueParkingV2/PragueParkingV2.csproj" />
+</Solution>
