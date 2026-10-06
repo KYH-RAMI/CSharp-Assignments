@@ -146,4 +146,4 @@ ParkingGarage
 ----------------
 ParkingSpots
 ----------------
-ParkingGarage(numberOfParkingSpots)
+ParkingGarage(numberOfParkingSpots) 
