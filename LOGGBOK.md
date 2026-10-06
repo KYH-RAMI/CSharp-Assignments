@@ -30,43 +30,49 @@
 - Installerat och konfigurerat Spectre.Console.
 - Skapat domänklasserna `Vehicle`, `Car`, `MC`, `ParkingSpot` och `ParkingGarage`.
 - `Vehicle` har fått:
-  - unik identifierare
+  - identifierare
   - automatisk ankomsttid i UTC
   - validering av identifierare
-  - stöd för återställning av tidigare ankomsttid
+  - stöd för återställning av en tidigare sparad ankomsttid
 - `Car` och `MC` ärver från `Vehicle`.
 - `ParkingSpot` har fått:
   - platsnummer
   - privat lista över parkerade fordon
   - `CanPark()` för kontroll av kapacitet och fordonstyp
   - `ParkVehicle()` för kontrollerad parkering
+  - `FindVehicle()` för sökning på den egna parkeringsplatsen
+  - `RemoveVehicle()` för borttagning av ett fordon från den egna platsen
 - `ParkingGarage`:
   - skapar antal parkeringsplatser utifrån konfigurationen
   - har `FindAvailableSpot()` för att hitta första lämpliga parkeringsplats
+  - har `FindVehicle()` för sökning genom hela garaget
   - har `ParkVehicle()` för att hitta en plats och parkera fordonet
-- Skapat `config.json` med priser, garageinställningar, tidszon och fordonsregler.
+  - kontrollerar att samma identifierare inte checkas in flera gånger
+- Skapat `config.json` med:
+  - priser
+  - antal parkeringsplatser
+  - tidszon
+  - kapacitetsregler för Car och MC
 - Skapat typad konfigurationsmodell i `AppConfiguration`.
 - Implementerat `ConfigurationService` med `System.Text.Json`.
-- Om `config.json` saknas vid körning skapas den automatiskt med standardvärden.
+- Om runtime-versionen av `config.json` saknas skapas den med standardvärden.
 - Befintlig konfiguration valideras innan den används.
 - Ogiltiga priser, parkeringsantal, tidszoner och fordonsregler stoppas.
 - Skapat central `MessageService` med Spectre.Console-paneler för:
-  - Error
-  - Success
-  - Warning
-  - Info
-- Startup-fel hanteras kontrollerat i stället för att ge obehandlade exceptions.
-- Verifierat att lösningen bygger med två projekt och utan build-fel.
-
-- Implementerat `ParkingSpot.FindVehicle()` med case-insensitive sökning via LINQ.
-- Implementerat `ParkingGarage.FindVehicle()` för sökning genom hela garaget.
-- Implementerat kontroll som förhindrar dubbel incheckning av samma identifierare.
-- Implementerat `ParkingSpot.RemoveVehicle()` som returnerar det borttagna fordonet.
-- Standardiserat UI-meddelanden till engelska:
   - SUCCESS
   - INFO
   - WARNING
   - ERROR
+- Startup-fel hanteras kontrollerat i stället för att ge obehandlade exceptions.
+- Verifierat att lösningen bygger med både huvudprojektet och `PragueParkingV2.Data`.
+- Uppdaterat projektets dokumentation:
+  - kravanalys
+  - klassdiagram
+  - konfigurationsdokumentation
+  - planerad struktur för `parking-data.json`
+  - designbeslut
+  - projektplan
+  - README
 
 ### Tester
 
@@ -81,13 +87,20 @@
 - Verifierat att en tredje MC automatiskt placeras på nästa lediga parkeringsplats.
 - Verifierat att bil och MC inte blandas på samma parkeringsplats.
 - Testat att `ABC123` och `abc123` behandlas som samma identifierare.
-- Verifierat att dubbel incheckning stoppas innan ny parkeringsplats tilldelas.
-- Verifierat att felhanteringen sker kontrollerat utan oväntad programkrasch.
+- Verifierat att dubbel incheckning stoppas innan en ny parkeringsplats tilldelas.
+- Verifierat att programmet avslutas kontrollerat vid kritiska startup-fel.
+
+### Problem och lösningar
+
+- Under test av automatisk återskapning av konfiguration råkade projektets ursprungliga `Config/config.json` tas bort i stället för endast runtime-kopian i `bin`.
+- Detta gjorde att Visual Studio inte kunde kopiera konfigurationsfilen vid build.
+- Ursprungsfilen återställdes och skillnaden mellan projektets konfigurationsfil och runtime-kopian blev tydligare.
+- Upptäckte även att flera dokument hade blivit inaktuella i takt med implementationen. Dessa uppdaterades så att dokumentationen åter speglar projektets aktuella tillstånd.
 
 ### Nästa steg
 
 - Implementera `ParkingGarage.RemoveVehicle()`.
 - Bygga det riktiga utcheckningsflödet.
-- Börja med prisberäkning utifrån `ArrivalTime` och konfigurationen.
+- Implementera prisberäkning utifrån `ArrivalTime` och konfigurationen.
 - Implementera flytt av fordon mellan parkeringsplatser.
-- Fortsätta med persistens i `parking-data.json`.
+- Implementera persistens i `parking-data.json`.

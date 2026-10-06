@@ -1,8 +1,9 @@
 # Design Decisions
 
 Version: 0.1  
-Senast uppdaterad: 2026-10-05
+Senast uppdaterad: 2026-10-06
 
+## DD-001 – Separation mellan UI, domän och persistence
 **Beslut:**  
 UI, domänlogik och persistence separeras.
 
@@ -43,11 +44,10 @@ Varje parkeringsplats har ett unikt platsnummer i det aktuella parkeringshuset, 
 ## DD-005 – Kapacitetskontroll ligger i ParkingSpot
 
 **Beslut:**  
-`ParkingSpot` ansvarar för att avgöra om dess egen lediga kapacitet räcker för ett fordon.
+`ParkingSpot` ansvarar för att avgöra om ett fordon kan parkeras på den specifika platsen utifrån dess aktuella beläggning och den kapacitetsgräns som skickas in.
 
 **Motivering:**  
-En parkeringsplats känner till sin totala kapacitet och vilka fordon som redan använder platsen. `ParkingGarage` 
-behöver därför inte hantera detaljerna för varje enskild plats utan kan fråga platserna och fokusera på att hitta en lämplig plats.
+`ParkingSpot` känner till vilka fordon som redan använder platsen och kan därför avgöra om ytterligare ett fordon får plats. Kapacitetsgränsen hämtas från konfigurationen och skickas in till `CanPark()`, vilket gör att kapacitetsregler inte behöver hårdkodas i klassen.
 
 ## DD-006 – Antal parkeringsplatser härleds från samlingen
 
@@ -96,14 +96,21 @@ Projektet använder `System.Text.Json` för att läsa och skriva JSON-data.
 
 **Motivering:**  
 `System.Text.Json` ingår direkt i modern .NET och täcker projektets behov utan att ytterligare externa paket som Newtonsoft.Json behöver installeras.
-
-## DD-013 – Centraliserad fel- och meddelandehantering
+## DD-012 – Ankomsttid lagras i UTC
 
 **Beslut:**  
-Användarmeddelanden och felpresentation hanteras centralt i presentationslagret.
+`Vehicle.ArrivalTime` lagras internt som UTC.
 
 **Motivering:**  
-Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift. Återhämtningsbara fel ska kunna visas för användaren och därefter återgå till huvudmenyn, medan kritiska fel ska leda till ett kontrollerat avslut utan att data riskerar att skadas.
+UTC ger en entydig representation av tid och minskar risken för problem med lokal tidszon och sommartid. Vid presentation kan tiden konverteras till den tidszon som anges i `config.json`, exempelvis `Europe/Prague`.
+
+## DD-013 – Centraliserad meddelandepresentation
+
+**Beslut:**  
+Användarmeddelanden presenteras centralt genom `MessageService` i presentationslagret.
+
+**Motivering:**  
+Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift. `MessageService` ger ett konsekvent gränssnitt för `SUCCESS`, `INFO`, `WARNING` och `ERROR`, medan själva felhanteringen sker på lämplig nivå i applikationen.
 
 ## DD-014 – Saknad konfigurationsfil återskapas med standardvärden
 
