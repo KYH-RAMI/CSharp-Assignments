@@ -49,7 +49,7 @@ catch (IOException)
     MessageService.ShowError(
         "The configuration file could not be read.");
 
-    Environment.ExitCode = 1;
+    Environment.ExitCode = 1; 
     return;
 }
 catch (Exception)
