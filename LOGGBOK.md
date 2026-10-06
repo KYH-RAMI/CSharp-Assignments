@@ -66,4 +66,4 @@
 
 - Implementera `ParkingGarage.FindAvailableSpot()`.
 - Koppla parkeringsregler från `config.json` till sökningen efter ledig plats.
-- Fortsätta med incheckning och kontroll mot dubbelparkering.
+- Fortsätta med incheckning och kontroll mot dubbelparkering. 
