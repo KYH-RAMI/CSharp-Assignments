@@ -1,0 +1,21 @@
+{
+  "Pricing": {
+    "FreeMinutes": 10,
+    "CarHourlyPrice": 20,
+    "MotorcycleHourlyPrice": 10
+  },
+  "Garage": {
+    "NumberOfParkingSpots": 100
+  },
+  "System": {
+    "TimeZone": "Europe/Prague"
+  },
+  "VehicleTypes": {
+    "Car": {
+      "VehiclesPerSpot": 1
+    },
+    "MC": {
+      "VehiclesPerSpot": 2
+    }
+  }
+}

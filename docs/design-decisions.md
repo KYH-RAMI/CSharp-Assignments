@@ -104,3 +104,11 @@ Användarmeddelanden och felpresentation hanteras centralt i presentationslagret
 
 **Motivering:**  
 Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift. Återhämtningsbara fel ska kunna visas för användaren och därefter återgå till huvudmenyn, medan kritiska fel ska leda till ett kontrollerat avslut utan att data riskerar att skadas.
+
+## DD-014 – Saknad konfigurationsfil återskapas med standardvärden
+
+**Beslut:**  
+Om `config.json` saknas vid programstart skapas en ny fil med systemets standardvärden.
+
+**Motivering:**  
+Programmet ska kunna starta även om konfigurationsfilen saknas. En befintlig men ogiltig konfigurationsfil skrivs däremot inte över automatiskt, eftersom användarens inställningar då riskerar att förloras.
