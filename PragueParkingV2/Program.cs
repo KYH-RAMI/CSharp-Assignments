@@ -2,6 +2,7 @@
 using System.Text.Json;
 using PragueParkingV2.Data.Configuration;
 using PragueParkingV2.UI;
+using PragueParkingV2.Domain;
 
 var configurationService = new ConfigurationService();
 
@@ -9,15 +10,16 @@ try
 {
     var configuration = configurationService.LoadConfiguration();
 
+    var parkingGarage = new ParkingGarage(
+        configuration.Garage!.NumberOfParkingSpots);
+
     MessageService.ShowSuccess(
-        "Configuration loaded successfully.");
+        $"Parking garage created with {parkingGarage.ParkingSpots.Count} parking spots.");
 
-    Console.WriteLine(
-        $"Parking spots: {configuration.Garage!.NumberOfParkingSpots}");
-
-    Console.WriteLine(
+    MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 }
+
 catch (InvalidDataException ex)
 {
     MessageService.ShowError(

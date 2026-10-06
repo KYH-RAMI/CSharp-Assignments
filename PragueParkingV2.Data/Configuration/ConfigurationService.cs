@@ -133,6 +133,12 @@ namespace PragueParkingV2.Data.Configuration
                     "NumberOfParkingSpots must be greater than zero.");
             }
 
+            if (configuration.Garage.NumberOfParkingSpots > 1_000)
+            {
+                throw new InvalidDataException(
+                    "NumberOfParkingSpots cannot exceed 1,000.");
+            }
+
             if (configuration.Pricing.FreeMinutes < 0)
             {
                 throw new InvalidDataException(

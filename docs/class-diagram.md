@@ -121,3 +121,29 @@ MoveVehicle(identifier, targetSpotNumber)
 > `ParkingGarage` ansvarar för operationer som kräver kunskap om flera parkeringsplatser.  
 > Regler för om ett fordon får plats på en specifik plats hanteras av `ParkingSpot`.
 
+## Version 0.8 – Implementerade beteenden
+
+```text
+Vehicle
+----------------
+Identifier
+ArrivalTime
+
+Car : Vehicle
+MC  : Vehicle
+
+
+ParkingSpot
+----------------
+SpotNumber
+_parkedVehicles
+----------------
+CanPark(vehicle, maxVehiclesPerSpot)
+ParkVehicle(vehicle, maxVehiclesPerSpot)
+
+
+ParkingGarage
+----------------
+ParkingSpots
+----------------
+ParkingGarage(numberOfParkingSpots)
