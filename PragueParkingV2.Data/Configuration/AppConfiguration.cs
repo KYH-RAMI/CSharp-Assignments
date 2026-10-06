@@ -19,7 +19,7 @@ namespace PragueParkingV2.Data.Configuration
 
     public class GarageConfiguration
     {
-        public int NumberOfParkingSpots { get; set; }
+        public int NumberOfParkingSpots { get; set; } 
     }
 
     public class SystemConfiguration
