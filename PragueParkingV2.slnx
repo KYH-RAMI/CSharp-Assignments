@@ -4,6 +4,7 @@
     <File Path="docs/configuration.md" />
     <File Path="docs/design-decisions.md" />
     <File Path="docs/parking-data.md" />
+    <File Path="docs/project-plan.md" />
     <File Path="docs/requirements.md" />
   </Folder>
   <Folder Name="/Documentation/">
