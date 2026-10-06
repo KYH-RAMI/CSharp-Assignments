@@ -18,6 +18,9 @@ try
 
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
+
+    MessageService.ShowWarning("THIS IS AN WARNING MESSAGE");
+    MessageService.ShowError("THIS IS AN ERROR MESSAGE");
 }
 
 catch (InvalidDataException ex)
@@ -49,7 +52,7 @@ catch (IOException)
     MessageService.ShowError(
         "The configuration file could not be read.");
 
-    Environment.ExitCode = 1; 
+    Environment.ExitCode = 1;
     return;
 }
 catch (Exception)

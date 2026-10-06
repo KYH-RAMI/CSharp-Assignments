@@ -6,17 +6,17 @@ namespace PragueParkingV2.UI
     {
         public static void ShowError(string message)
         {
-            ShowPanel("FEL", message, Color.Red);
+            ShowPanel("ERROR", message, Color.Red);
         }
 
         public static void ShowSuccess(string message)
         {
-            ShowPanel("OK", message, Color.Green);
+            ShowPanel("SUCCESS", message, Color.Green);
         }
 
         public static void ShowWarning(string message)
         {
-            ShowPanel("VARNING", message, Color.Yellow);
+            ShowPanel("WARNING", message, Color.Yellow);
         }
 
         public static void ShowInfo(string message)

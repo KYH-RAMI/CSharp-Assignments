@@ -52,6 +52,37 @@
 
             _parkedVehicles.Add(vehicle);
         }
+        public Vehicle? FindVehicle(string identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                throw new ArgumentException(
+                    "Identifier cannot be null, empty or whitespace.",
+                    nameof(identifier));
+            }
+
+            identifier = identifier.Trim();
+
+            return _parkedVehicles.FirstOrDefault(
+                vehicle => string.Equals(
+                    vehicle.Identifier,
+                    identifier,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        public Vehicle? RemoveVehicle(string identifier)
+        {
+            var vehicle = FindVehicle(identifier);
+
+            if (vehicle is null)
+            {
+                return null;
+            }
+            _parkedVehicles.Remove(vehicle);
+
+            return vehicle;
+        }
+
     }
 
 }

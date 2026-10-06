@@ -30,5 +30,63 @@ namespace PragueParkingV2.Domain
             }
         }
 
+        public ParkingSpot? FindAvailableSpot(
+            Vehicle vehicle,
+            int maxVehiclesPerSpot)
+        {
+            foreach (var parkingSpot in _parkingSpots)
+            {
+                if (parkingSpot.CanPark(vehicle, maxVehiclesPerSpot))
+                {
+                    return parkingSpot;
+                }
+            }
+
+            return null;
+        }
+
+        public ParkingSpot ParkVehicle(
+            Vehicle vehicle,
+            int maxVehiclesPerSpot)
+        {
+            ArgumentNullException.ThrowIfNull(vehicle);
+
+            if (FindVehicle(vehicle.Identifier) is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{vehicle.Identifier}' is already parked.");
+            }
+
+            var parkingSpot = FindAvailableSpot(
+                vehicle,
+                maxVehiclesPerSpot);
+
+            if (parkingSpot is null)
+            {
+                throw new InvalidOperationException(
+                    "No available parking spots.");
+            }
+
+            parkingSpot.ParkVehicle(
+                vehicle,
+                maxVehiclesPerSpot);
+
+            return parkingSpot;
+        }
+
+        public Vehicle? FindVehicle(string identifier)
+        {
+            foreach (var spot in _parkingSpots)
+            {
+                var vehicle = spot.FindVehicle(identifier);
+                if (vehicle is not null)
+                {
+                    return vehicle;
+                }
+            }
+
+            return null;
+        }
+
     }
 }
