@@ -60,5 +60,5 @@ Tomma parkeringsplatser återskapas från `config.json` när programmet startar.
     }
   ]
 }
-```
+``` 
 
