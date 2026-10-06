@@ -97,3 +97,10 @@ Projektet använder `System.Text.Json` för att läsa och skriva JSON-data.
 **Motivering:**  
 `System.Text.Json` ingår direkt i modern .NET och täcker projektets behov utan att ytterligare externa paket som Newtonsoft.Json behöver installeras.
 
+## DD-013 – Centraliserad fel- och meddelandehantering
+
+**Beslut:**  
+Användarmeddelanden och felpresentation hanteras centralt i presentationslagret.
+
+**Motivering:**  
+Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift. Återhämtningsbara fel ska kunna visas för användaren och därefter återgå till huvudmenyn, medan kritiska fel ska leda till ett kontrollerat avslut utan att data riskerar att skadas.
