@@ -87,3 +87,37 @@ classDiagram
     ParkingGarage "1" --> "*" ParkingSpot : innehåller
     ParkingSpot "1" --> "0..*" Vehicle : innehåller
 ```
+
+## Version 0.6 – ParkingSpot beteenden
+
+```text
+ParkingSpot
+----------------
+SpotNumber
+ParkedVehicles
+----------------
+CanPark(vehicle)
+AddVehicle(vehicle)
+RemoveVehicle(vehicle)
+```
+
+> `ParkingSpot` ansvarar endast för sin egen beläggning.  
+> Sökning mellan flera parkeringsplatser hanteras av `ParkingGarage`.
+
+## Version 0.7 – ParkingGarage beteenden
+
+```text
+ParkingGarage
+----------------
+ParkingSpots
+----------------
+FindAvailableSpot(vehicle)
+FindVehicle(identifier)
+ParkVehicle(vehicle)
+RemoveVehicle(identifier)
+MoveVehicle(identifier, targetSpotNumber)
+```
+
+> `ParkingGarage` ansvarar för operationer som kräver kunskap om flera parkeringsplatser.  
+> Regler för om ett fordon får plats på en specifik plats hanteras av `ParkingSpot`.
+

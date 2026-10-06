@@ -88,3 +88,12 @@ Det följer G-kravet direkt. Den generella storleksmodellen med kapacitetsenhete
 
 **Motivering:**  
 Det totala antalet parkeringsplatser definieras redan i `config.json`. Tomma parkeringsplatser kan därför återskapas vid programstart och behöver inte dupliceras i datafilen.
+
+## DD-011 – System.Text.Json används för JSON-hantering
+
+**Beslut:**  
+Projektet använder `System.Text.Json` för att läsa och skriva JSON-data.
+
+**Motivering:**  
+`System.Text.Json` ingår direkt i modern .NET och täcker projektets behov utan att ytterligare externa paket som Newtonsoft.Json behöver installeras.
+

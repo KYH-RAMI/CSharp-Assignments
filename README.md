@@ -14,3 +14,10 @@ Projektet utvecklas i C# med .NET 10.
 ## Status
 
 Projektet befinner sig för närvarande i planerings- och designfasen. Ingen parkeringslogik är ännu implementerad.
+
+## Teknik
+
+- C# / .NET 10
+- Spectre.Console för konsolgränssnittet
+- System.Text.Json för JSON-serialisering och deserialisering
+- Git och GitHub för versionshantering
