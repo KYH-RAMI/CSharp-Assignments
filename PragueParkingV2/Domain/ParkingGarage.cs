@@ -88,5 +88,18 @@ namespace PragueParkingV2.Domain
             return null;
         }
 
+        public Vehicle? RemoveVehicle(string identifier)
+        {
+            foreach (var spot in _parkingSpots)
+            {
+                var vehicle = spot.RemoveVehicle(identifier);
+                if (vehicle is not null)
+                {
+                    return vehicle;
+                }
+            }
+            return null;
+        }
+
     }
 }

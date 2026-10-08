@@ -19,8 +19,6 @@ try
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 
-    MessageService.ShowWarning("THIS IS AN WARNING MESSAGE");
-    MessageService.ShowError("THIS IS AN ERROR MESSAGE");
 }
 
 catch (InvalidDataException ex)

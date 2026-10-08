@@ -46,7 +46,7 @@ Status: **Pågår**
 - Parkeringslogik påbörjad
 - Sökning efter fordon implementerad
 - Kontroll mot dubbel incheckning implementerad
-- Borttagning av fordon implementerad på `ParkingSpot`-nivå
+- Borttagning av fordon implementerad på både `ParkingSpot`- och `ParkingGarage`-nivå
 - Konfiguration läses från JSON
 - Konfiguration valideras vid programstart
 - Saknad runtime-konfiguration kan återskapas med standardvärden

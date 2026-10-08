@@ -1,7 +1,7 @@
 # Design Decisions
 
 Version: 0.1  
-Senast uppdaterad: 2026-10-06
+Senast uppdaterad: 2026-10-08
 
 ## DD-001 – Separation mellan UI, domän och persistence
 **Beslut:**  
@@ -112,10 +112,10 @@ Användarmeddelanden presenteras centralt genom `MessageService` i presentations
 **Motivering:**  
 Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift. `MessageService` ger ett konsekvent gränssnitt för `SUCCESS`, `INFO`, `WARNING` och `ERROR`, medan själva felhanteringen sker på lämplig nivå i applikationen.
 
-## DD-014 – Saknad konfigurationsfil återskapas med standardvärden
+## DD-014 – Saknad runtime-konfiguration återskapas med standardvärden
 
 **Beslut:**  
-Om `config.json` saknas vid programstart skapas en ny fil med systemets standardvärden.
+Om den `config.json` som programmet använder vid körning saknas skapas en ny fil med systemets standardvärden.
 
 **Motivering:**  
-Programmet ska kunna starta även om konfigurationsfilen saknas. En befintlig men ogiltig konfigurationsfil skrivs däremot inte över automatiskt, eftersom användarens inställningar då riskerar att förloras.
+Programmet ska kunna starta även om runtime-konfigurationen saknas. En befintlig men ogiltig konfigurationsfil skrivs däremot inte över automatiskt, eftersom användarens inställningar då riskerar att förloras.

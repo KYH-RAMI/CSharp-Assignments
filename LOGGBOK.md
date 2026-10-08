@@ -104,3 +104,53 @@
 - Implementera prisberäkning utifrån `ArrivalTime` och konfigurationen.
 - Implementera flytt av fordon mellan parkeringsplatser.
 - Implementera persistens i `parking-data.json`.
+
+## 2026-10-07
+
+### Genomfört 
+
+- Verifierat med läraren att `Identifier` är rätt generell identifierare för fordon eftersom alla fordonstyper inte har registreringsnummer.
+- Verifierat att en Bus i VG-versionen ska kräva fyra sammanhängande parkeringsplatser, motsvarande totalt 16 kapacitetsenheter.
+
+### Reflektion
+
+- `Vehicle` är en generell basklass för alla fordonstyper och använder därför den generella egenskapen `Identifier`.
+- `Car` och `MC` ärver från `Vehicle`, och deras `Identifier` motsvarar i praktiken registreringsnumret.
+- Den generella benämningen gör modellen mer flexibel eftersom framtida fordonstyper, exempelvis Bicycle, kan använda en annan typ av identifierare.
+- 
+
+## 2026-10-08
+
+### Genomfört
+
+- Implementerat `ParkingGarage.RemoveVehicle()`.
+- Metoden söker igenom garagets parkeringsplatser och försöker ta bort fordonet från respektive `ParkingSpot`.
+- Om fordonet hittas returneras det borttagna `Vehicle`-objektet.
+- Om inget fordon med angiven identifierare finns returneras `null`.
+- Återanvänt befintlig `ParkingSpot.RemoveVehicle()` i stället för att ge `ParkingGarage` direkt åtkomst till listan över parkerade fordon.
+- Behållit inkapslingen genom att `_parkedVehicles` fortfarande endast hanteras av `ParkingSpot`.
+
+### Tester
+
+- Verifierat att ett parkerat Car-fordon kan tas bort via `ParkingGarage.RemoveVehicle()`.
+- Verifierat att ett parkerat MC-fordon kan tas bort via samma metod.
+- Kontrollerat med `FindVehicle()` efter borttagning att fordonen inte längre finns kvar i garaget.
+- Verifierat att det borttagna fordonet returneras från `RemoveVehicle()`.
+- Testkörningen avslutades utan fel med exit code `0`.
+
+### Reflektion
+
+- `ParkingGarage.RemoveVehicle()` följer samma ansvarsfördelning som övriga garagefunktioner: garaget söker bland parkeringsplatserna medan varje `ParkingSpot` ansvarar för sina egna parkerade fordon.
+- Att returnera `Vehicle?` i stället för endast `bool` gör det möjligt att senare använda det borttagna fordonets information, exempelvis `ArrivalTime`, vid utcheckning och prisberäkning.
+
+### Nästa steg
+
+- Planera det fullständiga utcheckningsflödet.
+- Definiera reglerna för prisberäkning:
+  - parkering kortare än 10 minuter är gratis
+  - därefter debiteras per påbörjad timme
+  - Car och MC använder respektive pris från `config.json`
+- Implementera prisberäkningen.
+- Därefter koppla ihop prisberäkning och borttagning till ett komplett utcheckningsflöde.
+- Fortsätta med flytt av fordon och senare persistens i `parking-data.json`.
+

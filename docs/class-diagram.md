@@ -42,4 +42,5 @@ classDiagram
         +ParkingSpot? FindAvailableSpot(Vehicle vehicle, int maxVehiclesPerSpot)
         +Vehicle? FindVehicle(string identifier)
         +ParkingSpot ParkVehicle(Vehicle vehicle, int maxVehiclesPerSpot)
+		+Vehicle? RemoveVehicle(string identifier)
     }

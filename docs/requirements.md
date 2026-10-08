@@ -85,7 +85,7 @@
 | VG-03 | Bicycle ska stödjas | Bicycle införs som en ny fordonstyp. Om cykeln saknar registreringsnummer behövs en stabil systemidentifierare | Domain | Ej påbörjad |
 | VG-04 | Bus ska stödjas | Bus införs som en ny fordonstyp med större kapacitetsbehov | Domain | Ej påbörjad |
 | VG-05 | Parkeringskapacitet ska baseras på storleksenheter | Bicycle = 1, MC = 2, Car = 4, Bus = 16 och en normal parkeringsplats = 4 enheter | Domain / Configuration | Ej påbörjad |
-| VG-06 | Bus kräver fyra sammanhängande parkeringsplatser | Buss kan bara parkeras där fyra lämpliga platser finns i följd och endast på de första 50 platserna | Domain | Ej påbörjad |
+| VG-06 | Bus kräver fyra sammanhängande parkeringsplatser | Systemet ska hitta fyra sammanhängande lediga parkeringsplatser för en buss, motsvarande totalt 16 kapacitetsenheter. Bussparkering får endast ske inom de första 50 parkeringsplatserna. | Domain | Ej påbörjad |
 | VG-07 | Bicycle kostar 5 CZK per påbörjad timme | Priset ska ligga i konfigurationen | Domain / Configuration | Ej påbörjad |
 | VG-08 | Bus kostar 80 CZK per påbörjad timme | Priset ska ligga i konfigurationen | Domain / Configuration | Ej påbörjad |
 | VG-09 | Fordonstyper och storlekar ska kunna konfigureras | Storleksregler ska hämtas från konfigurationen och inte hårdkodas i parkeringslogiken | Configuration / Domain | Ej påbörjad |
@@ -104,16 +104,11 @@
 - `ParkingSpot.SpotNumber` används som parkeringsplatsens naturliga identitet.
 - Fordon identifieras i domänen genom `Identifier`.
 - Motorfordons `Identifier` motsvarar registreringsnummer.
-- Fordon utan registreringsnummer kan i VG få en systemgenererad identifierare.
+- Fordon utan registreringsnummer, exempelvis Bicycle, kan få en systemgenererad identifierare.
 - Ankomsttid lagras internt i UTC och konverteras till konfigurerad tidszon vid presentation.
 - Endast upptagna parkeringsplatser planeras att sparas i `parking-data.json`; tomma platser återskapas från konfigurationen vid programstart.
 - Saknad runtime-konfiguration får återskapas med standardvärden.
 - En befintlig men ogiltig konfiguration ska inte skrivas över automatiskt; programmet ska i stället avsluta kontrollerat.
-
-# Öppna frågor
-
-- Verifiera den exakta formuleringen i uppgiften kring testdata/datafil innan G-36 behandlas som ett definitivt G-krav.
-- Grundkraven nämner stöd för varierande parkeringskapacitet samtidigt som den konkreta storleksmodellen med Bicycle och Bus ligger under VG. I G används därför `VehiclesPerSpot`, medan den generella storleksmodellen införs först i VG.
 
 # Future improvements
 
