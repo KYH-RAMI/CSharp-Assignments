@@ -63,6 +63,8 @@
 
             identifier = identifier.Trim();
 
+
+
             return _parkedVehicles.FirstOrDefault(
                 vehicle => string.Equals(
                     vehicle.Identifier,

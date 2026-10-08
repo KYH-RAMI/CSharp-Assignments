@@ -28,6 +28,8 @@ Endast parkeringsplatser som innehåller fordon ska sparas i `parking-data.json`
 
 Tomma parkeringsplatser återskapas från `config.json` när programmet startar.
 
+Prisregler och gratisgränser sparas inte i `parking-data.json` utan hämtas från `config.json`.
+
 ## VehicleType
 
 `VehicleType` lagras i JSON för att programmet ska kunna avgöra vilken konkret

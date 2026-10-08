@@ -11,6 +11,8 @@ classDiagram
     ParkingGarage "1" --> "1..*" ParkingSpot : contains
     ParkingSpot "1" --> "0..*" Vehicle : contains
 
+    ParkingFeeCalculator ..> Vehicle : calculates fee for
+
     class Vehicle {
         <<abstract>>
         +string Identifier
@@ -42,5 +44,18 @@ classDiagram
         +ParkingSpot? FindAvailableSpot(Vehicle vehicle, int maxVehiclesPerSpot)
         +Vehicle? FindVehicle(string identifier)
         +ParkingSpot ParkVehicle(Vehicle vehicle, int maxVehiclesPerSpot)
-		+Vehicle? RemoveVehicle(string identifier)
+        +Vehicle? RemoveVehicle(string identifier)
     }
+
+    class ParkingFeeCalculator {
+        -decimal _carHourlyPrice
+        -decimal _motorcycleHourlyPrice
+        -int _freeMinutes
+        +ParkingFeeCalculator(decimal carHourlyPrice, decimal motorcycleHourlyPrice, int freeMinutes)
+        +void UpdatePricing(decimal carHourlyPrice, decimal motorcycleHourlyPrice, int freeMinutes)
+        +decimal CalculateParkingFee(Vehicle vehicle, DateTime departureTime)
+    }
+
+    class CheckoutService {
+    }
+```

@@ -6,19 +6,26 @@ using PragueParkingV2.Domain;
 
 var configurationService = new ConfigurationService();
 
+
 try
 {
     var configuration = configurationService.LoadConfiguration();
 
     var parkingGarage = new ParkingGarage(
         configuration.Garage!.NumberOfParkingSpots);
+    
+    var pricing = configuration.Pricing!;
+
+    var feeCalculator = new ParkingFeeCalculator(
+        pricing.CarHourlyPrice,
+        pricing.MotorcycleHourlyPrice,
+        pricing.FreeMinutes);
 
     MessageService.ShowSuccess(
         $"Parking garage created with {parkingGarage.ParkingSpots.Count} parking spots.");
 
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
-
 }
 
 catch (InvalidDataException ex)
@@ -61,3 +68,4 @@ catch (Exception)
     Environment.ExitCode = 1;
     return;
 }
+

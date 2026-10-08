@@ -130,27 +130,53 @@
 - Återanvänt befintlig `ParkingSpot.RemoveVehicle()` i stället för att ge `ParkingGarage` direkt åtkomst till listan över parkerade fordon.
 - Behållit inkapslingen genom att `_parkedVehicles` fortfarande endast hanteras av `ParkingSpot`.
 
+### Fortsatt arbete
+
+- Skapat domänklassen `ParkingFeeCalculator`.
+- Implementerat prisberäkning utifrån:
+  - fordonets `ArrivalTime`
+  - angiven `departureTime`
+  - pris per påbörjad timme
+  - gratisgräns i minuter
+- Implementerat stöd för olika timpriser för `Car` och `MC`.
+- Refaktorerat `ParkingFeeCalculator` så att prisregler laddas in vid skapandet av objektet i stället för att skickas in vid varje metodanrop.
+- `ParkingFeeCalculator` lagrar nu aktiva värden för:
+  - Car-pris
+  - MC-pris
+  - antal gratisminuter
+- Implementerat `UpdatePricing()` för framtida omläsning av prislistan.
+- `UpdatePricing()` validerar samtliga nya värden innan de aktiva värdena skrivs över.
+- Implementerat typkontroll med `switch` för att välja rätt timpris utifrån om fordonet är `Car` eller `MC`.
+- Skapat grunden till `CheckoutService` för att senare samordna sökning, prisberäkning och borttagning vid utcheckning.
+- Flyttat skapandet av `ParkingFeeCalculator` till efter att konfigurationen har lästs in i `Program.cs`.
+- Förenklat läsbarheten i `Program.cs` genom att använda en lokal `pricing`-variabel för prisinställningarna.
+
 ### Tester
 
-- Verifierat att ett parkerat Car-fordon kan tas bort via `ParkingGarage.RemoveVehicle()`.
-- Verifierat att ett parkerat MC-fordon kan tas bort via samma metod.
-- Kontrollerat med `FindVehicle()` efter borttagning att fordonen inte längre finns kvar i garaget.
-- Verifierat att det borttagna fordonet returneras från `RemoveVehicle()`.
-- Testkörningen avslutades utan fel med exit code `0`.
+- Verifierat att parkering kortare än 10 minuter ger `0 CZK`.
+- Verifierat att exakt 10 minuter debiteras som en påbörjad timme.
+- Verifierat att exakt 60 minuter debiteras som en timme.
+- Verifierat att 60 minuter och 1 sekund debiteras som två påbörjade timmar.
+- Verifierat MC-pris med 61 minuters parkering.
+- Verifierat att `departureTime` före `ArrivalTime` stoppas med `ArgumentOutOfRangeException`.
+- Verifierat att prisberäkningen fungerar korrekt med UTC-baserade tider.
 
-### Reflektion
+### Designbeslut
 
-- `ParkingGarage.RemoveVehicle()` följer samma ansvarsfördelning som övriga garagefunktioner: garaget söker bland parkeringsplatserna medan varje `ParkingSpot` ansvarar för sina egna parkerade fordon.
-- Att returnera `Vehicle?` i stället för endast `bool` gör det möjligt att senare använda det borttagna fordonets information, exempelvis `ArrivalTime`, vid utcheckning och prisberäkning.
+- Prislogiken ska hållas separat från `ParkingGarage` och `ParkingSpot`.
+- `ParkingFeeCalculator` ansvarar för prisregler och avgiftsberäkning.
+- `CheckoutService` ska samordna själva utcheckningsprocessen.
+- Aktiva prisvärden hålls i minnet efter att `config.json` har lästs in.
+- Vid framtida reload ska nya prisvärden valideras innan de ersätter de gamla aktiva värdena.
+- Ogiltiga reload-värden ska inte påverka redan fungerande konfiguration.
 
 ### Nästa steg
 
-- Planera det fullständiga utcheckningsflödet.
-- Definiera reglerna för prisberäkning:
-  - parkering kortare än 10 minuter är gratis
-  - därefter debiteras per påbörjad timme
-  - Car och MC använder respektive pris från `config.json`
-- Implementera prisberäkningen.
-- Därefter koppla ihop prisberäkning och borttagning till ett komplett utcheckningsflöde.
-- Fortsätta med flytt av fordon och senare persistens i `parking-data.json`.
+- Slutföra `CheckoutService`.
+- Koppla ihop:
+  - `FindVehicle()`
+  - `ParkingFeeCalculator.CalculateParkingFee()`
+  - `RemoveVehicle()`
+- Testa ett komplett checkout-flöde.
+- Därefter fortsätta med flytt av fordon och persistens i `parking-data.json`.
 

@@ -28,17 +28,25 @@ Följande delar är implementerade eller påbörjade:
 - sökning efter parkerade fordon
 - kontroll mot dubbel incheckning
 - grundläggande parkeringslogik
-- borttagning av fordon på `ParkingSpot`-nivå
+- borttagning av fordon via både `ParkingSpot` och `ParkingGarage`
+- prisberäkning för Car och MC via `ParkingFeeCalculator`
+- debitering per påbörjad timme
+- stöd för konfigurerbar gratisgräns
+- validering av UTC-baserade tider vid prisberäkning
+- stöd för kontrollerad uppdatering av aktiva prisregler via `UpdatePricing()`
+- grund för kommande utcheckningsflöde via `CheckoutService`
 - Spectre.Console-baserad meddelandepresentation
 
 Följande återstår bland annat:
 
 - fullständigt incheckningsflöde
-- utcheckning och prisberäkning
+- fullständigt utcheckningsflöde
+- omläsning av prislista via meny
 - flytt av fordon
 - garageöversikt
 - persistens av parkeringsdata i `parking-data.json`
 - slutlig menystruktur
+- sluttest och stabilisering av Prague Parking 2.0
 - VG-funktionalitet i Prague Parking 2.1
 
 ## Teknik
