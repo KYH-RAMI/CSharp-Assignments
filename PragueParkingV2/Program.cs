@@ -1,8 +1,9 @@
-﻿using System.IO;
-using System.Text.Json;
-using PragueParkingV2.Data.Configuration;
-using PragueParkingV2.UI;
+﻿using PragueParkingV2.Data.Configuration;
 using PragueParkingV2.Domain;
+using PragueParkingV2.UI;
+using System.IO;
+using System.Runtime.ConstrainedExecution;
+using System.Text.Json;
 
 var configurationService = new ConfigurationService();
 
@@ -13,7 +14,7 @@ try
 
     var parkingGarage = new ParkingGarage(
         configuration.Garage!.NumberOfParkingSpots);
-    
+
     var pricing = configuration.Pricing!;
 
     var feeCalculator = new ParkingFeeCalculator(
@@ -26,7 +27,10 @@ try
 
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
+
+
 }
+
 
 catch (InvalidDataException ex)
 {

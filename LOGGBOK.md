@@ -180,3 +180,54 @@
 - Testa ett komplett checkout-flöde.
 - Därefter fortsätta med flytt av fordon och persistens i `parking-data.json`.
 
+## 2026-10-09
+
+### Genomfört
+
+- Skapat `ParkingFeeResult` som read-only resultatobjekt för prisberäkning.
+- Ändrat `ParkingFeeCalculator.CalculateParkingFee()` så att metoden returnerar ett `ParkingFeeResult`.
+- Skapat `CheckoutResult` som innehåller:
+  - fordonsidentifierare
+  - ankomsttid
+  - avgångstid
+  - total parkeringstid
+  - timpris
+  - gratisminuter
+  - total avgift
+- Implementerat `CheckoutService`.
+- `CheckoutService` samordnar:
+  - sökning efter fordon
+  - prisberäkning
+  - borttagning av fordon
+  - skapande av `CheckoutResult`
+- Säkerställt att prisberäkning sker innan fordonet tas bort från garaget.
+- Verifierat att `UpdatePricing()` uppdaterar de aktiva prisreglerna i samma `ParkingFeeCalculator`-instans.
+
+### Tester
+
+- Testat `UpdatePricing()` genom att ändra Car-priset från 20 till 25 CZK.
+- Verifierat att 61 minuters parkering ändrades från 40 CZK till 50 CZK efter uppdateringen.
+- Genomfört ett komplett checkout-test med fordonet `UKB48K`.
+- Verifierat att 61 minuters parkering med 20 CZK per timme ger 40 CZK.
+- Verifierat att `CheckoutResult` innehåller korrekt:
+  - identifierare
+  - parkeringstid
+  - timpris
+  - gratisgräns
+  - total avgift
+- Verifierat att fordonet inte längre finns i `ParkingGarage` efter lyckad checkout.
+- Testkörningen avslutades utan fel med exit code `0`.
+
+### Reflektion
+
+- `CheckoutService` fungerar som samordnande domänklass och gör att `Program.cs` inte behöver innehålla hela utcheckningslogiken.
+- `ParkingFeeCalculator` ansvarar endast för prisberäkning medan `ParkingGarage` fortsatt ansvarar för fordonens placering.
+- Separata resultatobjekt gör att UI senare kan presentera checkout-information utan att innehålla affärslogik.
+
+### Nästa steg
+
+- Uppdatera klassdiagram och övrig dokumentation efter checkout-implementationen.
+- Bygga det riktiga användarflödet för utcheckning i UI.
+- Fortsätta med flytt av fordon.
+- Implementera persistens i `parking-data.json`.
+

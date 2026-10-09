@@ -85,3 +85,14 @@ den tidszon som anges i `config.json`, exempelvis `Europe/Prague`.
   ]
 }
 ```
+
+## Uppdatering vid utcheckning
+
+När ett fordon checkas ut ska det tas bort från det aktuella
+parkeringsläget.
+
+Efter en lyckad utcheckning ska `parking-data.json` uppdateras så att det
+utcheckade fordonet inte längre finns kvar i den persistenta datan.
+
+Prisberäkning, `ParkingFeeResult` och `CheckoutResult` är tillfälliga
+runtime-resultat och ska inte sparas i `parking-data.json`.

@@ -1,7 +1,7 @@
 # Design Decisions
 
 Version: 0.1  
-Senast uppdaterad: 2026-10-08
+Senast uppdaterad: 2026-10-09
 
 ## DD-001 – Separation mellan UI, domän och persistence
 
@@ -247,7 +247,7 @@ Den felaktiga konfigurationsfilen ska inte heller skrivas över automatiskt.
 ## DD-018 – Checkout samordnas separat från garage- och prislogik
 
 **Beslut:**  
-Det fullständiga utcheckningsflödet ska samordnas av `CheckoutService`.
+Utcheckningsflödet samordnas av `CheckoutService`.
 
 **Motivering:**  
 En utcheckning består av flera separata domänoperationer:
@@ -264,10 +264,53 @@ ta bort fordon
 returnera resultat
 ```
 
-`ParkingGarage` ska fortsatt ansvara för att hitta och ta bort fordon,
-medan `ParkingFeeCalculator` ansvarar för avgiftsberäkningen.
+`ParkingGarage` ansvarar fortsatt för att hitta och ta bort fordon, medan
+`ParkingFeeCalculator` ansvarar för avgiftsberäkningen.
 
-`CheckoutService` ska samordna dessa operationer utan att
-`Program.cs` behöver innehålla hela affärsflödet.
+`CheckoutService` samordnar dessa operationer utan att `Program.cs`
+behöver innehålla hela affärsflödet.
 
-Själva checkout-flödet är ännu inte färdigimplementerat.
+Prisberäkningen genomförs innan fordonet tas bort från garaget. Om
+prisberäkningen misslyckas ska fordonet därför fortfarande finnas kvar i
+garaget.
+
+Checkout-flödet i domänlagret är implementerat och verifierat. Det
+fullständiga användarflödet i UI och uppdatering av persistent parkeringsdata
+återstår.
+
+---
+
+## DD-019 – Resultatobjekt används för prisberäkning och checkout
+
+**Beslut:**  
+Resultat från prisberäkning och utcheckning representeras med separata
+read-only objekt:
+
+- `ParkingFeeResult`
+- `CheckoutResult`
+
+**Motivering:**  
+`ParkingFeeResult` innehåller resultatet från själva prisberäkningen:
+
+- parkeringstid
+- timpris
+- gratisminuter
+- total avgift
+
+`CheckoutResult` kompletterar detta med information om den genomförda
+utcheckningen:
+
+- fordonsidentifierare
+- ankomsttid
+- avgångstid
+- parkeringstid
+- timpris
+- gratisminuter
+- total avgift
+
+Resultatobjekten gör att domänlagret kan lämna strukturerad information till
+UI:t utan att domänklasserna behöver ansvara för hur informationen
+presenteras.
+
+Properties är read-only efter att resultatobjektet har skapats, vilket
+minskar risken för att ett färdigberäknat resultat ändras i efterhand.

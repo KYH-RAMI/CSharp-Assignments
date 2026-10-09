@@ -18,7 +18,7 @@ felsökning och nya tekniska problem.
 | 4 | Konfiguration och JSON-inläsning | 3–4 h | Verifierad |
 | 5 | JSON-persistens av parkeringsdata | 2–3 h | Ej påbörjad |
 | 6 | Incheckning, utcheckning och flytt av fordon | 3–4 h | Pågår |
-| 7 | Prisberäkning | 1–2 h | Implementerad |
+| 7 | Prisberäkning | 1–2 h | Verifierad |
 | 8 | Spectre.Console och garageöversikt | 4–6 h | Pågår |
 | 9 | Testning och felsökning av G-version | 3–5 h | Pågår |
 | 10 | VG – interfaces och refaktorering | 2–3 h | Ej påbörjad |
@@ -37,7 +37,8 @@ Status: **Pågår**
 - `config.json` planerad och implementerad
 - `parking-data.json` planerad
 - Viktiga designbeslut dokumenterade
-- Ansvar mellan `ParkingSpot`, `ParkingGarage`, `ParkingFeeCalculator` och kommande `CheckoutService` definierat
+- Ansvar mellan `ParkingSpot`, `ParkingGarage`, `ParkingFeeCalculator` och `CheckoutService` definierat
+- Resultatobjekten `ParkingFeeResult` och `CheckoutResult` dokumenterade
 
 ### Milstolpe 2 – Prague Parking 2.0 / G
 
@@ -51,16 +52,22 @@ Status: **Pågår**
 - Konfiguration läses från JSON
 - Konfiguration valideras vid programstart
 - Saknad runtime-konfiguration kan återskapas med standardvärden
-- Prisberäkning implementerad i `ParkingFeeCalculator`
-- Pris per påbörjad timme stöds för `Car` och `MC`
-- Gratisgräns för kort parkering stöds
+- Prisberäkning implementerad och verifierad i `ParkingFeeCalculator`
+- Pris per påbörjad timme verifierad för `Car` och `MC`
+- Gratisgräns för kort parkering implementerad och verifierad
+- Felaktig avgångstid före ankomsttid hanteras
 - Prisregler hämtas från konfigurationen och hålls som aktiva värden i minnet
-- `UpdatePricing()` finns för kontrollerad uppdatering av prisregler
-- Grund för utcheckningsflödet skapad genom `CheckoutService`
+- `UpdatePricing()` implementerad och verifierad
+- `ParkingFeeResult` används för strukturerat resultat från prisberäkning
+- `CheckoutService` implementerad
+- `CheckoutResult` används för strukturerat resultat från utcheckning
+- Checkout-flödet i domänlagret implementerat och verifierat
+- Prisberäkning sker före borttagning av fordon vid checkout
+- Verifierat att fordon tas bort från `ParkingGarage` efter lyckad checkout
 - Spectre.Console används för meddelandepresentation
 - Parkeringsdata ska sparas och återställas
-- Fullständigt incheckningsflöde ska färdigställas
-- Fullständigt utcheckningsflöde ska implementeras
+- Fullständigt användarflöde för incheckning ska färdigställas
+- Fullständigt UI-flöde för utcheckning ska implementeras
 - Flytt av fordon ska implementeras
 - Prislista ska kunna läsas om via meny
 - Garageöversikt ska implementeras
@@ -73,6 +80,9 @@ Status: **Ej påbörjad**
 - Minst två interfaces används
 - Bicycle och Bus stöds
 - Storleksenheter används för kapacitet
+- Bicycle använder 1 kapacitetsenhet
+- MC använder 2 kapacitetsenheter
+- Car använder 4 kapacitetsenheter
 - Bus använder totalt 16 kapacitetsenheter
 - Fyra sammanhängande parkeringsplatser krävs för Bus
 - Bussparkering begränsas till de första 50 parkeringsplatserna
@@ -80,6 +90,7 @@ Status: **Ej påbörjad**
 - Fordonstyper och storlekar hanteras via konfiguration
 - Hela konfigurationen kan läsas om under körning
 - Ny konfiguration valideras innan den aktiveras
+- Tidigare giltig konfiguration behålls om omläsningen misslyckas
 - UI uppdateras efter lyckad omläsning av konfiguration
 
 ### Milstolpe 4 – Inlämningsklar

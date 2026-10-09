@@ -52,7 +52,7 @@ namespace PragueParkingV2.Domain
             _freeMinutes = freeMinutes;
 
         }
-        public decimal CalculateParkingFee(
+        public ParkingFeeResult CalculateParkingFee(
             Vehicle vehicle,
             DateTime departureTime)
         {
@@ -87,7 +87,11 @@ namespace PragueParkingV2.Domain
 
             if (duration.TotalMinutes < _freeMinutes)
             {
-                return 0;
+                return new ParkingFeeResult(
+                    duration,
+                    hourlyPrice,
+                    _freeMinutes,
+                    0m);
             }
 
             // Calculate the number of started hours
@@ -97,7 +101,11 @@ namespace PragueParkingV2.Domain
             decimal parkingFee =
                 hourlyPrice * startedHours;
 
-            return parkingFee;
+            return new ParkingFeeResult(
+                duration,
+                hourlyPrice,
+                _freeMinutes,
+                parkingFee);
         }
     }
 }

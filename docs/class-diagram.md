@@ -12,6 +12,11 @@ classDiagram
     ParkingSpot "1" --> "0..*" Vehicle : contains
 
     ParkingFeeCalculator ..> Vehicle : calculates fee for
+    ParkingFeeCalculator ..> ParkingFeeResult : creates
+
+    CheckoutService --> ParkingGarage : uses
+    CheckoutService --> ParkingFeeCalculator : uses
+    CheckoutService ..> CheckoutResult : creates
 
     class Vehicle {
         <<abstract>>
@@ -53,9 +58,32 @@ classDiagram
         -int _freeMinutes
         +ParkingFeeCalculator(decimal carHourlyPrice, decimal motorcycleHourlyPrice, int freeMinutes)
         +void UpdatePricing(decimal carHourlyPrice, decimal motorcycleHourlyPrice, int freeMinutes)
-        +decimal CalculateParkingFee(Vehicle vehicle, DateTime departureTime)
+        +ParkingFeeResult CalculateParkingFee(Vehicle vehicle, DateTime departureTime)
+    }
+
+    class ParkingFeeResult {
+        +TimeSpan ParkingDuration
+        +decimal HourlyPrice
+        +int FreeMinutes
+        +decimal TotalFee
+        +ParkingFeeResult(TimeSpan parkingDuration, decimal hourlyPrice, int freeMinutes, decimal totalFee)
     }
 
     class CheckoutService {
+        -ParkingGarage _parkingGarage
+        -ParkingFeeCalculator _feeCalculator
+        +CheckoutService(ParkingGarage parkingGarage, ParkingFeeCalculator feeCalculator)
+        +CheckoutResult CheckOut(string identifier, DateTime departureTime)
+    }
+
+    class CheckoutResult {
+        +string Identifier
+        +DateTime ArrivalTime
+        +DateTime DepartureTime
+        +TimeSpan ParkingDuration
+        +decimal HourlyPrice
+        +int FreeMinutes
+        +decimal TotalFee
+        +CheckoutResult(string identifier, DateTime arrivalTime, DateTime departureTime, TimeSpan parkingDuration, decimal hourlyPrice, int freeMinutes, decimal totalFee)
     }
 ```
