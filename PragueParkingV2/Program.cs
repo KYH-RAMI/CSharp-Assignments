@@ -15,6 +15,7 @@ try
     var parkingGarage = new ParkingGarage(
         configuration.Garage!.NumberOfParkingSpots);
 
+
     var pricing = configuration.Pricing!;
 
     var feeCalculator = new ParkingFeeCalculator(
@@ -28,7 +29,7 @@ try
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 
-
+    GarageOverView.DisplayGarageOverview(parkingGarage, configuration);
 }
 
 

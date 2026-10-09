@@ -6,6 +6,8 @@
 
         private readonly List<Vehicle> _parkedVehicles = new();
 
+        public IReadOnlyList<Vehicle> ParkedVehicles => _parkedVehicles;
+
         public ParkingSpot(int spotNumber)
         {
             if (spotNumber <= 0)

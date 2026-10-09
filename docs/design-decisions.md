@@ -1,316 +1,177 @@
-# Design Decisions
+# Prague Parking V2 – Designbeslut
 
-Version: 0.1  
-Senast uppdaterad: 2026-10-09
+**Uppdaterad:** 2026-10-09
 
-## DD-001 – Separation mellan UI, domän och persistence
+## DD-001 – Separation mellan UI, domän och dataåtkomst
 
-**Beslut:**  
-UI, domänlogik och persistence separeras.
+**Beslut:** Presentation, affärsregler och dataåtkomst hålls separerade.
 
-**Motivering:**  
-Varje del ska ha ett tydligt ansvar. UI ska hantera presentation och
-användarinteraktion, domänlagret parkeringslogik och persistence läsning och
-skrivning av data.
+**Motivering:** Gränssnittet kan ändras utan att fordon och parkeringsregler påverkas.
 
----
+JSON-hantering placeras i det separata Data-projektet.
 
-## DD-002 – Gemensam konfigurationsfil
+## DD-002 – Gemensam abstrakt basklass för fordon
 
-**Beslut:**  
-Prislista och övrig konfiguration kombineras i `config.json`.
+**Beslut:** `Vehicle` är abstrakt och används som basklass för `Car` och `MC`.
 
-**Motivering:**  
-Det samlar administratörens inställningar på ett ställe och gör dem enklare
-att hitta och ändra utan kodändringar.
+**Motivering:** Gemensam identifierare och ankomsttid ska inte dupliceras mellan fordonstyper.
 
----
+## DD-003 – Generell fordonsidentifierare
 
-## DD-003 – Fordonet lagrar inte parkeringsplatsnummer
+**Beslut:** Fordon identifieras med `Identifier` i stället för en egenskap som förutsätter registreringsnummer.
 
-**Beslut:**  
-`ParkingSpotNumber` lagras inte i `Vehicle`.
+**Motivering:** Framtida fordonstyper, exempelvis `Bicycle`, kan sakna registreringsnummer.
 
-**Motivering:**  
-Placeringen kan redan bestämmas av vilken `ParkingSpot` som innehåller
-fordonet. Att lagra samma relation även i `Vehicle` skulle skapa duplicerad
-information och risk för inkonsekvent data.
+För `Car` och `MC` motsvarar identifieraren normalt registreringsnummer.
 
----
+## DD-004 – Parkeringsplatsen ansvarar för sina fordon
 
-## DD-004 – ParkingSpot använder platsnummer som identitet
+**Beslut:** `ParkingSpot` har en privat lista över parkerade fordon och exponerar den som `IReadOnlyList<Vehicle>`.
 
-**Beslut:**  
-`ParkingSpot` använder sitt platsnummer som naturlig identitet.
+**Motivering:** UI och garageklass ska kunna läsa beläggningen utan att direkt manipulera parkeringsplatsens interna lista.
 
-**Motivering:**  
-Varje parkeringsplats har ett unikt platsnummer i det aktuella
-parkeringshuset, så ett separat tekniskt ID behövs inte i nuläget.
+## DD-005 – Fordon lagrar inte parkeringsplatsnummer
 
----
+**Beslut:** `Vehicle` lagrar inte `SpotNumber`.
 
-## DD-005 – Kapacitetskontroll ligger i ParkingSpot
+**Motivering:** Fordonets placering avgörs av vilken `ParkingSpot` som innehåller objektet.
 
-**Beslut:**  
-`ParkingSpot` ansvarar för att avgöra om ett fordon kan parkeras på den
-specifika platsen utifrån dess aktuella beläggning och den kapacitetsgräns
-som skickas in.
+Detta undviker dubbellagrad information.
 
-**Motivering:**  
-`ParkingSpot` känner till vilka fordon som redan använder platsen och kan
-därför avgöra om ytterligare ett fordon får plats. Kapacitetsgränsen hämtas
-från konfigurationen och skickas in till `CanPark()`, vilket gör att
-kapacitetsregler inte behöver hårdkodas i klassen.
+## DD-006 – Garageklassen samordnar placering och sökning
 
----
+**Beslut:** `ParkingGarage` skapar och söker bland platserna, hittar första lämpliga platsen, parkerar och tar bort fordon.
 
-## DD-006 – Antal parkeringsplatser härleds från samlingen
+**Motivering:** En parkeringsplats hanterar sina lokala regler medan garaget hanterar hela samlingen.
 
-**Beslut:**  
-`ParkingGarage` lagrar inte ett separat värde för aktuellt antal
-parkeringsplatser utöver sin samling av `ParkingSpot`.
+## DD-007 – Kapacitetsmodell i G-versionen
 
-**Motivering:**  
-Antalet kan härledas från samlingen. Ett separat värde skulle duplicera
-information och kunna bli inkonsekvent med det faktiska antalet
-parkeringsplatser.
+**Beslut:** Antalet fordon per parkeringsplats konfigureras separat för `Car` och `MC` via `VehiclesPerSpot`.
 
----
+**Motivering:** G-versionen kan hantera en bil eller två MC per plats utan att införa VG-versionens generella storleksenheter i förtid.
 
-## DD-007 – ParkingSpot äger fordonsrelationen
+## DD-008 – JSON som filformat
 
-**Beslut:**  
-`ParkingSpot` innehåller referenser till de fordon som använder platsen.
+**Beslut:** Konfiguration och framtida parkeringsdata lagras i JSON.
 
-**Motivering:**  
-Placeringen hålls på ett enda ställe i modellen. `Vehicle` behöver därför
-inte lagra parkeringsplatsnummer, vilket minskar duplicerad information.
+**Motivering:** Formatet är läsbart, kan hanteras med `System.Text.Json` och uppfyller projektets filkrav.
 
----
+## DD-009 – Separata filer för konfiguration och parkeringsdata
 
-## DD-008 – Konfiguration och parkeringsdata separeras
+**Beslut:** `config.json` innehåller inställningar och prislista, medan `parking-data.json` ska innehålla parkerade fordon.
 
-**Beslut:**  
-Programinställningar lagras i `config.json`, medan det aktuella
-parkeringsläget lagras separat i `parking-data.json`.
+**Motivering:** Administrativa inställningar och föränderliga parkeringsdata har olika livscykler.
 
-**Motivering:**  
-Konfiguration beskriver hur systemet ska fungera medan parkeringsdata
-beskriver systemets aktuella tillstånd. Separationen gör filerna enklare att
-förstå och minskar risken att användarinställningar blandas ihop med
-runtime-data.
+## DD-010 – Spara endast upptagna platser
 
----
+**Beslut:** I den planerade persistensen ska endast platser med parkerade fordon sparas.
 
-## DD-009 – G-versionen använder antal fordon per plats
+**Motivering:** Tomma parkeringsplatser kan återskapas utifrån konfigurerat garageantal.
 
-**Beslut:**  
-Prague Parking 2.0 använder konfigurerbara värden för hur många fordon av
-respektive typ som ryms på en parkeringsplats.
+**Status:** Ännu inte implementerat.
 
-**Motivering:**  
-Det följer G-kravet direkt. Den generella storleksmodellen med
-kapacitetsenheter införs först i Prague Parking 2.1 där Bicycle, MC, Car och
-Bus får storlekarna 1, 2, 4 och 16.
+## DD-011 – UTC för tidpunkter
 
----
+**Beslut:** `ArrivalTime` registreras och används internt i UTC.
 
-## DD-010 – Endast upptagna parkeringsplatser sparas
+**Motivering:** Beräkningarna ska vara konsekventa oberoende av lokala tidsomställningar.
 
-**Beslut:**  
-`parking-data.json` lagrar endast parkeringsplatser som innehåller parkerade
-fordon.
+Tidszon för presentation anges i konfigurationen.
 
-**Motivering:**  
-Det totala antalet parkeringsplatser definieras redan i `config.json`.
-Tomma parkeringsplatser kan därför återskapas vid programstart och behöver
-inte dupliceras i datafilen.
+## DD-012 – Samlad JSON-konfiguration med priser först
 
----
+**Beslut:** Prislista, garagekapacitet, tidszon och fordonsregler finns i `config.json`, med prisuppgifterna tidigt i filen.
 
-## DD-011 – System.Text.Json används för JSON-hantering
+**Motivering:** Administratören kan ändra priser och inställningar utan att kompilera om programmet.
 
-**Beslut:**  
-Projektet använder `System.Text.Json` för att läsa och skriva JSON-data.
+## DD-013 – Skapa saknad runtime-konfiguration
 
-**Motivering:**  
-`System.Text.Json` ingår direkt i modern .NET och täcker projektets behov
-utan att ytterligare externa paket som Newtonsoft.Json behöver installeras.
+**Beslut:** Om programmets runtime-`config.json` saknas får en standardkonfiguration skapas.
+
+**Motivering:** Första starten kan ske med dokumenterade standardvärden.
+
+## DD-014 – Avvisa felaktig befintlig konfiguration
+
+**Beslut:** Ogiltig befintlig JSON-konfiguration ska inte tyst skrivas över.
+
+**Motivering:** Användaren ska få ett kontrollerat fel i stället för att förlora sina ändringar.
+
+## DD-015 – Separat prisberäkning
+
+**Beslut:** `ParkingFeeCalculator` hanterar prisregler och avgiftsberäkning, inte `ParkingGarage`.
+
+**Motivering:** Ansvarsfördelningen gör prislogiken oberoende av fordonsplaceringen.
+
+## DD-016 – Prisvärden hålls i kalkylatorinstansen
+
+**Beslut:** Aktiva priser och gratisminuter laddas vid start och kan ändras genom `UpdatePricing()` efter validering.
+
+**Motivering:** Nya priser ska kunna tas i bruk utan att bygga om hela domänmodellen.
+
+Menybaserad filomläsning återstår.
+
+## DD-017 – Read-only resultat för prisberäkning
+
+**Beslut:** `ParkingFeeCalculator.CalculateParkingFee()` returnerar `ParkingFeeResult`.
+
+**Motivering:** UI får ett strukturerat resultat med parkeringstid, timpris, gratisminuter och avgift utan att innehålla prislogik.
+
+## DD-018 – Checkout samordnas av en separat service
+
+**Beslut:** `CheckoutService` ansvarar för sökning, prisberäkning och borttagning, i den ordningen.
+
+**Motivering:** Fordonet ska inte tas bort innan en korrekt avgift kunnat beräknas.
+
+## DD-019 – Strukturerat utcheckningsresultat
+
+**Beslut:** `CheckoutService` returnerar `CheckoutResult`.
+
+`CheckoutResult` och `ParkingFeeResult` sparas inte som parkeringsdata.
+
+**Motivering:** Resultaten tillhör det aktuella användarflödet och ska kunna presenteras i UI utan att lagras som permanent garagetillstånd.
 
 ---
 
-## DD-012 – Ankomsttid lagras i UTC
+## DD-020 – Interaktiv garageöversikt med Grid och Panel
 
-**Beslut:**  
-`Vehicle.ArrivalTime` lagras internt som UTC.
+**Beslut:** `GarageOverView` använder Spectre.Console `Grid` med individuella `Panel`-objekt i stället för en lång vertikal `Table`.
 
-**Motivering:**  
-UTC ger en entydig representation av tid och minskar risken för problem med
-lokal tidszon och sommartid. Vid presentation kan tiden konverteras till den
-tidszon som anges i `config.json`, exempelvis `Europe/Prague`.
+**Motivering:** En 25-raders tabell tog för mycket höjd och försvårade en överblick utan terminalscrollning.
 
----
+Ett rutnät med fem kolumner och maximalt fem rader visar 25 parkeringsplatser per sida.
 
-## DD-013 – Centraliserad meddelandepresentation
+Individuella paneler ger dessutom möjlighet att framhäva hela den markerade parkeringsrutan.
 
-**Beslut:**  
-Användarmeddelanden presenteras centralt genom `MessageService` i
-presentationslagret.
+### Genomförande
 
-**Motivering:**  
-Domän- och dataåtkomstklasser ska inte ansvara för konsolutskrift.
-`MessageService` ger ett konsekvent gränssnitt för `SUCCESS`, `INFO`,
-`WARNING` och `ERROR`, medan själva felhanteringen sker på lämplig nivå i
-applikationen.
+- `ParkingGarage.ParkingSpots` sorteras efter `SpotNumber`.
+- Parkeringsplatserna delas upp i sidor med `Skip()` och `Take()`.
+- Antalet sidor beräknas dynamiskt utifrån garagekapaciteten.
+- Varje parkeringsplats presenteras i en individuell `Panel`.
+- Fem kolumner används för att skapa parkeringskartan.
+- Piltangenterna flyttar markeringen inom rutnätet.
+- Page Up och Page Down används för sidbyte.
+- ESC lämnar garageöversikten.
+- Vid sidbyte återställs markeringen till första platsen.
+- `LightGoldenrod1` används för markeringen.
+- Omarkerade parkeringsplatser använder vita ramar.
+- Grön, orange och röd status används för ledig, delvis upptagen och full parkeringsplats.
+- Kapacitetsinformationen hämtas från `AppConfiguration`.
+- `Columns` används för att placera parkeringskartan bredvid informationspanelen `SPOT DETAILS`.
 
----
+### Arkitektur
 
-## DD-014 – Saknad runtime-konfiguration återskapas med standardvärden
+Detta är en lösning i presentationslagret.
 
-**Beslut:**  
-Om den `config.json` som programmet använder vid körning saknas skapas en ny
-fil med systemets standardvärden.
+Garageöversikten ansvarar för presentation och användarinteraktion.
 
-**Motivering:**  
-Programmet ska kunna starta även om runtime-konfigurationen saknas. En
-befintlig men ogiltig konfigurationsfil skrivs däremot inte över
-automatiskt, eftersom användarens inställningar då riskerar att förloras.
+`Vehicle`, `ParkingSpot`, `ParkingGarage` och prislogiken behöver inte ändras för att stödja presentationsvalet.
 
----
+Parkeringsregler och kapacitetskontroll hanteras fortsatt av domänlagret.
 
-## DD-015 – Prisberäkning separeras från ParkingGarage
+### Kvarstående arbete
 
-**Beslut:**  
-Beräkning av parkeringsavgift hanteras av `ParkingFeeCalculator` och inte av
-`ParkingGarage` eller `ParkingSpot`.
-
-**Motivering:**  
-`ParkingGarage` och `ParkingSpot` ansvarar för placering och hantering av
-fordon. Prisberäkning är ett separat domänansvar och hålls därför i en egen
-klass.
-
-Det gör koden lättare att läsa, testa och förändra utan att
-parkeringslogiken behöver känna till prisregler.
-
----
-
-## DD-016 – Aktiva prisregler hålls i minnet
-
-**Beslut:**  
-`ParkingFeeCalculator` får prisregler från den inlästa konfigurationen och
-lagrar de aktiva värdena i minnet.
-
-De aktiva värdena omfattar:
-
-- pris per timme för `Car`
-- pris per timme för `MC`
-- antal gratisminuter
-
-**Motivering:**  
-`config.json` behöver då inte läsas och deserialiseras vid varje
-prisberäkning.
-
-`CalculateParkingFee()` behöver endast information om fordonet och
-avgångstiden. Kalkylatorn känner redan till de aktiva prisreglerna.
-
----
-
-## DD-017 – Prisregler uppdateras först efter fullständig validering
-
-**Beslut:**  
-`ParkingFeeCalculator.UpdatePricing()` ska validera samtliga nya prisvärden
-innan något av de aktiva värdena ersätts.
-
-**Motivering:**  
-En omläsning av konfigurationen får inte lämna systemet i ett delvis
-uppdaterat tillstånd.
-
-Principen är:
-
-```text
-nya värden
-    ↓
-validera samtliga
-    ↓
-alla giltiga?
-    ├── Ja  → ersätt aktiva värden
-    └── Nej → behåll tidigare värden
-```
-
-Om ett nytt värde är ogiltigt ska de tidigare fungerande prisreglerna ligga
-kvar i minnet.
-
-Den felaktiga konfigurationsfilen ska inte heller skrivas över automatiskt.
-
----
-
-## DD-018 – Checkout samordnas separat från garage- och prislogik
-
-**Beslut:**  
-Utcheckningsflödet samordnas av `CheckoutService`.
-
-**Motivering:**  
-En utcheckning består av flera separata domänoperationer:
-
-```text
-Identifier
-    ↓
-hitta fordon
-    ↓
-beräkna parkeringstid och avgift
-    ↓
-ta bort fordon
-    ↓
-returnera resultat
-```
-
-`ParkingGarage` ansvarar fortsatt för att hitta och ta bort fordon, medan
-`ParkingFeeCalculator` ansvarar för avgiftsberäkningen.
-
-`CheckoutService` samordnar dessa operationer utan att `Program.cs`
-behöver innehålla hela affärsflödet.
-
-Prisberäkningen genomförs innan fordonet tas bort från garaget. Om
-prisberäkningen misslyckas ska fordonet därför fortfarande finnas kvar i
-garaget.
-
-Checkout-flödet i domänlagret är implementerat och verifierat. Det
-fullständiga användarflödet i UI och uppdatering av persistent parkeringsdata
-återstår.
-
----
-
-## DD-019 – Resultatobjekt används för prisberäkning och checkout
-
-**Beslut:**  
-Resultat från prisberäkning och utcheckning representeras med separata
-read-only objekt:
-
-- `ParkingFeeResult`
-- `CheckoutResult`
-
-**Motivering:**  
-`ParkingFeeResult` innehåller resultatet från själva prisberäkningen:
-
-- parkeringstid
-- timpris
-- gratisminuter
-- total avgift
-
-`CheckoutResult` kompletterar detta med information om den genomförda
-utcheckningen:
-
-- fordonsidentifierare
-- ankomsttid
-- avgångstid
-- parkeringstid
-- timpris
-- gratisminuter
-- total avgift
-
-Resultatobjekten gör att domänlagret kan lämna strukturerad information till
-UI:t utan att domänklasserna behöver ansvara för hur informationen
-presenteras.
-
-Properties är read-only efter att resultatobjektet har skapats, vilket
-minskar risken för att ett färdigberäknat resultat ändras i efterhand.
+- Utökade platsdetaljer.
+- Verifiering med parkerade fordon.
+- Kontroll av navigeringsgränser.
+- Kontroll av layout vid olika terminalstorlekar.

@@ -117,7 +117,7 @@
 - `Vehicle` är en generell basklass för alla fordonstyper och använder därför den generella egenskapen `Identifier`.
 - `Car` och `MC` ärver från `Vehicle`, och deras `Identifier` motsvarar i praktiken registreringsnumret.
 - Den generella benämningen gör modellen mer flexibel eftersom framtida fordonstyper, exempelvis Bicycle, kan använda en annan typ av identifierare.
-- 
+
 
 ## 2026-10-08
 
@@ -184,6 +184,8 @@
 
 ### Genomfört
 
+#### Prisberäkning och utcheckning
+
 - Skapat `ParkingFeeResult` som read-only resultatobjekt för prisberäkning.
 - Ändrat `ParkingFeeCalculator.CalculateParkingFee()` så att metoden returnerar ett `ParkingFeeResult`.
 - Skapat `CheckoutResult` som innehåller:
@@ -203,7 +205,55 @@
 - Säkerställt att prisberäkning sker innan fordonet tas bort från garaget.
 - Verifierat att `UpdatePricing()` uppdaterar de aktiva prisreglerna i samma `ParkingFeeCalculator`-instans.
 
+#### GarageOverView – Interaktiv parkeringsöversikt
+
+- Påbörjat implementationen av `GarageOverView` med Spectre.Console.
+- Implementerat en interaktiv parkeringsöversikt som använder befintliga objekt från `ParkingGarage` och `ParkingSpot`.
+- Implementerat dynamisk pagination:
+  - 25 parkeringsplatser per sida.
+  - Antalet sidor beräknas utifrån parkeringshusets faktiska storlek.
+  - Parkeringsplatser sorteras efter `SpotNumber`.
+  - Sista sidan hanterar även färre än 25 parkeringsplatser.
+- Utvecklat den ursprungliga tabellbaserade översikten till en parkeringskarta med `Grid` och individuella `Panel`-komponenter.
+- Parkeringskartan använder fem kolumner och fem rader per sida.
+- Varje parkeringsplats har en egen ram och visar:
+  - parkeringsplatsnummer
+  - parkeringsstatus
+  - beläggning när platsen är delvis upptagen
+- Implementerat färgkodning för parkeringsstatus:
+  - GREEN – FREE
+  - ORANGE – PARTIALLY OCCUPIED
+  - RED – FULL
+- Kapacitetsgränser hämtas från `AppConfiguration` och är inte hårdkodade i presentationslogiken.
+- Implementerat visuell markering av vald parkeringsplats:
+  - `LightGoldenrod1` används för markerad parkeringsplats.
+  - Vita ramar används för övriga parkeringsplatser.
+- Implementerat tangentbordsnavigering:
+  - Pil upp – föregående rad.
+  - Pil ned – nästa rad.
+  - Pil vänster – föregående kolumn.
+  - Pil höger – nästa kolumn.
+  - Page Up – föregående sida.
+  - Page Down – nästa sida.
+  - ESC – lämna garageöversikten.
+- Navigeringen använder `selectedSpotIndex` för att hålla reda på markerad parkeringsplats.
+- Markeringen återställs till första parkeringsplatsen vid sidbyte.
+- Påbörjat en dynamisk informationspanel med rubriken `SPOT DETAILS`.
+- Informationspanelen visar för närvarande:
+  - markerat parkeringsplatsnummer
+  - antal parkerade fordon
+- Använt `Columns` för att placera parkeringskartan och informationspanelen bredvid varandra.
+- Anpassat gränssnittet för att minska behovet av terminalscrollning.
+- Implementerat en footer med:
+  - aktuellt sidnummer
+  - totalt antal sidor
+  - parkeringsplatsintervall
+  - totalt antal parkeringsplatser
+  - tangentbordsinstruktioner
+
 ### Tester
+
+#### Prisberäkning och utcheckning
 
 - Testat `UpdatePricing()` genom att ändra Car-priset från 20 till 25 CZK.
 - Verifierat att 61 minuters parkering ändrades från 40 CZK till 50 CZK efter uppdateringen.
@@ -218,16 +268,111 @@
 - Verifierat att fordonet inte längre finns i `ParkingGarage` efter lyckad checkout.
 - Testkörningen avslutades utan fel med exit code `0`.
 
+#### GarageOverView
+
+- Testat parkeringsöversikten i Windows Terminal.
+- Verifierat visuellt att 100 parkeringsplatser delas upp på fyra sidor.
+- Verifierat att första sidan visar parkeringsplatserna 001–025.
+- Kontrollerat att parkeringskartan visas som ett 5 × 5-rutnät.
+- Kontrollerat att individuella parkeringsplatser presenteras med separata ramar.
+- Kontrollerat att markerad parkeringsplats framhävs med en annan ramfärg.
+- Testat sidnavigeringen under utvecklingen.
+- Kontrollerat att informationspanelen visar den markerade parkeringsplatsens nummer.
+- Kontrollerat att tomma parkeringsplatser visas med grön `FREE`-status.
+- Tidigare problem med en för hög vertikal tabell har hanterats genom att ersätta tabellpresentationen med `Grid` och `Panel`.
+
+Följande återstår att verifiera:
+
+- ORANGE och RED med faktiskt parkerade fordon.
+- Samtliga navigeringsgränsfall.
+- Sista sidan när antalet parkeringsplatser inte är jämnt delbart med 25.
+- Layouten vid olika terminalstorlekar.
+- Informationspanelen när en eller två motorcyklar finns på samma parkeringsplats.
+
+### Problem och lösningar
+
+#### Problem 1 – Garageöversikten orsakade terminalscrollning
+
+Den första implementationen använde en vertikal `Table` med
+25 parkeringsplatser per sida.
+
+Tabellen tog för mycket plats på höjden och orsakade problem med
+scrollning och presentation vid tangentbordsnavigering.
+
+**Lösning:**
+
+Parkeringsöversikten byggdes om till ett 5 × 5-rutnät med Spectre.Console
+`Grid` och individuella `Panel`-komponenter.
+
+Detta minskade behovet av vertikalt utrymme och gav bättre
+överblick över parkeringshuset.
+
+#### Problem 2 – Markerad parkeringsplats var svår att urskilja
+
+Den ursprungliga implementationen använde en gul pil framför
+parkeringsplatsnumret.
+
+Markeringen var inte tillräckligt tydlig i den nya parkeringskartan.
+
+**Lösning:**
+
+Varje parkeringsplats fick en individuell ram.
+
+Den markerade parkeringsplatsen framhävs med `LightGoldenrod1`,
+medan övriga parkeringsplatser använder vita ramar.
+
+#### Problem 3 – Layouten utnyttjade inte terminalens bredd
+
+Den tidigare presentationen placerade informationspanelen långt
+från parkeringskartan.
+
+**Lösning:**
+
+Layouten anpassades med Spectre.Console `Columns` och
+`Expand = false`, vilket placerar komponenterna närmare varandra.
+
+#### Problem 4 – Navigeringen behövde anpassas till rutnätet
+
+Den första tangentbordsnavigeringen utgick från en vertikal lista.
+
+Den fungerade inte naturligt när parkeringsplatserna senare
+presenterades i fem kolumner.
+
+**Lösning:**
+
+Navigeringen anpassades till rutnätets struktur.
+
+Uppåt- och nedåtpilarna flyttar markeringen fem positioner,
+medan vänster- och högerpilarna flyttar en position inom samma rad.
+
+Page Up och Page Down används separat för sidbyte.
+
 ### Reflektion
 
 - `CheckoutService` fungerar som samordnande domänklass och gör att `Program.cs` inte behöver innehålla hela utcheckningslogiken.
 - `ParkingFeeCalculator` ansvarar endast för prisberäkning medan `ParkingGarage` fortsatt ansvarar för fordonens placering.
 - Separata resultatobjekt gör att UI senare kan presentera checkout-information utan att innehålla affärslogik.
+- Arbetet med Spectre.Console har visat skillnaden mellan `Table`, `Grid`, `Panel` och `Columns`.
+- En parkeringskarta med individuella paneler ger större kontroll över markeringar och presentation än en traditionell tabell.
+- Det är viktigt att anpassa tangentbordsnavigeringen efter hur informationen faktiskt presenteras.
+- Separationen mellan UI och domänlogik har gjort det möjligt att förändra garageöversiktens utseende utan att ändra `ParkingGarage`, `ParkingSpot` eller `Vehicle`.
+- Projektet har blivit mer komplext i presentationslagret, men den objektorienterade domänmodellen har kunnat behållas.
 
 ### Nästa steg
 
-- Uppdatera klassdiagram och övrig dokumentation efter checkout-implementationen.
-- Bygga det riktiga användarflödet för utcheckning i UI.
-- Fortsätta med flytt av fordon.
-- Implementera persistens i `parking-data.json`.
+- Färdigställa `SPOT DETAILS` med:
+  - parkeringsstatus
+  - fordonsidentifierare
+  - fordonstyp
+  - ankomsttid
+  - information om beläggning
+- Verifiera GREEN, ORANGE och RED med parkerade fordon.
+- Genomföra ytterligare tester av pagination och tangentbordsnavigering.
+- Implementera det fullständiga användarflödet för incheckning.
+- Implementera det fullständiga UI-flödet för utcheckning.
+- Implementera flytt av fordon mellan parkeringsplatser.
+- Implementera persistens av parkeringsdata i `parking-data.json`.
+- Implementera omläsning av prislistan via meny.
+- Uppdatera kravanalys och övrig dokumentation efter genomförda ändringar.
+- Fortsätta mot en stabil Prague Parking 2.0 innan arbetet med VG-versionen påbörjas.
 

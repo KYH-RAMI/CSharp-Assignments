@@ -18,6 +18,8 @@
 
 ## Funktionella och tekniska krav
 
+**Lägesbild 2026-10-09:** Garageöversikten är under utveckling. Statusen för G-08 och G-09 betyder inte att de är sluttestade.
+
 | ID | Krav | Tolkning | Berör | Status |
 |---|---|---|---|---|
 | G-00 | Grundfunktionaliteten från Prague Parking V1 ska finnas kvar | Incheckning, flytt, utcheckning, sökning och översikt ska finnas även efter övergången till OOP-versionen. Delar av domänlogiken för parkering, sökning och utcheckning är implementerade, men hela användarflödet är ännu inte färdigt | Domain / UI | Pågår |
@@ -28,8 +30,8 @@
 | G-05 | Datafilen ska uppdateras vid utcheckning | När ett fordon lämnar parkeringen ska den aktuella parkeringsdatan sparas | Persistence | Ej påbörjad |
 | G-06 | Datafilen ska uppdateras när ett fordon flyttas | När ett parkerat fordon flyttas ska dess nya placering sparas | Persistence | Ej påbörjad |
 | G-07 | Systemet ska kunna hantera olika parkeringskapacitet | I G används konfigurerbart antal fordon per plats. Kapacitetsregler för Car och MC har implementerats och verifierats. Den generella storleksmodellen för Bicycle, MC, Car och Bus implementeras först i VG-versionen | Domain / Configuration | Verifierad |
-| G-08 | Parkeringshuset ska visas som en karta/översikt | Användaren ska kunna se parkeringshusets beläggning i en tydlig konsolvy | UI | Ej påbörjad |
-| G-09 | Det ska vara enkelt att se hur många platser som är lediga | Ledigt och upptaget utrymme ska vara visuellt tydligt i översikten | UI | Ej påbörjad |
+| G-08 | Parkeringshuset ska visas som en karta/översikt | Interaktiv 5 × 5-karta med Spectre.Console `Grid` och `Panel` finns. Max 25 platser per sida, paginering och tangentbordsnavigering är implementerade. Utökade platsdetaljer och sluttest återstår | UI | Pågår |
+| G-09 | Det ska vara enkelt att se hur många platser som är lediga | Karta visar `FREE`, delvis upptagen plats och `FULL` med färgkodning baserad på `AppConfiguration`. Sammanställd kapacitet och verifiering med parkerade fordon återstår | UI | Pågår |
 | G-10 | Prislista ska kunna lagras utanför programkoden | Priser lagras i `config.json` och används av prisberäkningen utan att C#-koden behöver ändras eller kompileras om | Configuration | Verifierad |
 | G-11 | Prislistan ska läsas in vid programstart | Programmet använder aktuella priser från konfigurationen när det startar | Configuration | Verifierad |
 | G-12 | Prislistan ska kunna läsas om under körning via menyval | Ändrade priser ska kunna aktiveras utan att programmet startas om. `UpdatePricing()` finns och är testad, men det synliga menyvalet och omläsningen från fil är ännu inte implementerade | Configuration / UI | Ej påbörjad |
@@ -44,7 +46,7 @@
 | G-21 | Parkering kortare än 10 minuter är gratis | Gratisgränsen hämtas från konfigurationen och används av `ParkingFeeCalculator`. Tester har verifierat parkering under gränsen samt exakt vid gränsen | Domain / Configuration | Verifierad |
 | G-22 | Fordonets ankomsttid ska registreras | `Vehicle` får automatiskt en UTC-tid vid ny incheckning. Ankomsttiden används och har verifierats i pris- och checkout-logiken. Återställning från persistent lagring återstår under separata persistenskrav | Domain / Persistence | Verifierad |
 | G-23 | Systemet ska kunna ange hur länge fordonet varit parkerat | Parkeringstiden beräknas från `ArrivalTime` och `departureTime` och returneras via `ParkingFeeResult` och `CheckoutResult`. Funktionen har verifierats i checkout-test | Domain | Verifierad |
-| G-24 | Applikationen ska ha ett visuellt användargränssnitt i konsolen | Spectre.Console används redan för presentation och meddelanden, men menyer och fullständig parkeringsöversikt återstår | UI | Pågår |
+| G-24 | Applikationen ska ha ett visuellt användargränssnitt i konsolen | Spectre.Console används för meddelanden och interaktiv parkeringskarta. Kompletta menyflöden för incheckning, utcheckning och administration återstår | UI | Pågår |
 | G-25 | Konsolapplikationen ska använda Spectre.Console | Spectre.Console används för presentation och meddelanden | UI | Verifierad |
 | G-26 | Alla fordon ska hanteras som objekt | Fordonsdata representeras med objekt i stället för sammansatta strängar som i V1 | Domain | Implementerad |
 | G-27 | Systemet ska innehålla minst fem klasser | Kravet är uppfyllt genom bland annat `Vehicle`, `Car`, `MC`, `ParkingSpot`, `ParkingGarage`, `ParkingFeeCalculator`, `ParkingFeeResult`, `CheckoutService` och `CheckoutResult` | Architecture / Domain | Implementerad |

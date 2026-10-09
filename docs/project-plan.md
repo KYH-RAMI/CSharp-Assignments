@@ -1,110 +1,129 @@
-# Projektplan – Prague Parking V2
+# Prague Parking V2 – Projektplan
 
-## Syfte
+**Uppdaterad:** 2026-10-09  
+**Utvecklingsmiljö:** Visual Studio Community 2026, C# och .NET 10  
+**Arbetsordning:** Prague Parking 2.0 (G) färdigställs och verifieras före Prague Parking 2.1 (VG).
 
-Projektplanen används för att strukturera utvecklingen av Prague Parking 2.0 (G)
-och Prague Parking 2.1 (VG).
+## Mål och avgränsning
 
-Tidsuppskattningarna är preliminära och kan förändras beroende på testning,
-felsökning och nya tekniska problem.
+Syftet är att vidareutveckla Prague Parking från en enklare konsollösning till en objektorienterad applikation.
 
-## Övergripande tidsplan
+Lösningen delas upp i UI, domänlogik och dataåtkomst. Konfiguration och parkeringsdata hanteras med JSON.
 
-| Fas | Innehåll | Uppskattad tid | Status |
-|---|---|---:|---|
-| 1 | Kravanalys och projektstruktur | 3–5 h | Pågår |
-| 2 | Domänmodell och klassdesign | 2–3 h | Pågår |
-| 3 | Grundklasser: Vehicle, Car, MC, ParkingSpot, ParkingGarage | 4–6 h | Implementerad |
-| 4 | Konfiguration och JSON-inläsning | 3–4 h | Verifierad |
-| 5 | JSON-persistens av parkeringsdata | 2–3 h | Ej påbörjad |
-| 6 | Incheckning, utcheckning och flytt av fordon | 3–4 h | Pågår |
-| 7 | Prisberäkning | 1–2 h | Verifierad |
-| 8 | Spectre.Console och garageöversikt | 4–6 h | Pågår |
-| 9 | Testning och felsökning av G-version | 3–5 h | Pågår |
-| 10 | VG – interfaces och refaktorering | 2–3 h | Ej påbörjad |
-| 11 | VG – Bicycle, Bus och storleksenheter | 3–5 h | Ej påbörjad |
-| 12 | VG – omläsning och validering av konfiguration | 2–4 h | Ej påbörjad |
-| 13 | Sluttest, README, loggbok och reflektion | 3–5 h | Pågår |
+Först prioriteras fungerande G-funktionalitet, därefter VG-utbyggnad i ett eget projekt i samma solution.
 
-## Milstolpar
+## Arbetsfaser
 
-### Milstolpe 1 – Design klar
+Status beskriver läget den 9 oktober, inte att arbetet är slutgiltigt godkänt eller fullständigt testat.
 
-Status: **Pågår**
+| Fas | Område | Status |
+| --- | --- | --- |
+| 1 | Genomgång av uppgift och G-/VG-krav | Genomförd |
+| 2 | Projektstruktur, solution och separat Data-klassbibliotek | Genomförd |
+| 3 | Domänmodell: `Vehicle`, `Car`, `MC`, `ParkingSpot`, `ParkingGarage` | Genomförd, fortsatt verifiering möjlig |
+| 4 | JSON-konfiguration, standardvärden och validering | Genomförd, manuellt testad |
+| 5 | Parkera, söka och ta bort fordon i domänlagret | Genomförd, manuellt testad |
+| 6 | Timtaxa, gratisgräns, prisresultat och `UpdatePricing()` | Genomförd, manuellt testad |
+| 7 | Utcheckningslogik med `CheckoutService` och `CheckoutResult` | Genomförd, manuellt testad |
+| 8 | Spectre.Console och garageöversikt | Pågår |
+| 9 | Inchecknings-, sök-, flytt- och utcheckningsflöden i UI | Återstår |
+| 10 | Parkeringspersistens med `parking-data.json` | Återstår |
+| 11 | Prisomläsning via huvudmeny | Återstår |
+| 12 | Sluttest, dokumentation och GitHub-leverans | Återstår |
+| 13 | VG: nytt projekt, interfaces, `Bicycle`, `Bus`, storleksmodell och reload | Ej påbörjad |
 
-- Kravanalys dokumenterad och uppdateras löpande
-- Klassdiagram dokumenterat och uppdateras efter implementation
-- `config.json` planerad och implementerad
-- `parking-data.json` planerad
-- Viktiga designbeslut dokumenterade
-- Ansvar mellan `ParkingSpot`, `ParkingGarage`, `ParkingFeeCalculator` och `CheckoutService` definierat
-- Resultatobjekten `ParkingFeeResult` och `CheckoutResult` dokumenterade
+**Planeringsuppskattning för fas 8:** 4–6 timmar i den ursprungliga arbetsplanen. Faktisk tid och eventuella ändringar noteras i loggboken.
 
-### Milstolpe 2 – Prague Parking 2.0 / G
+## Milstolpe 1 – Grundläggande arkitektur och domän
 
-Status: **Pågår**
+**Status:** Uppnådd på implementationsnivå.
 
-- Grundläggande domänmodell implementerad
-- Parkeringslogik påbörjad
-- Sökning efter fordon implementerad
-- Kontroll mot dubbel incheckning implementerad
-- Borttagning av fordon implementerad på både `ParkingSpot`- och `ParkingGarage`-nivå
-- Konfiguration läses från JSON
-- Konfiguration valideras vid programstart
-- Saknad runtime-konfiguration kan återskapas med standardvärden
-- Prisberäkning implementerad och verifierad i `ParkingFeeCalculator`
-- Pris per påbörjad timme verifierad för `Car` och `MC`
-- Gratisgräns för kort parkering implementerad och verifierad
-- Felaktig avgångstid före ankomsttid hanteras
-- Prisregler hämtas från konfigurationen och hålls som aktiva värden i minnet
-- `UpdatePricing()` implementerad och verifierad
-- `ParkingFeeResult` används för strukturerat resultat från prisberäkning
-- `CheckoutService` implementerad
-- `CheckoutResult` används för strukturerat resultat från utcheckning
-- Checkout-flödet i domänlagret implementerat och verifierat
-- Prisberäkning sker före borttagning av fordon vid checkout
-- Verifierat att fordon tas bort från `ParkingGarage` efter lyckad checkout
-- Spectre.Console används för meddelandepresentation
-- Parkeringsdata ska sparas och återställas
-- Fullständigt användarflöde för incheckning ska färdigställas
-- Fullständigt UI-flöde för utcheckning ska implementeras
-- Flytt av fordon ska implementeras
-- Prislista ska kunna läsas om via meny
-- Garageöversikt ska implementeras
-- G-versionen ska sluttestas och stabiliseras
+- Projektstruktur med två projekt i solutionen.
+- Fordonsklasser, parkeringsplatser och garage.
+- Konfiguration med validering.
+- Grundläggande parkering, sökning och borttagning.
+- Separat prisberäkning och checkout-service.
 
-### Milstolpe 3 – Prague Parking 2.1 / VG
+Återstående användarflöden och persistens påverkar inte att grundarkitekturen har etablerats.
 
-Status: **Ej påbörjad**
+## Milstolpe 2 – Prague Parking 2.0 / G
 
-- Minst två interfaces används
-- Bicycle och Bus stöds
-- Storleksenheter används för kapacitet
-- Bicycle använder 1 kapacitetsenhet
-- MC använder 2 kapacitetsenheter
-- Car använder 4 kapacitetsenheter
-- Bus använder totalt 16 kapacitetsenheter
-- Fyra sammanhängande parkeringsplatser krävs för Bus
-- Bussparkering begränsas till de första 50 parkeringsplatserna
-- Bicycle och Bus får egna prisregler
-- Fordonstyper och storlekar hanteras via konfiguration
-- Hela konfigurationen kan läsas om under körning
-- Ny konfiguration valideras innan den aktiveras
-- Tidigare giltig konfiguration behålls om omläsningen misslyckas
-- UI uppdateras efter lyckad omläsning av konfiguration
+**Status:** Pågår.
 
-### Milstolpe 4 – Inlämningsklar
+### Genomfört eller påbörjat
 
-Status: **Pågår**
+- Interaktiv parkeringskarta med Spectre.Console `Grid` och individuella `Panel`.
+- 25 parkeringsplatser per sida i ett rutnät med fem kolumner.
+- Dynamisk pagination efter antal parkeringsplatser.
+- Tangentbordsnavigering med pilar och Page Up/Page Down.
+- Visuell markering av vald plats och statusfärger för beläggning.
+- Grundläggande detaljpanel samt sidfot.
+- Domänlogik för prisberäkning och utcheckning är implementerad.
 
-- Samtliga G-krav verifierade
-- Samtliga valda VG-krav verifierade
-- README uppdaterad
-- LOGGBOK uppdaterad
-- Klassdiagram och övrig dokumentation synkroniserad med slutlig implementation
-- Reflektion färdig
-- Projektet testat från ren start
-- Programmet testat på annan dator eller motsvarande ren miljö
-- GitHub-repositoryt uppdaterat
-- Repositoryt gjort publikt inför inlämning
-- Slutlig repository-länk kontrollerad
+### Kvar innan G kan bedömas som klar
+
+- Färdigställa och testa detaljpanelen, färgkodning och navigering.
+- Koppla in domänlogiken i användbara UI-menyer för incheckning och utcheckning.
+- Implementera sök- och flyttflöden.
+- Spara och läsa tillbaka parkerade fordon via JSON.
+- Möjliggöra prisomläsning från fil via meny.
+- Verifiera hela flödet och uppdatera dokumentationen.
+
+## Milstolpe 3 – Prague Parking 2.1 / VG
+
+**Status:** Ej påbörjad.
+
+VG utvecklas först när G fungerar stabilt.
+
+### Planerade tillägg
+
+- Separat projekt i samma solution.
+- Minst två interfaces.
+- `Bicycle` och `Bus`.
+- Kapacitetsenheter:
+  - Bicycle = 1.
+  - MC = 2.
+  - Car = 4.
+  - Bus = 16.
+  - Vanlig parkeringsplats = 4.
+- Buss på fyra sammanhängande platser bland de första 50.
+- Pris för Bicycle 5 CZK/timme och Bus 80 CZK/timme.
+- Konfigurerbara storlekar och säker omläsning av hela konfigurationen under körning.
+- Individuell reflektion på cirka 2–3 sidor.
+
+## Närmaste prioritering
+
+1. Spara nuvarande fungerande utvecklingsläge och dokumentation i Git.
+2. Bygga ett fullständigt incheckningsflöde som använder befintligt domänlager.
+3. Fortsätta med utcheckning, sökning och flytt i UI.
+4. Implementera parkeringspersistens och därefter sluttesta helheten.
+
+## Risker och uppföljning
+
+### Felaktig kravstatus
+
+Vi behöver skilja mellan implementerat och verifierat i kravmatrisen. Att en funktion finns i koden innebär inte att den har testats fullständigt.
+
+### Förlorad parkeringsdata
+
+JSON-lagring måste uppdateras vid varje relevant förändring innan G-versionen är färdig.
+
+### Terminalstorlek
+
+Parkeringskartan och detaljpanelen behöver kontrolleras vid olika fönsterstorlekar.
+
+### Konfiguration
+
+En ogiltig befintlig JSON-fil ska inte automatiskt ersättas av standardvärden.
+
+### Tidsplan
+
+Färdigställ G-funktionalitet innan visuellt finlir eller VG-funktioner prioriteras.
+
+## Dokumentation och uppföljning
+
+Detaljerade arbetsanteckningar, genomförda tester, designbeslut, problem och lösningar dokumenteras i `LOGGBOK.md`.
+
+Kravstatus uppdateras löpande i `requirements.md`.
+
+Arkitekturella beslut dokumenteras i `design-decisions.md`.
