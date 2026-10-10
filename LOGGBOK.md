@@ -376,3 +376,186 @@ Page Up och Page Down används separat för sidbyte.
 - Uppdatera kravanalys och övrig dokumentation efter genomförda ändringar.
 - Fortsätta mot en stabil Prague Parking 2.0 innan arbetet med VG-versionen påbörjas.
 
+---
+
+## 2026-10-10
+
+### Genomfört
+
+#### MainMenu – Huvudmeny
+
+- Skapat `MainMenu.cs` i UI-lagret.
+- Implementerat en interaktiv huvudmeny.
+- Menyn innehåller:
+  - Park Vehicle
+  - Check Out Vehicle
+  - Move Vehicle
+  - Find Vehicle
+  - Garage Overview
+  - Administration
+  - Exit
+- Implementerat tangentbordsnavigering med piltangenterna.
+- Enter används för att välja en funktion.
+- ESC används för att avsluta huvudmenyn.
+- Kopplat Garage Overview till huvudmenyn.
+- Implementerat återgång från Garage Overview.
+- Behållit övriga menyfunktioner som ännu inte implementerade.
+- Separat menyklass används för att undvika att lägga navigeringslogik i `Program.cs`.
+
+#### AppTheme – Gemensam färgpalett
+
+- Skapat `AppTheme.cs` i UI-lagret.
+- Tagit fram ett färgtema inspirerat av svenska flaggan.
+- Implementerat gemensamma färgdefinitioner för:
+  - bakgrund
+  - text
+  - sekundär information
+  - panelramar
+  - accentfärger
+- Implementerat en guldgradient i projekttiteln.
+- Använt motsvarande gradient för `Author: Rami Issa`.
+- Utvecklat en enhetlig mörkblå bakgrund.
+- Påbörjat anpassning av garageöversikten till samma färgtema.
+
+#### Console Rendering
+
+- Undersökt olika metoder för att rendera ett konsolgränssnitt.
+- Testat Spectre.Console SelectionPrompt.
+- Testat egen tangentbordsnavigering.
+- Testat Spectre.Console Live.
+- Undersökt hur Console.Clear() påverkar gränssnittet.
+- Undersökt positionsbaserad rendering med Console.SetCursorPosition().
+- Implementerat en huvudmeny där endast förändrade menyval behöver ritas om.
+- Förbättrat navigeringen för att minska synligt flimmer.
+- Implementerat centrering utifrån terminalens bredd och höjd.
+- Infört en alternativ meny för terminalfönster som är för små för den ordinarie presentationen.
+
+#### GarageOverView
+
+- Fortsatt anpassningen av garageöversikten till det nya färgtemat.
+- Tagit fram en guldgradient för rubriken GARAGE OVERVIEW.
+- Arbetat med en mer sammanhängande footer.
+- Planerat utökning av informationspanelen SPOT DETAILS.
+
+#### Spot Details
+
+- Påbörjat vidareutvecklingen av informationspanelen för markerad parkeringsplats.
+- Utformat presentation för:
+  - parkeringsplatsnummer
+  - parkeringsstatus
+  - beläggning
+  - samtliga parkerade fordon
+  - fordonstyp
+  - identifierare
+  - ankomsttid
+  - parkeringstid
+- Planerat stöd för att visa två motorcyklar på samma parkeringsplats.
+- Använt befintliga egenskaper från Vehicle och ParkingSpot.
+- Tagit fram logik för att beräkna Duration från ArrivalTime.
+- Duration ska presenteras i dagar, timmar och minuter.
+- UTC används för tidsberäkningen.
+- Ankomsttiden ska presenteras enligt den konfigurerade tidszonen.
+- Tidszonens namn behöver inte visas i informationspanelen.
+- Slutlig verifiering av den senaste implementationen återstår.
+
+### Tester
+
+#### MainMenu
+
+- Kontrollerat visuellt att huvudmenyn visas centrerad.
+- Testat navigering mellan menyval.
+- Testat olika metoder för att uppdatera markeringen.
+- Observerat att omritning av hela konsolen orsakar synligt flimmer.
+- Konstaterat att selektiv uppdatering av menyval ger en förbättrad användarupplevelse.
+- Kontrollerat huvudmenyns presentation i Windows Terminal.
+- Kontrollerat att Garage Overview kan öppnas från huvudmenyn.
+
+#### AppTheme
+
+- Testat flera blå bakgrundsfärger.
+- Testat gradientbaserad bakgrund.
+- Observerat problem när Spectre.Console uppdaterade delar av skärmen.
+- Undersökt skillnader mellan terminalens standardbakgrund och applikationens bakgrund.
+- Valt att prioritera en enhetlig mörkblå bakgrund framför en fullständig bakgrundsgradient.
+- Kontroll av bakgrundsfärger och kompatibilitet behöver fortsätta.
+
+#### Spot Details
+
+Följande tester återstår:
+
+- Ledig parkeringsplats.
+- Parkeringsplats med en bil.
+- Parkeringsplats med en motorcykel.
+- Parkeringsplats med två motorcyklar.
+- Korrekt fordonsidentifierare.
+- Korrekt ankomsttid.
+- Korrekt beräkning av Duration.
+- Korrekt status för delvis upptagen och full parkeringsplats.
+
+### Problem och lösningar
+
+#### Problem 1 – Huvudmenyn var oproportionerlig
+
+Den ursprungliga presentationen använde en bred header och en separat vänsterjusterad meny.
+
+Det gav ett osammanhängande gränssnitt.
+
+**Lösning:**
+
+Huvudmenyn byggdes om till en centrerad layout med gemensam panel och anpassad navigering.
+
+#### Problem 2 – Synligt flimmer vid navigering
+
+När konsolen rensades och hela huvudmenyn ritades om vid varje tangenttryckning uppstod flimmer.
+
+**Lösning:**
+
+Undersökte Spectre.Console Live och gick därefter vidare med positionsbaserad rendering.
+
+Endast tidigare och nytt markerat menyval behöver uppdateras.
+
+#### Problem 3 – Bakgrunden visades i olika blå nyanser
+
+Applikationens anpassade bakgrund och terminalens standardbakgrund hade olika färger.
+
+Problemet blev särskilt synligt när Spectre.Console uppdaterade delar av skärmen.
+
+**Lösning:**
+
+Arbetat med att samordna applikationens bakgrundsinställningar och konsolrendering.
+
+En enhetlig mörkblå bakgrund prioriteras framför en mer komplicerad bakgrundsgradient.
+
+#### Problem 4 – Informationspanelen innehöll för lite information
+
+Den ursprungliga SPOT DETAILS-panelen visade endast parkeringsplatsnummer och antal fordon.
+
+Det var inte tillräckligt för att ge användaren en komplett översikt.
+
+**Lösning:**
+
+Planerat en utökad informationspanel med samtliga parkerade fordon, identifierare, fordonstyp, ankomsttid och Duration.
+
+### Reflektion
+
+- Jag har fått en bättre förståelse för skillnaden mellan applikationens färgtema och terminalens egna färginställningar.
+- Arbetet med huvudmenyn har visat hur Console.SetCursorPosition() kan användas för att kontrollera placeringen av innehåll.
+- Jag har också lärt mig varför det kan vara bättre att uppdatera en mindre del av gränssnittet i stället för att rita om hela konsolen.
+- Spectre.Console erbjuder färdiga komponenter, men vissa mer anpassade gränssnitt kräver kompletterande konsolhantering.
+- Genom att samla färgdefinitioner i AppTheme blir gränssnittet enklare att underhålla.
+- Jag har fortsatt att hålla presentationen separat från parkeringssystemets domänlogik.
+- Jag har även fått en bättre förståelse för hur TimeSpan kan användas för att presentera parkeringstid utan att lagra information som kan beräknas vid behov.
+
+### Nästa steg
+
+- Verifiera Spot Details med parkerade fordon.
+- Kontrollera att garageöversikten fungerar med det gemensamma färgtemat.
+- Testa konsolrenderingen i olika terminalstorlekar.
+- Implementera Park Vehicle i huvudmenyn.
+- Koppla befintlig parkeringslogik till användargränssnittet.
+- Implementera Check Out Vehicle i UI.
+- Fortsätta med Find Vehicle och Move Vehicle.
+- Implementera permanent lagring i parking-data.json.
+- Implementera administrationsfunktioner.
+- Fortsätta dokumentera utveckling och tester.
+

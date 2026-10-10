@@ -3,7 +3,10 @@ using PragueParkingV2.Domain;
 using PragueParkingV2.UI;
 using System.IO;
 using System.Runtime.ConstrainedExecution;
+using System.Text;
 using System.Text.Json;
+Console.OutputEncoding = Encoding.UTF8;
+Console.InputEncoding = Encoding.UTF8;
 
 var configurationService = new ConfigurationService();
 
@@ -29,7 +32,7 @@ try
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 
-    GarageOverView.DisplayGarageOverview(parkingGarage, configuration);
+    MainMenu.Show(parkingGarage, configuration);
 }
 
 

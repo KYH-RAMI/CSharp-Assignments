@@ -1,125 +1,443 @@
 # Prague Parking V2
 
-**Prague Parking 2.0 (G)** – objektorienterat parkeringssystem i C#/.NET 10 med ett konsolgränssnitt byggt med Spectre.Console.
+Prague Parking V2 är ett objektorienterat parkeringssystem utvecklat i C# och .NET 10.
 
-> **Projektstatus 2026-10-09:** Arbete pågår. Domänmodellen, konfigurationsinläsning, prisberäkning och domänlogik för utcheckning finns. En interaktiv garageöversikt är påbörjad. Det fullständiga användarflödet och permanent lagring av parkerade fordon är ännu inte färdiga.
+Applikationen använder Spectre.Console för att presentera ett interaktivt konsolgränssnitt med tangentbordsnavigering, parkeringsöversikt och fordonsinformation.
 
-## Översikt
+**Author:** Rami Issa
 
-Systemet är tänkt att kunna checka in, söka efter, flytta och checka ut fordon. Bil (`Car`) och motorcykel (`MC`) stöds i G-versionens domänmodell. Antalet parkeringsplatser och antalet fordon per plats hämtas från JSON-konfigurationen.
+**Development Environment:** Visual Studio Community 2026  
+**Framework:** .NET 10  
+**Language:** C#  
+**Status:** Under Development  
+**Last Updated:** 2026-10-10
 
-En motorcykel kan dela plats med en annan motorcykel när `VehiclesPerSpot` är 2. Bilar och motorcyklar blandas inte på samma plats. Garagekapaciteten kan ändras genom konfigurationen.
+---
 
-## Teknik
+## Project Overview
 
-- C# och .NET 10.
-- Visual Studio Community 2026.
-- Spectre.Console för konsolpresentation.
-- `System.Text.Json` för konfiguration.
-- Git och GitHub för versionshantering.
+Projektet vidareutvecklar Prague Parking V1 till ett objektorienterat parkeringssystem.
 
-## Lösning och struktur
+Systemet ska hantera:
 
-- `PragueParkingV2` – huvudprojekt med `Program.cs`, domänmodellen och användargränssnittet.
-- `PragueParkingV2.Data` – separat klassbibliotek med konfigurationsmodellen och `ConfigurationService`; parkeringspersistens planeras här.
-- `PragueParkingV2/Domain` – fordon, parkeringsplatser, garage, avgiftsberäkning och utcheckningslogik.
-- `PragueParkingV2/UI` – `MessageService` och `GarageOverView`.
-- `PragueParkingV2/Config/config.json` – projektets JSON-konfiguration, som kopieras till körmiljön.
-- `docs` – krav, designbeslut, klassdiagram, konfiguration och planerad parkeringsdata.
-- `LOGGBOK.md` – löpande utvecklingslogg.
+- Incheckning av fordon.
+- Utcheckning och parkeringsavgifter.
+- Sökning efter parkerade fordon.
+- Flytt av fordon mellan parkeringsplatser.
+- Visuell presentation av parkeringshuset.
+- Konfigurerbara parkeringsregler och priser.
+- Permanent lagring av parkeringsinformation.
 
-## Implementerat
+Den första versionen, Prague Parking 2.0, utvecklas för betygsnivå G.
 
-### Domänmodell
+En separat vidareutveckling, Prague Parking 2.1, planeras för VG.
 
-- Abstrakt `Vehicle` med `Identifier` och UTC-baserad `ArrivalTime`.
-- `Car` och `MC` ärver från `Vehicle`.
-- `ParkingSpot` hanterar fordon på en plats och hindrar ogiltiga kombinationer.
-- `ParkingGarage` skapar platser, hittar första lediga platsen, parkerar, söker och tar bort fordon.
-- Dubblettkontroll av fordonsidentifierare utan skillnad på versaler/gemener.
+---
 
-### Konfiguration
+## Technologies
 
-- `ConfigurationService` läser och validerar `config.json`.
-- Saknad runtime-konfiguration återskapas med standardvärden.
-- Ogiltig befintlig konfiguration avvisas med felmeddelande.
-- Konfiguration innehåller priser, gratisminuter, antal platser, tidszon och fordonskapacitet.
+| Technology | Usage |
+|---|---|
+| C# | Programming language |
+| .NET 10 | Application framework |
+| Spectre.Console | Console user interface |
+| System.Text.Json | JSON configuration |
+| Git | Version control |
+| GitHub | Source repository |
+| Visual Studio 2026 | Development environment |
 
-### Prisberäkning och utcheckning
+---
 
-- `ParkingFeeCalculator` beräknar avgifter efter påbörjad timme.
-- Parkering kortare än gratisgränsen debiteras inte.
-- `UpdatePricing()` kan ändra aktiva priser i befintlig kalkylatorinstans; omläsning från meny återstår.
-- `ParkingFeeResult` återger resultatet av prisberäkningen.
-- `CheckoutService` samordnar sökning, avgiftsberäkning och borttagning.
-- `CheckoutResult` lämnar strukturerade utcheckningsuppgifter till kommande UI-flöde.
+## Solution Structure
 
-### Användargränssnitt
+```text
+PragueParkingV2
+│
+├── Domain
+│   ├── Vehicle.cs
+│   ├── Car.cs
+│   ├── MC.cs
+│   ├── ParkingSpot.cs
+│   ├── ParkingGarage.cs
+│   ├── ParkingFeeCalculator.cs
+│   ├── ParkingFeeResult.cs
+│   ├── CheckoutService.cs
+│   └── CheckoutResult.cs
+│
+├── UI
+│   ├── MainMenu.cs
+│   ├── AppTheme.cs
+│   ├── GarageOverView.cs
+│   └── MessageService.cs
+│
+├── Config
+│   └── config.json
+│
+└── Program.cs
 
-- `MessageService` visar tydliga paneler för information, varningar, fel och lyckade åtgärder.
-- `GarageOverView` visar en parkeringskarta med `Grid` och individuella `Panel`-rutor.
-- Fem kolumner och högst fem rader per sida, totalt upp till 25 platser per sida.
-- Dynamiskt sidantal baserat på faktiskt antal parkeringsplatser.
-- Navigering med piltangenter, sidbyte med Page Up/Page Down samt ESC för att lämna vyn.
-- Aktiv ruta markeras med `LightGoldenrod1`; övriga ramar är vita.
-- `FREE` är grönt, delvis upptagen plats orange och full plats röd enligt presentationslogiken.
-- `SPOT DETAILS` visar en grundläggande sammanställning för vald plats.
-- Sidfot med sidnummer, platsintervall, totalt antal platser och tangentkommandon.
+PragueParkingV2.Data
+│
+└── Configuration
+    ├── AppConfiguration.cs
+    └── ConfigurationService.cs
+```
 
-## Starta projektet
+Domänlogik, användargränssnitt och dataåtkomst hålls separerade.
 
-1. Öppna solutionen `PragueParkingV2` i Visual Studio Community 2026 med .NET 10 installerat.
-2. Välj konsolprojektet `PragueParkingV2` som startprojekt.
-3. Kontrollera att `Config/config.json` ingår i projektet och kopieras till utmatningskatalogen.
-4. Bygg lösningen och starta projektet.
+---
 
-Konfigurationsfilen läses från `Config/config.json` under programmets körkatalog (`AppContext.BaseDirectory`). Vid nuvarande start visas garageöversikten; något komplett huvudmenysystem finns ännu inte.
+## Domain Model
 
-## Grundinställningar
+### Vehicle
 
-| Inställning | Standardvärde |
-| --- | --- |
-| Antal parkeringsplatser | 100 |
-| Gratis parkering | Kortare än 10 minuter |
-| Bil per påbörjad timme | 20 CZK |
-| MC per påbörjad timme | 10 CZK |
-| Bilar per parkeringsplats | 1 |
-| MC per parkeringsplats | 2 |
-| Tidszon för presentation | `Europe/Prague` |
+Abstrakt basklass för samtliga fordonstyper.
 
-Internt används UTC för ankomsttid och prisberäkning. Mer information finns i `docs/configuration.md`.
+Innehåller:
 
-## Tester och återstående arbete
+- Identifier
+- ArrivalTime
 
-Manuella tester av domänlogik, konfiguration, prisberäkning och checkout har dokumenterats i `LOGGBOK.md`. Garageöversikten är visuellt kontrollerad med ett tomt garage, men behöver testas med parkerade fordon, särskilt delvis upptagna MC-platser.
+Ankomsttiden registreras i UTC.
 
-Kvar i G-versionen:
+### Car
 
-- Fullständigt användarflöde för incheckning i UI.
-- Fullständigt användarflöde för utcheckning i UI.
-- Flyttfunktion och tillhörande UI.
-- Permanent sparande och återläsning av parkeringsdata i `parking-data.json`.
-- Prisomläsning från `config.json` via ett menyval.
-- Utökad detaljpanel i garageöversikten med fordonstyp, identifierare och ankomsttid.
-- Sluttester av beläggningsfärger, navigeringsgränser och olika terminalstorlekar.
-- Slutlig dokumentation och leverans.
+Representerar en bil och ärver från Vehicle.
 
-Den befintliga UI-etiketten `Vehicle ID` i detaljpanelen visar för tillfället ett antal och behöver korrigeras när panelen färdigställs.
+### MC
 
-## VG – separat fortsättning
+Representerar en motorcykel och ärver från Vehicle.
 
-Efter färdig G-version planeras Prague Parking 2.1 i ett separat projekt i samma solution. Den versionen tillför bland annat minst två interfaces, `Bicycle`, `Bus`, storleksbaserad kapacitet, fyra angränsande platser för buss inom de första 50 platserna samt omläsning och validering av hela konfigurationen. VG är ännu inte implementerad.
+### ParkingSpot
 
-## Dokumentation
+Representerar en parkeringsplats.
 
-- `docs/requirements.md` – kravmatris och verifieringsstatus.
-- `docs/class-diagram.md` – aktuell domänmodell i Mermaid.
-- `docs/design-decisions.md` – dokumenterade designval.
-- `docs/project-plan.md` – genomförande och nästa steg.
-- `docs/configuration.md` – konfigurationsformat och validering.
-- `docs/parking-data.md` – planerad parkeringsdata.
-- `LOGGBOK.md` – utvecklingsdagbok med tester och reflektioner.
+Ansvarar för:
 
-## GitHub och inlämning
+- Parkeringsplatsnummer.
+- Parkerade fordon.
+- Kapacitetskontroll.
+- Parkering av fordon.
+- Sökning efter fordon.
+- Borttagning av fordon.
 
-Projektet versionshanteras med Git. Repositoryt hålls privat under utvecklingen och ska vara publikt vid inlämningen enligt uppgiftskraven. Inlämningen ska länka till hela repositoryt.
+### ParkingGarage
+
+Representerar parkeringshuset.
+
+Ansvarar för:
+
+- Skapande av parkeringsplatser.
+- Tilldelning av lämplig plats.
+- Parkering.
+- Sökning.
+- Borttagning.
+- Kontroll av dubbla fordonsidentifierare.
+
+### ParkingFeeCalculator
+
+Ansvarar för beräkning av parkeringsavgifter.
+
+Stöder:
+
+- Timpriser för Car och MC.
+- Debitering per påbörjad timme.
+- Konfigurerbar gratisgräns.
+- Uppdatering av aktiva priser.
+
+### CheckoutService
+
+Samordnar utcheckningsprocessen.
+
+Processen består av:
+
+1. Söka efter fordon.
+2. Beräkna parkeringsavgift.
+3. Ta bort fordonet.
+4. Returnera CheckoutResult.
+
+---
+
+## Configuration
+
+Applikationen använder `config.json`.
+
+Konfigurationen innehåller:
+
+- Parkeringspriser.
+- Gratisminuter.
+- Antal parkeringsplatser.
+- Tidszon.
+- Kapacitetsregler för fordonstyper.
+
+### Default Configuration
+
+| Setting | Value |
+|---|---|
+| Parking Spots | 100 |
+| Car Hourly Price | 20 CZK |
+| MC Hourly Price | 10 CZK |
+| Free Parking | Less than 10 minutes |
+| Car Capacity | 1 per spot |
+| MC Capacity | 2 per spot |
+| Time Zone | Europe/Prague |
+
+Konfigurationen läses vid programstart.
+
+En saknad runtime-konfiguration kan återskapas automatiskt med standardvärden.
+
+Befintlig konfiguration valideras innan den används.
+
+---
+
+## User Interface
+
+Applikationens användargränssnitt utvecklas med Spectre.Console.
+
+### Main Menu
+
+En interaktiv huvudmeny har implementerats.
+
+Menyval:
+
+1. Park Vehicle
+2. Check Out Vehicle
+3. Move Vehicle
+4. Find Vehicle
+5. Garage Overview
+6. Administration
+7. Exit
+
+Navigering sker med piltangenterna.
+
+Enter väljer funktion och ESC kan avsluta huvudmenyn.
+
+Garage Overview är kopplad till huvudmenyn.
+
+Övriga menyfunktioner är ännu under utveckling.
+
+### Visual Theme
+
+Applikationen använder ett gemensamt färgtema inspirerat av Sveriges flagga.
+
+Temat hanteras genom `AppTheme`.
+
+Färgpaletten innehåller:
+
+| Element | Color |
+|---|---|
+| Background | Dark Blue |
+| Primary Accent | Swedish Gold |
+| Title Gradient | Light Gold / Gold / Dark Gold |
+| Main Text | White |
+| Secondary Text | Light Blue Grey |
+| Panel Borders | Blue |
+
+Färgtemat är avsett att ge hög kontrast och god läsbarhet.
+
+Bakgrundsrenderingen har vidareutvecklats för att minska skillnader mellan terminalens standardfärg och applikationens färgtema.
+
+Kompatibilitet med olika terminaler behöver fortsatt verifieras.
+
+### Console Rendering
+
+Huvudmenyn använder positionsbaserad rendering.
+
+Panelen placeras centralt utifrån terminalens bredd och höjd.
+
+Vid navigering uppdateras endast de menyval som ändras.
+
+Det minskar behovet av att rita om hela konsolen.
+
+En alternativ meny med Spectre.Console SelectionPrompt kan användas om terminalfönstret är för litet för den ordinarie layouten.
+
+---
+
+## Garage Overview
+
+Garageöversikten använder Spectre.Console Grid och Panel.
+
+### Parking Grid
+
+- 25 parkeringsplatser per sida.
+- Fem kolumner.
+- Fem rader.
+- Dynamisk pagination.
+- Individuella parkeringspaneler.
+- Markering av vald parkeringsplats.
+- Färgkodning av beläggning.
+
+### Parking Status
+
+| Status | Color |
+|---|---|
+| FREE | Green |
+| PARTIALLY OCCUPIED | Orange |
+| FULL | Red |
+| SELECTED SPOT | Gold |
+
+### Navigation
+
+| Key | Action |
+|---|---|
+| Arrow Up | Previous row |
+| Arrow Down | Next row |
+| Arrow Left | Previous spot |
+| Arrow Right | Next spot |
+| Page Up | Previous page |
+| Page Down | Next page |
+| ESC | Return to Main Menu |
+
+---
+
+## Spot Details
+
+En informationspanel visar detaljer om den markerade parkeringsplatsen.
+
+Panelen vidareutvecklas för att visa:
+
+- Parkeringsplatsnummer.
+- Parkeringsstatus.
+- Beläggning.
+- Fordonstyp.
+- Fordonsidentifierare.
+- Ankomsttid.
+- Aktuell parkeringstid.
+
+Samtliga parkerade fordon på platsen ska visas.
+
+Det innebär exempelvis att båda motorcyklarna presenteras när två MC delar samma parkeringsplats.
+
+### Duration
+
+Parkeringstiden beräknas från fordonets ArrivalTime.
+
+Exempel:
+
+```text
+35m
+2h 15m
+1d 3h 20m
+```
+
+Tidsberäkningen använder UTC.
+
+Ankomsttiden konverteras till den konfigurerade tidszonen vid presentation.
+
+Duration beräknas vid rendering och lagras inte permanent i fordonsobjektet.
+
+Detaljpanelen behöver fortfarande verifieras med parkerade fordon.
+
+---
+
+## Current Development Status
+
+### Implemented or Started
+
+- Object-oriented domain model.
+- Vehicle inheritance.
+- Parking capacity validation.
+- Configuration loading and validation.
+- Parking fee calculation.
+- Checkout domain service.
+- Main menu.
+- Shared UI theme.
+- Interactive garage overview.
+- Keyboard navigation.
+- Dynamic pagination.
+- Parking status visualization.
+- Spot Details development.
+
+### Remaining Work
+
+- Complete Park Vehicle UI.
+- Complete Check Out Vehicle UI.
+- Implement Move Vehicle.
+- Implement Find Vehicle UI.
+- Implement Administration menu.
+- Implement parking-data.json persistence.
+- Implement pricing reload through the menu.
+- Verify Spot Details with parked vehicles.
+- Test terminal compatibility and rendering.
+- Complete integration testing.
+
+---
+
+## Testing
+
+Manuella tester har genomförts för:
+
+- Konfigurationsinläsning.
+- Konfigurationsvalidering.
+- Parkeringskapacitet.
+- Dubblettkontroll.
+- Prisberäkning.
+- Gratis parkering.
+- CheckoutService.
+- Grundläggande garageöversikt.
+- Huvudmenyns navigering.
+
+Ytterligare tester krävs innan Prague Parking 2.0 kan betraktas som färdig.
+
+---
+
+## Prague Parking 2.1
+
+VG-versionen ska utvecklas som ett separat projekt i samma solution.
+
+Planerade funktioner:
+
+- Minst två interfaces.
+- Bicycle.
+- Bus.
+- Storleksbaserad kapacitet.
+- Bussparkering på fyra sammanhängande platser.
+- Konfigurerbara fordonsstorlekar.
+- Omläsning och validering av hela konfigurationen.
+- Individuell reflektion.
+
+VG-versionen är ännu inte implementerad.
+
+---
+
+## Documentation
+
+Projektets dokumentation omfattar:
+
+- README.md
+- LOGGBOK.md
+- requirements.md
+- project-plan.md
+- design-decisions.md
+- class-diagram.md
+- configuration.md
+- parking-data.md
+
+Dokumentationen uppdateras löpande efter genomförda utvecklingsmoment.
+
+---
+
+## GitHub
+
+Projektet versionshanteras med Git och GitHub.
+
+Repositoryt hålls privat under utvecklingen.
+
+Det ska göras publikt inför inlämningen enligt uppgiftens krav.
+
+---
+
+## Academic Project
+
+**Project:** Prague Parking V2  
+**Assignment:** C# Programming – Assignment 2  
+**School:** KYH  
+**Program:** Systemutvecklare DevSecOps  
+**Academic Year:** 2026  
+**Author:** Rami Issa
+
+This project was developed as the second individual assignment
+in the C# programming course at KYH.
+
+The assignment focuses on object-oriented programming,
+application architecture, data persistence, and console-based
+user interfaces using C# and .NET 10.

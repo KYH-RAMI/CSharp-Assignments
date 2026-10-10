@@ -22,10 +22,12 @@ namespace PragueParkingV2.UI
 
             while (true)
             {
-                AnsiConsole.Clear();
+                AppTheme.PrepareScreen();
 
                 AnsiConsole.MarkupLine(
-                    "[bold cyan]GARAGE OVERVIEW[/]");
+                    $"[bold {AppTheme.GoldLight}]GARAGE[/] " +
+                    $"[bold {AppTheme.Gold}]OVER[/]" +
+                    $"[bold {AppTheme.GoldDark}]VIEW[/]");
 
                 AnsiConsole.WriteLine();
 
@@ -117,14 +119,111 @@ namespace PragueParkingV2.UI
                     grid.AddRow(cells);
                 }
 
-                var detailsPanel = new Panel(
-                    new Markup(
-                        $"[bold]Spot:[/] {selectedSpot.SpotNumber:D3}\n" +
-                        $"[bold]Vehicle ID:[/] {selectedSpot.ParkedVehicles.Count}"))
+                var detailLines = new List<string>
+{
+    $"[bold {AppTheme.Gold}]PARKING SPOT {selectedSpot.SpotNumber:D3}[/]",
+    ""
+};
+
+                int vehicleCount = selectedSpot.ParkedVehicles.Count;
+
+                if (vehicleCount == 0)
                 {
-                    Header = new PanelHeader(" SPOT DETAILS "),
+                    detailLines.Add("Status: [green]FREE[/]");
+                    detailLines.Add("Occupancy: 0");
+                    detailLines.Add("");
+
+                    detailLines.Add(
+                        $"[bold {AppTheme.GoldLight}]AVAILABLE CAPACITY[/]");
+
+                    detailLines.Add(
+                        $"Car: {configuration.VehicleTypes!["Car"].VehiclesPerSpot}");
+
+                    detailLines.Add(
+                        $"MC:  {configuration.VehicleTypes!["MC"].VehiclesPerSpot}");
+                }
+                else
+                {
+                    var firstVehicle = selectedSpot.ParkedVehicles[0];
+
+                    string vehicleType = firstVehicle switch
+                    {
+                        Car => "Car",
+                        MC => "MC",
+                        _ => throw new NotSupportedException(
+                            $"Vehicle type '{firstVehicle.GetType().Name}' is not supported.")
+                    };
+
+                    int capacity =
+                        configuration.VehicleTypes![vehicleType].VehiclesPerSpot;
+
+                    bool isFull = vehicleCount >= capacity;
+
+                    string status = isFull ? "FULL" : "PARTIALLY OCCUPIED";
+                    string statusColor = isFull ? "red" : "orange1";
+
+                    detailLines.Add($"Status: [{statusColor}]{status}[/]");
+                    detailLines.Add($"Occupancy: {vehicleCount} / {capacity}");
+                    detailLines.Add("");
+
+                    var timeZone = TimeZoneInfo.FindSystemTimeZoneById(
+                        configuration.System!.TimeZone!);
+
+                    DateTime nowUtc = DateTime.UtcNow;
+
+                    for (int i = 0; i < vehicleCount; i++)
+                    {
+                        var vehicle = selectedSpot.ParkedVehicles[i];
+
+                        string type = vehicle switch
+                        {
+                            Car => "Car",
+                            MC => "MC",
+                            _ => throw new NotSupportedException(
+                                $"Vehicle type '{vehicle.GetType().Name}' is not supported.")
+                        };
+
+                        DateTime localArrival = TimeZoneInfo.ConvertTimeFromUtc(
+                            vehicle.ArrivalTime,
+                            timeZone);
+
+                        TimeSpan duration = nowUtc - vehicle.ArrivalTime;
+
+                        detailLines.Add(
+                            $"[bold {AppTheme.GoldLight}]VEHICLE {i + 1}[/]");
+
+                        detailLines.Add($"Type: {type}");
+
+                        detailLines.Add(
+                            $"ID: {Markup.Escape(vehicle.Identifier)}");
+
+                        detailLines.Add(
+                            $"Arrival: {localArrival:yyyy-MM-dd HH:mm}");
+
+                        detailLines.Add(
+                            $"Duration: {FormatDuration(duration)}");
+
+                        if (i < vehicleCount - 1)
+                        {
+                            detailLines.Add("");
+                        }
+                    }
+                }
+
+                var detailsPanel = new Panel(
+                    new Markup(string.Join("\n", detailLines)))
+                {
+                    Header = new PanelHeader(
+                        $"[bold {AppTheme.Gold}] SPOT DETAILS [/]"),
+
                     Border = BoxBorder.Rounded,
-                    Width = 35
+
+                    BorderStyle = new Style(
+                        foreground: AppTheme.BorderColor),
+
+                    Width = 40,
+
+                    Padding = new Padding(1, 0, 1, 0)
                 };
 
                 var columns = new Columns(grid, detailsPanel)
@@ -137,19 +236,31 @@ namespace PragueParkingV2.UI
 
                 AnsiConsole.WriteLine();
 
-                AnsiConsole.MarkupLine(
-                    $"[bold Red]PAGE {currentPage:00} / {totalPages:00}[/]  " +
-                    $"[grey]|[/]  " +
-                    $"[white]SPOTS {pageSpots[0].SpotNumber:D3}-{pageSpots[^1].SpotNumber:D3}[/]  " +
-                    $"[grey]|[/]  " +
-                    $"[white]TOTAL {totalSpots}[/]");
+                var footer = new Panel(
+                    new Markup(
+                        $"[bold {AppTheme.Gold}]PAGE {currentPage:00} / {totalPages:00}[/]" +
+                        $"   [{AppTheme.Muted}]│[/]   " +
+                        $"[{AppTheme.Text}]SPOTS {pageSpots[0].SpotNumber:D3}–{pageSpots[^1].SpotNumber:D3}[/]" +
+                        $"   [{AppTheme.Muted}]│[/]   " +
+                        $"[{AppTheme.Text}]TOTAL {totalSpots}[/]\n\n" +
+                        $"[{AppTheme.GoldLight}]← ↑ ↓ →[/] " +
+                        $"[{AppTheme.Muted}]Navigate[/]" +
+                        $"   [{AppTheme.Muted}]│[/]   " +
+                        $"[{AppTheme.GoldLight}]PgUp / PgDn[/] " +
+                        $"[{AppTheme.Muted}]Pages[/]" +
+                        $"   [{AppTheme.Muted}]│[/]   " +
+                        $"[{AppTheme.GoldLight}]ESC[/] " +
+                        $"[{AppTheme.Muted}]Back[/]"
+                        ))
+                {
+                    Border = BoxBorder.Rounded,
 
-                AnsiConsole.MarkupLine(
-                    "[grey]Navigate:[/] [white]Arrow Keys[/]   " +
-                    "[grey]|[/]   " +
-                    "[grey]Pages:[/] [white]PgUp / PgDn[/]   " +
-                    "[grey]|[/]   " +
-                    "[grey]Exit:[/] [white]ESC[/]");
+                    BorderStyle = new Style(foreground: AppTheme.BorderColor),
+                    Width = 80,
+                    Padding = new Padding(2, 1, 2, 1)
+                };
+
+                AnsiConsole.Write(footer);
 
                 var key = Console.ReadKey(intercept: true).Key;
 
@@ -189,7 +300,28 @@ namespace PragueParkingV2.UI
                     case ConsoleKey.Escape:
                         return;
                 }
+
             }
+
+        }
+        private static string FormatDuration(TimeSpan duration)
+        {
+            if (duration < TimeSpan.Zero)
+            {
+                return "Invalid time";
+            }
+
+            if (duration.Days > 0)
+            {
+                return $"{duration.Days}d {duration.Hours}h {duration.Minutes}m";
+            }
+
+            if (duration.Hours > 0)
+            {
+                return $"{duration.Hours}h {duration.Minutes}m";
+            }
+
+            return $"{duration.Minutes}m";
         }
     }
 }

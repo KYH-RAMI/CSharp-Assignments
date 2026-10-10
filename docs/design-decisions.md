@@ -1,6 +1,6 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-09
+**Uppdaterad:** 2026-10-10
 
 ## DD-001 – Separation mellan UI, domän och dataåtkomst
 
@@ -175,3 +175,117 @@ Parkeringsregler och kapacitetskontroll hanteras fortsatt av domänlagret.
 - Verifiering med parkerade fordon.
 - Kontroll av navigeringsgränser.
 - Kontroll av layout vid olika terminalstorlekar.
+
+---
+
+## DD-021 – Gemensamt UI-tema med AppTheme
+
+**Datum:** 2026-10-10
+
+### Beslut
+
+Prague Parking V2 använder en gemensam klass, `AppTheme`, för att definiera applikationens visuella färgtema.
+
+Temat inspireras av svenska flaggans blå och gula färger.
+
+### Motivering
+
+Tidigare använde olika UI-komponenter separata färgdefinitioner.
+
+Detta riskerade att skapa ett inkonsekvent användargränssnitt.
+
+Genom att centralisera färgpaletten kan flera komponenter använda samma färger.
+
+### Genomförande
+
+AppTheme innehåller:
+
+- Bakgrundsfärg.
+- Primär textfärg.
+- Sekundär textfärg.
+- Guldaccenter.
+- Panelramarnas färg.
+- Funktioner för konsolpresentation.
+
+Färgtemat används i huvudmenyn.
+
+Garageöversikten anpassas successivt till samma tema.
+
+### Fördelar
+
+- Enhetlig grafisk identitet.
+- Enklare underhåll.
+- Minskad duplicering av färgdefinitioner.
+- Möjlighet att ändra tema centralt.
+
+### Begränsningar
+
+Alla terminaler stöder inte samma färgdjup eller ANSI-funktioner.
+
+Terminalkompatibilitet måste därför verifieras.
+
+---
+
+## DD-022 – Positionsbaserad huvudmeny med selektiv rendering
+
+**Datum:** 2026-10-10
+
+### Beslut
+
+Huvudmenyn använder positionsbaserad konsolrendering för att styra placering och navigering.
+
+I stället för att rita om hela huvudmenyn vid varje tangenttryckning uppdateras endast de menyval vars markeringsstatus förändras.
+
+### Bakgrund
+
+Den första implementationen använde Spectre.Console SelectionPrompt.
+
+Därefter utvecklades en anpassad meny med individuella färger och paneler.
+
+När hela konsolen ritades om vid varje tangenttryckning uppstod synligt flimmer.
+
+Spectre.Console Live testades för att minska detta.
+
+Live-renderingen minskade flimret men skapade komplikationer tillsammans med den anpassade bakgrundsrenderingen.
+
+### Genomförande
+
+Huvudmenyn använder:
+
+- Console.ReadKey().
+- Console.SetCursorPosition().
+- En markerad menyposition.
+- Separata metoder för menykomponenternas presentation.
+- Uppdatering av tidigare och nytt markerat menyval.
+
+### Fördelar
+
+- Mindre onödig konsolrendering.
+- Tydligare kontroll över menyplacering.
+- Mjukare navigering.
+- Möjlighet att centrera menyn.
+- Sammanhängande användargränssnitt.
+
+### Reservlösning
+
+Om terminalfönstret är för litet används en enklare meny baserad på Spectre.Console SelectionPrompt.
+
+### Arkitektur
+
+MainMenu tillhör UI-lagret.
+
+Klassen ansvarar för:
+
+- Presentation.
+- Tangentbordsnavigering.
+- Val av funktion.
+- Öppning av andra UI-vyer.
+
+Parkeringsreglerna ligger fortsatt i domänlagret.
+
+### Fortsatt arbete
+
+- Verifiera terminalkompatibilitet.
+- Kontrollera konsolbakgrundens återställning.
+- Testa navigering vid ändrad terminalstorlek.
+- Säkerställa att UI-funktioner återgår korrekt till huvudmenyn.
