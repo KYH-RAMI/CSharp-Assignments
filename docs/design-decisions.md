@@ -1,6 +1,9 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-10
+**Uppdaterad:** 2026-10-10  
+**Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
+
+Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
 
 ## DD-001 – Separation mellan UI, domän och dataåtkomst
 
@@ -8,7 +11,7 @@
 
 **Motivering:** Gränssnittet kan ändras utan att fordon och parkeringsregler påverkas.
 
-JSON-hantering placeras i det separata Data-projektet.
+JSON-hantering placeras i det separata Data-projektet. Dataåtkomst ska inte blandas med UI-kod eller domänregler.
 
 ## DD-002 – Gemensam abstrakt basklass för fordon
 
@@ -30,13 +33,15 @@ För `Car` och `MC` motsvarar identifieraren normalt registreringsnummer.
 
 **Motivering:** UI och garageklass ska kunna läsa beläggningen utan att direkt manipulera parkeringsplatsens interna lista.
 
+`IReadOnlyList<T>` begränsar vad en anropare kan göra genom egenskapen. Den interna samlingen hanteras fortsatt av `ParkingSpot`.
+
 ## DD-005 – Fordon lagrar inte parkeringsplatsnummer
 
 **Beslut:** `Vehicle` lagrar inte `SpotNumber`.
 
 **Motivering:** Fordonets placering avgörs av vilken `ParkingSpot` som innehåller objektet.
 
-Detta undviker dubbellagrad information.
+Detta undviker dubbellagrad information i G-versionen. VG-versionens bussar kräver en särskild modell för beläggning av flera platser; det beslutet behandlas i DD-026.
 
 ## DD-006 – Garageklassen samordnar placering och sökning
 
@@ -44,17 +49,23 @@ Detta undviker dubbellagrad information.
 
 **Motivering:** En parkeringsplats hanterar sina lokala regler medan garaget hanterar hela samlingen.
 
+`ParkingGarage` kontrollerar även om en fordonsidentifierare redan finns innan en ny parkering genomförs.
+
 ## DD-007 – Kapacitetsmodell i G-versionen
 
 **Beslut:** Antalet fordon per parkeringsplats konfigureras separat för `Car` och `MC` via `VehiclesPerSpot`.
 
 **Motivering:** G-versionen kan hantera en bil eller två MC per plats utan att införa VG-versionens generella storleksenheter i förtid.
 
+Fordonskapaciteten hämtas från konfigurationen och skickas till parkeringslogiken. Olika fordonstyper blandas inte på samma plats i den nuvarande G-modellen.
+
 ## DD-008 – JSON som filformat
 
-**Beslut:** Konfiguration och framtida parkeringsdata lagras i JSON.
+**Beslut:** Konfiguration och planerade permanenta parkeringsdata lagras i JSON.
 
 **Motivering:** Formatet är läsbart, kan hanteras med `System.Text.Json` och uppfyller projektets filkrav.
+
+Permanent lagring av parkeringsdata är ännu inte implementerad.
 
 ## DD-009 – Separata filer för konfiguration och parkeringsdata
 
@@ -68,7 +79,7 @@ Detta undviker dubbellagrad information.
 
 **Motivering:** Tomma parkeringsplatser kan återskapas utifrån konfigurerat garageantal.
 
-**Status:** Ännu inte implementerat.
+**Status:** Ännu inte implementerat. Den beslutade JSON-strukturen beskrivs i `parking-data.md` och DD-025.
 
 ## DD-011 – UTC för tidpunkter
 
@@ -76,7 +87,7 @@ Detta undviker dubbellagrad information.
 
 **Motivering:** Beräkningarna ska vara konsekventa oberoende av lokala tidsomställningar.
 
-Tidszon för presentation anges i konfigurationen.
+Tidszon för presentation anges i konfigurationen, med `Europe/Prague` som standard. Vid framtida återställning från JSON ska fordonets ursprungliga UTC-ankomsttid bevaras.
 
 ## DD-012 – Samlad JSON-konfiguration med priser först
 
@@ -84,11 +95,15 @@ Tidszon för presentation anges i konfigurationen.
 
 **Motivering:** Administratören kan ändra priser och inställningar utan att kompilera om programmet.
 
+Nya filvärden börjar inte automatiskt användas av en redan körande instans. Omläsning hanteras separat.
+
 ## DD-013 – Skapa saknad runtime-konfiguration
 
 **Beslut:** Om programmets runtime-`config.json` saknas får en standardkonfiguration skapas.
 
 **Motivering:** Första starten kan ske med dokumenterade standardvärden.
+
+Detta gäller runtime-filen, inte en automatisk omskrivning av projektets ursprungliga konfigurationsfil.
 
 ## DD-014 – Avvisa felaktig befintlig konfiguration
 
@@ -108,7 +123,7 @@ Tidszon för presentation anges i konfigurationen.
 
 **Motivering:** Nya priser ska kunna tas i bruk utan att bygga om hela domänmodellen.
 
-Menybaserad filomläsning återstår.
+Menybaserad omläsning av prislistan återstår för G-versionen. Omläsning av **hela** konfigurationen tillhör VG-kraven.
 
 ## DD-017 – Read-only resultat för prisberäkning
 
@@ -120,7 +135,9 @@ Menybaserad filomläsning återstår.
 
 **Beslut:** `CheckoutService` ansvarar för sökning, prisberäkning och borttagning, i den ordningen.
 
-**Motivering:** Fordonet ska inte tas bort innan en korrekt avgift kunnat beräknas.
+**Motivering:** Fordonet ska inte tas bort innan en korrekt avgift har kunnat beräknas.
+
+**Status:** Domänlogiken har tidigare testats separat. Ett färdigt UI-flöde och koppling till permanent lagring återstår.
 
 ## DD-019 – Strukturerat utcheckningsresultat
 
@@ -144,7 +161,7 @@ Individuella paneler ger dessutom möjlighet att framhäva hela den markerade pa
 
 ### Genomförande
 
-- `ParkingGarage.ParkingSpots` sorteras efter `SpotNumber`.
+- `ParkingGarage.ParkingSpots` ordnas efter `SpotNumber`.
 - Parkeringsplatserna delas upp i sidor med `Skip()` och `Take()`.
 - Antalet sidor beräknas dynamiskt utifrån garagekapaciteten.
 - Varje parkeringsplats presenteras i en individuell `Panel`.
@@ -153,11 +170,11 @@ Individuella paneler ger dessutom möjlighet att framhäva hela den markerade pa
 - Page Up och Page Down används för sidbyte.
 - ESC lämnar garageöversikten.
 - Vid sidbyte återställs markeringen till första platsen.
-- `LightGoldenrod1` används för markeringen.
-- Omarkerade parkeringsplatser använder vita ramar.
-- Grön, orange och röd status används för ledig, delvis upptagen och full parkeringsplats.
+- Markeringens och panelernas färger följer numera `AppTheme` i stället för tidigare fristående färgval som `LightGoldenrod1` och vita ramar.
+- Grön, orange och röd status används för ledig, delvis upptagen respektive full parkeringsplats.
 - Kapacitetsinformationen hämtas från `AppConfiguration`.
 - `Columns` används för att placera parkeringskartan bredvid informationspanelen `SPOT DETAILS`.
+- Informationspanelen visar detaljer om vald plats; tidpunkter presenteras i konfigurerad lokal tidszon.
 
 ### Arkitektur
 
@@ -171,10 +188,10 @@ Parkeringsregler och kapacitetskontroll hanteras fortsatt av domänlagret.
 
 ### Kvarstående arbete
 
-- Utökade platsdetaljer.
-- Verifiering med parkerade fordon.
-- Kontroll av navigeringsgränser.
-- Kontroll av layout vid olika terminalstorlekar.
+- Integrationstesta översikten med faktiskt parkerade fordon, inklusive två MC på samma plats.
+- Verifiera statusfärgerna för ledig, delvis upptagen och full plats.
+- Kontrollera navigeringens gränsfall och sista sidan vid andra platsantal än multiplar av 25.
+- Kontrollera layout vid olika terminalstorlekar.
 
 ---
 
@@ -184,7 +201,7 @@ Parkeringsregler och kapacitetskontroll hanteras fortsatt av domänlagret.
 
 ### Beslut
 
-Prague Parking V2 använder en gemensam klass, `AppTheme`, för att definiera applikationens visuella färgtema.
+Prague Parking V2 använder en gemensam klass, `AppTheme`, för applikationens visuella tema och återanvändbara presentationsfunktioner.
 
 Temat inspireras av svenska flaggans blå och gula färger.
 
@@ -192,100 +209,182 @@ Temat inspireras av svenska flaggans blå och gula färger.
 
 Tidigare använde olika UI-komponenter separata färgdefinitioner.
 
-Detta riskerade att skapa ett inkonsekvent användargränssnitt.
+Detta riskerade att skapa ett inkonsekvent användargränssnitt och duplicerad kod.
 
-Genom att centralisera färgpaletten kan flera komponenter använda samma färger.
+Genom att centralisera färgpaletten och gemensamma panel- och menyfunktioner kan flera vyer använda samma presentationsregler.
 
 ### Genomförande
 
-AppTheme innehåller:
+`AppTheme` innehåller bland annat:
 
-- Bakgrundsfärg.
-- Primär textfärg.
-- Sekundär textfärg.
-- Guldaccenter.
-- Panelramarnas färg.
-- Funktioner för konsolpresentation.
+- Bakgrundsfärg och återställning av konsolpresentation med `PrepareScreen()` och `RestoreScreen()`.
+- Primär och sekundär textfärg.
+- Guldaccenter, panelramarnas färger och statusfärger.
+- `CreatePanel()` för gemensamt utformade paneler.
+- `ShowMenu()` för menyvisning och tangentbordsnavigering.
+- Hjälpmetoder för gemensam text- och färgpresentation.
 
-Färgtemat används i huvudmenyn.
-
-Garageöversikten anpassas successivt till samma tema.
+Temat används i huvudmenyn och garageöversikten. `MessageService` hanterar status- och felmeddelanden med samma visuella uttryck.
 
 ### Fördelar
 
 - Enhetlig grafisk identitet.
 - Enklare underhåll.
-- Minskad duplicering av färgdefinitioner.
-- Möjlighet att ändra tema centralt.
+- Minskad duplicering av färg- och layoutdefinitioner.
+- Gemensamt beteende när fler UI-vyer skapas.
 
 ### Begränsningar
 
 Alla terminaler stöder inte samma färgdjup eller ANSI-funktioner.
 
-Terminalkompatibilitet måste därför verifieras.
+Terminalkompatibilitet och återställning av bakgrunden måste därför verifieras på olika körmiljöer.
 
 ---
 
-## DD-022 – Positionsbaserad huvudmeny med selektiv rendering
+## DD-022 – Positionsbaserad och återanvändbar menynavigering
 
 **Datum:** 2026-10-10
 
 ### Beslut
 
-Huvudmenyn använder positionsbaserad konsolrendering för att styra placering och navigering.
+Menyvisning och tangentbordsnavigering samlas i `AppTheme.ShowMenu()` i stället för att varje UI-vy implementerar ett eget menysystem.
 
-I stället för att rita om hela huvudmenyn vid varje tangenttryckning uppdateras endast de menyval vars markeringsstatus förändras.
+Huvudmenyn använder den gemensamma funktionen och skickar in menyval, aktuell markering och eventuella texter för presentation.
 
 ### Bakgrund
 
-Den första implementationen använde Spectre.Console SelectionPrompt.
+Den första implementationen använde Spectre.Console `SelectionPrompt`.
 
 Därefter utvecklades en anpassad meny med individuella färger och paneler.
 
 När hela konsolen ritades om vid varje tangenttryckning uppstod synligt flimmer.
 
-Spectre.Console Live testades för att minska detta.
-
-Live-renderingen minskade flimret men skapade komplikationer tillsammans med den anpassade bakgrundsrenderingen.
+Spectre.Console Live testades också men skapade komplikationer tillsammans med den anpassade bakgrundsrenderingen.
 
 ### Genomförande
 
-Huvudmenyn använder:
+Den dokumenterade menylösningen använder:
 
-- Console.ReadKey().
-- Console.SetCursorPosition().
-- En markerad menyposition.
-- Separata metoder för menykomponenternas presentation.
-- Uppdatering av tidigare och nytt markerat menyval.
+- `Console.ReadKey()` för inmatning.
+- Positionsbaserad konsolrendering med `Console.SetCursorPosition()` där det är tillämpligt.
+- En markerad menyposition som kan behållas mellan navigeringstillfällen.
+- Uppdatering av tidigare och nytt markerat menyval för att minska onödig omritning.
+- `AppTheme.ShowMenu()` som gemensam ingång för huvudmenyn och andra vyer.
+
+Den gamla beskrivningen av en separat menyimplementation i `MainMenu` är därmed inte längre arkitekturens avsikt. Den tidigare dokumenterade reservlösningen med `SelectionPrompt` är inte bekräftad i den aktuella koden och anges därför inte som implementerad.
 
 ### Fördelar
 
+- Mindre duplicerad kod mellan menyer.
+- Mer enhetlig navigering och presentation.
 - Mindre onödig konsolrendering.
-- Tydligare kontroll över menyplacering.
-- Mjukare navigering.
-- Möjlighet att centrera menyn.
-- Sammanhängande användargränssnitt.
-
-### Reservlösning
-
-Om terminalfönstret är för litet används en enklare meny baserad på Spectre.Console SelectionPrompt.
+- Enklare att lägga till nya funktioner i UI.
 
 ### Arkitektur
 
-MainMenu tillhör UI-lagret.
-
-Klassen ansvarar för:
-
-- Presentation.
-- Tangentbordsnavigering.
-- Val av funktion.
-- Öppning av andra UI-vyer.
+`MainMenu` ansvarar för att välja och öppna funktioner. `AppTheme` ansvarar för återanvändbar menypresentation.
 
 Parkeringsreglerna ligger fortsatt i domänlagret.
 
 ### Fortsatt arbete
 
-- Verifiera terminalkompatibilitet.
+- Verifiera tangentbordsnavigering och ESC-beteende i samtliga vyer.
 - Kontrollera konsolbakgrundens återställning.
-- Testa navigering vid ändrad terminalstorlek.
-- Säkerställa att UI-funktioner återgår korrekt till huvudmenyn.
+- Testa vid ändrad terminalstorlek och på andra terminaler.
+- Säkerställa att färdiga UI-funktioner återgår korrekt till huvudmenyn.
+
+---
+
+## DD-023 – Centraliserade statusmeddelanden
+
+**Datum:** 2026-10-10
+
+**Beslut:** `MessageService` används för återkommande meddelandetyper såsom fel, varning, information och lyckade åtgärder. Visuell utformning delas med `AppTheme`.
+
+**Motivering:** UI-vyer ska inte duplicera panelkonstruktion, färgval och väntan på användarinmatning.
+
+**Genomförande:** Gemensamma meddelandemetoder används eller återanvänds när nya vyer införs. Integration och enhetlig användning i alla vyer behöver fortfarande verifieras.
+
+**Viktig regel inför persistensen:** En parkering, flytt eller utcheckning ska inte presenteras som varaktigt sparad om skrivningen till `parking-data.json` misslyckas.
+
+---
+
+## DD-024 – Unika identifierare i hela parkeringshuset
+
+**Datum:** 2026-10-10
+
+**Beslut:** `ParkingGarage` kontrollerar om ett fordon redan finns innan nyparkering. Fordonsidentifierare jämförs utan skillnad mellan stora och små bokstäver.
+
+**Motivering:** Exempelvis `ABC123` och `abc123` ska inte kunna registreras som två separata fordon. Samma regel ska även tillämpas när sparad data återställs.
+
+**Status:** Kontroll av dubbletter och jämförelse utan hänsyn till versaler/gemener har tidigare testats i domänmodellen. Kontroll vid inläsning från JSON återstår.
+
+---
+
+## DD-025 – Fastställd struktur och säker återställning för parking-data.json
+
+**Datum:** 2026-10-10
+
+**Beslut:** Permanent parkeringsdata ska följa den redan beslutade strukturen i `parking-data.md`. Den får inte ersättas av ett platt JSON-format eller få nya obligatoriska fält utan separat beslut.
+
+**Motivering:** Platsnumret, samlingen fordon och fordonens ursprungliga ankomsttider behöver bevaras för att garaget ska kunna återskapas korrekt efter omstart.
+
+### Beslutad struktur för G-versionen
+
+```json
+{
+  "ParkingSpots": [
+    {
+      "SpotNumber": 17,
+      "Vehicles": [
+        {
+          "Identifier": "ABC123",
+          "VehicleType": "Car",
+          "ArrivalTime": "2026-10-05T14:30:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Regler för den planerade persistensen
+
+- Endast upptagna parkeringsplatser sparas.
+- Tomma parkeringsplatser återskapas enligt `config.json`.
+- Varje fordon återställs till samma plats med samma identifierare, fordonstyp och UTC-ankomsttid.
+- Återställning ska kontrollera platsnummer, fordonstyp, kapacitet och dubbletter innan ett inläst tillstånd accepteras.
+- En befintlig felaktig eller ofullständig JSON-fil får inte automatiskt ersättas med en tom fil.
+- Skrivning ska utformas så att ett avbrott inte lämnar en halvskriven huvudfil. Exakt strategi för säker filersättning bestäms vid implementationen.
+- Dataåtkomst och serialisering ska ske utanför UI och hållas separerade från domänens parkeringsregler.
+- Fordonsincheckning, utcheckning och förflyttning ska omfattas av en konsekvent sparrutin; användaren ska få ett korrekt fel om lagring misslyckas.
+
+**Status:** Designbeslut. `ParkingDataService`, återställning vid start och automatisk sparning är ännu inte implementerade eller integrationstestade. Konstruktorsöverlagringar för att återskapa `Car` och `MC` med befintlig UTC-ankomsttid behöver bekräftas mot den aktuella källkoden.
+
+---
+
+## DD-026 – VG-utökning med Bicycle och Bus utan att ändra G-formatet i förtid
+
+**Datum:** 2026-10-10
+
+**Beslut:** Prague Parking 2.1 ska utgå från den befintliga domän- och lagringsmodellen men införa storleksbaserad kapacitet och stöd för fordon som kan uppta flera sammanhängande platser.
+
+**Motivering:** Nya fordonstyper ska kunna införas utan att en fungerande G-version behöver byggas om i onödan eller dess befintliga parkeringsdata förloras.
+
+### Regler för VG-versionen
+
+- `Bicycle` = 1, `MC` = 2, `Car` = 4 och `Bus` = 16 storleksenheter.
+- En normal parkeringsplats motsvarar 4 storleksenheter.
+- En buss behöver fyra sammanhängande parkeringsplatser.
+- **Nyparkering av buss:** De fyra platserna ska ligga inom parkeringsplats 1–50.
+- **Förflyttning av buss:** En redan parkerad buss får flyttas till fyra sammanhängande lediga platser även efter plats 50.
+- Bussens identifierare och ursprungliga UTC-ankomsttid ska bevaras vid flytt.
+- Minst två interfaces och fullständig omläsning av konfigurationen ingår också i VG-arbetet.
+
+### Följder för domän och lagring
+
+Nyparkering och flytt av buss kan inte använda exakt samma placeringsbegränsning. Därför ska dessa regler vara åtskilda i den framtida domänlogiken.
+
+En buss får inte räknas som fyra oberoende fordon. En framtida utökning av JSON-modellen måste kunna representera kopplingen mellan en buss och dess fyra platser, men den exakta representationen är **inte beslutad**. G-versionens fastställda format gäller tills vidare.
+
+**Status:** Planerat för VG. Ingen buss-, cykel- eller flerplatslogik anges som implementerad.

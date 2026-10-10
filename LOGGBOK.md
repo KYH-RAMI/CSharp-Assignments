@@ -546,16 +546,68 @@ Planerat en utökad informationspanel med samtliga parkerade fordon, identifiera
 - Jag har fortsatt att hålla presentationen separat från parkeringssystemets domänlogik.
 - Jag har även fått en bättre förståelse för hur TimeSpan kan användas för att presentera parkeringstid utan att lagra information som kan beräknas vid behov.
 
+### Fortsatt arbete den 10 oktober
+
+#### Refaktorering av gemensamma UI-komponenter
+
+- Vidareutvecklat `AppTheme` som central plats för färger, paneler, bakgrund och gemensam menypresentation.
+- Samlat återanvändbar menynavigering i `AppTheme.ShowMenu()` så att varje vy inte behöver implementera samma tangentbordshantering.
+- Använt `AppTheme.CreatePanel()` som gemensam utgångspunkt för panelernas utformning.
+- Förtydligat ansvarsfördelningen: `MainMenu` väljer och öppnar funktioner, `AppTheme` hanterar gemensam presentation och `MessageService` hanterar återkommande statusmeddelanden.
+- Gått igenom hur `PrepareScreen()` och `RestoreScreen()` används för konsolens bakgrund och återställning. Kompatibiliteten med andra terminaler är ännu inte verifierad.
+
+#### GarageOverView och SPOT DETAILS
+
+- Arbetat vidare med att dela upp garageöversiktens presentation i mindre, tydligare metoder för rutnät, platsdetaljer och footer.
+- Tagit fram presentation för fordonstyp, identifierare, ankomsttid och parkeringstid utifrån befintliga domänobjekt.
+- Behållit 5 × 5-kartan, pagineringen och de konfigurationsstyrda beläggningsreglerna.
+- Anpassat färger och paneler till det gemensamma temat i `AppTheme` i stället för separata färgval i varje vy.
+- Gjort en visuell genomgång av den omarbetade layouten. Fullständiga tester med parkerade fordon, statusfärger och navigeringens gränsfall återstår.
+
+#### ParkVehicleView – påbörjat incheckningsflöde
+
+- Tagit fram kod för en separat `ParkVehicleView` där användaren kan välja `Car` eller `MC` och ange fordonsidentifierare.
+- Återanvänt `AppTheme.ShowMenu()` och `MessageService` i det planerade UI-flödet.
+- Använt befintliga domänklasser för validering, kontroll av dubbletter och tilldelning av första lämpliga parkeringsplats.
+- Förberett presentation av ankomsttid i den tidszon som anges i `config.json`.
+- **Status:** Vyn är framtagen men ett fullständigt genomgående incheckningstest och kopplingen till permanent lagring återstår. Den får inte visa att en parkering har sparats permanent förrän JSON-sparningen har lyckats.
+
+#### Parkeringsdata och framtida VG-stöd
+
+- Gått igenom den tidigare beslutade strukturen för `parking-data.json` och behållit `ParkingSpots`, `SpotNumber`, `Vehicles`, `Identifier`, `VehicleType` och `ArrivalTime`.
+- Fastställt att endast upptagna parkeringsplatser ska sparas och att parkeringsplats samt ursprunglig ankomsttid i UTC ska kunna återställas oförändrade.
+- Planerat kontroller av dubbletter, felaktiga platsnummer, okända fordonstyper och kapacitetsöverträdelser innan sparad data accepteras.
+- Beslutat att en befintlig ogiltig datafil inte ska skrivas över automatiskt. Säker skrivning och felhantering ska utformas vid implementationen.
+- Förtydligat VG-regeln för `Bus`: nyparkering kräver fyra sammanhängande platser inom nummer 1–50, men en redan parkerad buss ska kunna flyttas till fyra sammanhängande platser även längre ner i garaget.
+- Behållit G-versionens JSON-format utan att införa nya VG-fält. Bussens exakta representation över flera platser är ännu inte beslutad.
+- **Status:** `ParkingDataService`, inläsning vid start och automatisk sparning är inte implementerade. Återställningskonstruktorerna för `Car` och `MC` behöver bekräftas i aktuell kod.
+
+#### Dokumentation och framtida distribution
+
+- Gått igenom och uppdaterat dokumentationen för klassdiagram, konfiguration, designbeslut, parkeringsdata, projektplan och kravanalys.
+- Bevarat dokumentens egna mallar och skilt på **implementerat**, **verifierat** och **planerat** arbete.
+- Korrigerat projektplanens prioritering så att JSON-persistensen kommer före slutlig integration av in- och utcheckningsflödena.
+- Planerat att senare kunna distribuera en körbar Windows-version för betatestning utan att klasskamraterna behöver källkoden.
+- Diskuterat en separat framtida DevSecOps-testmiljö med Docker på Synology NAS, webbaserad terminal och begränsad åtkomst via Cloudflare. Ingen sådan driftsättning har genomförts och NAS-administrationen ska förbli privat.
+- Ingen Git-commit för den samlade dokumentationsuppdateringen har ännu utförts.
+
+### Testläge efter dagens fortsatta arbete
+
+- Tidigare manuella domäntester av kapacitet, dubblettkontroll, prisberäkning och `CheckoutService` kvarstår som genomförda.
+- Garageöversikt och huvudmeny har kontrollerats visuellt, men den senaste refaktoreringen är inte fullständigt integrationstestad.
+- Inga verifierade tester av JSON-sparning eller återställning finns ännu, eftersom persistensen inte är implementerad.
+- `ParkVehicleView` behöver testas med både Car och MC, felaktig identifierare, dubbletter, fullt garage och återgång till huvudmenyn.
+- Garageöversikten behöver testas med ledig, delvis upptagen och full plats samt med två motorcyklar på samma plats.
+- Sparfel, felaktig befintlig JSON, omstart och korrekt bevarad UTC-ankomsttid blir särskilt viktiga tester när persistensen är färdig.
+
 ### Nästa steg
 
-- Verifiera Spot Details med parkerade fordon.
-- Kontrollera att garageöversikten fungerar med det gemensamma färgtemat.
-- Testa konsolrenderingen i olika terminalstorlekar.
-- Implementera Park Vehicle i huvudmenyn.
-- Koppla befintlig parkeringslogik till användargränssnittet.
-- Implementera Check Out Vehicle i UI.
-- Fortsätta med Find Vehicle och Move Vehicle.
-- Implementera permanent lagring i parking-data.json.
-- Implementera administrationsfunktioner.
-- Fortsätta dokumentera utveckling och tester.
-
+1. Kontrollera aktuell kod i `ParkingSpot.cs`, `Program.cs` och `ConfigurationService.cs` samt konstruktorsöverlagringarna i `Car` och `MC` innan nya beroenden införs.
+2. Implementera `ParkingDataService` enligt `parking-data.md`, inklusive validerad återställning, säker sparning och korrekta fel vid misslyckad filskrivning.
+3. Testa att ett parkerat fordon finns kvar på samma plats med samma ankomsttid efter omstart.
+4. Integrera och testa `ParkVehicleView` med permanent sparning innan ett lyckat resultat visas.
+5. Integrera `CheckoutService` i UI och koppla utcheckning till sparning.
+6. Implementera och testa `Move Vehicle` och `Find Vehicle`, inklusive korrekt lagring efter flytt.
+7. Implementera administrationsmenyn med validerad omläsning av prislistan.
+8. Genomföra fullständiga G-tester, slutföra dokumentationen och först därefter påbörja VG-versionen.
+9. Förbereda körbar Windows-version och eventuell Docker-baserad betatestning först när kärnfunktionerna är stabila.
