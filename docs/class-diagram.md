@@ -275,13 +275,51 @@ Konfigurationshanteringen finns i det separata Data-projektet och omfattar bland
 
 ### Persistens
 
-Permanent lagring av parkeringsdata i `parking-data.json` är ännu inte implementerad.
+Grundläggande JSON-persistens har påbörjats i det separata
+klassbiblioteket `PragueParkingV2.Data`.
 
-Det fastställda formatet dokumenteras i `parking-data.md`. Det använder `ParkingSpots` med `SpotNumber` och en lista `Vehicles`, där varje fordon har `Identifier`, `VehicleType` och `ArrivalTime`.
+Följande klasser har implementerats:
 
-Endast upptagna parkeringsplatser ska sparas. Tomma platser återskapas från konfigurationen vid programstart.
+- `ParkingDataDocument` – representerar hela JSON-dokumentet.
+- `ParkingSpotData` – representerar en sparad parkeringsplats.
+- `VehicleData` – representerar ett sparat fordon.
+- `ParkingDataService` – ansvarar för grundläggande JSON-inläsning och sparning.
 
-Persistensen ska återställa varje fordons ursprungliga identifierare, typ, UTC-ankomsttid och parkeringsplats. En befintlig men ogiltig JSON-fil får inte automatiskt skrivas över med tom data. Dataåtkomsten hålls separerad från UI och domänlogik.
+Datamodellernas relationer:
+
+```mermaid
+classDiagram
+    class ParkingDataDocument {
+        +List~ParkingSpotData~ ParkingSpots
+    }
+
+    class ParkingSpotData {
+        +int SpotNumber
+        +List~VehicleData~ Vehicles
+    }
+
+    class VehicleData {
+        +string Identifier
+        +string VehicleType
+        +DateTime ArrivalTime
+    }
+
+    class ParkingDataService {
+        +bool ParkingDataExists()
+        +ParkingDataDocument Load()
+        +void Save(ParkingDataDocument parkingData)
+    }
+
+    ParkingDataDocument "1" *-- "0..*" ParkingSpotData
+    ParkingSpotData "1" *-- "0..*" VehicleData
+    ParkingDataService ..> ParkingDataDocument
+```
+
+Klasserna tillhör persistenslagret och är därför separerade
+från det huvudsakliga domänklassdiagrammet.
+
+Fullständig validering, återställning av parkerade fordon
+och integration med domänlagret återstår.
 
 ### VG-versionen
 

@@ -11,6 +11,8 @@ namespace PragueParkingV2.UI
             ShowPanel("ERROR", message, Color.Red, waitForKey);
         }
 
+      
+
         public static void ShowSuccess(
             string message,
             bool waitForKey = false)

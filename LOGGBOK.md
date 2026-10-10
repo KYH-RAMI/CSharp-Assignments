@@ -611,3 +611,119 @@ Planerat en utökad informationspanel med samtliga parkerade fordon, identifiera
 7. Implementera administrationsmenyn med validerad omläsning av prislistan.
 8. Genomföra fullständiga G-tester, slutföra dokumentationen och först därefter påbörja VG-versionen.
 9. Förbereda körbar Windows-version och eventuell Docker-baserad betatestning först när kärnfunktionerna är stabila.
+
+---
+
+### Fortsatt utveckling – JSON-persistens
+
+#### Genomfört
+
+- Påbörjat implementationen av permanent lagring av parkeringsdata.
+- Skapat mappen `Persistence` i klassbiblioteket `PragueParkingV2.Data`.
+- Skapat `ParkingDataService.cs` för filhantering.
+- Skapat datamodellerna:
+  - `ParkingDataDocument`
+  - `ParkingSpotData`
+  - `VehicleData`
+- Byggt datamodellerna utifrån den tidigare fastställda JSON-strukturen.
+- Implementerat en portabel filsökväg med `AppContext.BaseDirectory` och `Path.Combine()`.
+- Implementerat kontroll av om `parking-data.json` existerar.
+- Implementerat grundläggande JSON-inläsning med `JsonSerializer.Deserialize<T>()`.
+- Implementerat JSON-serialisering med `JsonSerializer.Serialize()`.
+- Implementerat automatisk skapning av datakatalogen.
+- Implementerat sparning till en temporär fil.
+- Använt `File.Move()` när originalfilen saknas.
+- Använt `File.Replace()` när originalfilen redan existerar.
+- Implementerat `try/finally` för att försöka rensa bort temporära filer.
+- Påbörjat validering av parkeringsdata.
+
+#### Validering
+
+Följande kontroller har implementerats:
+
+- `ParkingSpots` får inte vara `null`.
+- En parkeringsplats i listan får inte vara `null`.
+- `SpotNumber` måste vara större än noll.
+- `Vehicles` får inte vara `null`.
+
+Valideringen anropas från både `Load()` och `Save()`.
+
+Ytterligare validering återstår.
+
+#### Problem och lösningar
+
+**Problem 1 – Separation mellan konfiguration och parkeringsdata**
+
+Jag utgick inledningsvis från den befintliga
+`ConfigurationService`, men behövde skilja mellan
+systeminställningar och parkeringshusets aktuella tillstånd.
+
+**Lösning:**
+
+Skapade separata datamodeller och en egen tjänst för
+parkeringsdata i Data-projektet.
+
+**Problem 2 – Säker filskrivning**
+
+Direkt användning av `File.WriteAllText()` mot
+originalfilen innebär risk för dataförlust vid avbruten skrivning.
+
+**Lösning:**
+
+Implementerade en temporär fil som först skrivs färdigt.
+Den används därefter för att skapa eller ersätta originalfilen.
+
+**Problem 3 – Validering av listor**
+
+En tom lista över parkeringsplatser är giltig eftersom
+endast upptagna parkeringsplatser ska sparas.
+
+**Lösning:**
+
+Skiljer mellan en tom lista och en lista som är `null`.
+Valideringen kontrollerar även enskilda parkeringsplatser.
+
+#### Reflektion
+
+Jag har fått en bättre förståelse för hur C#-klasser
+kan representera hierarkisk JSON-data.
+
+Jag har även arbetat praktiskt med:
+
+- `List<T>` och generiska datatyper.
+- DTO-klasser och separation av ansvarsområden.
+- `System.Text.Json`.
+- `File.Exists()`, `File.ReadAllText()` och `File.WriteAllText()`.
+- `Path.Combine()` och `Directory.CreateDirectory()`.
+- `File.Move()` och `File.Replace()`.
+- Undantagshantering med `try/finally`.
+- Grundläggande datavalidering.
+
+Arbetet har också visat varför dataintegritet är viktigt
+även i mindre applikationer.
+
+#### Status och tester
+
+Grundläggande kod för JSON-inläsning och sparning finns.
+
+Följande är ännu inte verifierat genom integrationstester:
+
+- Att `Save()` fungerar korrekt med parkerade fordon.
+- Att sparad data återställs efter programstart.
+- Att fordon återställs till rätt parkeringsplats.
+- Att ursprunglig UTC-ankomsttid bevaras.
+- Att samtliga ogiltiga datavärden avvisas.
+- Att befintlig korrupt data skyddas mot överskrivning.
+
+`ParkingDataService` är ännu inte integrerad med
+programmets ordinarie inchecknings- och utcheckningsflöden.
+
+#### Nästa steg
+
+1. Färdigställa `ValidateParkingData()`.
+2. Kontrollera dubbletter, fordonsuppgifter och parkeringsplatser.
+3. Förhindra att befintlig korrupt data skrivs över.
+4. Testa `ParkingDataService.Load()` och `Save()`.
+5. Integrera återställning av sparade fordon vid programstart.
+6. Integrera automatisk sparning efter incheckning.
+7. Fortsätta med utcheckning, flytt och sökning.

@@ -11,7 +11,7 @@ Applikationen använder Spectre.Console för ett interaktivt konsolgränssnitt m
 **Status:** Under Development  
 **Last Updated:** 2026-10-10
 
-> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmeny och garageöversikt finns. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. Kompletta UI-flöden och permanent lagring av parkeringsdata återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
+> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmeny och garageöversikt finns. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. **Grundläggande JSON-inläsning och sparning har nu implementerats i Data-projektet**, men datavalidering, återställning av fordonsobjekt, automatisk sparning och integrationstester återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
 
 ---
 
@@ -40,7 +40,7 @@ Den första versionen, **Prague Parking 2.0**, utvecklas för betygsnivå G. **P
 | C# | Programming language and object-oriented domain model |
 | .NET 10 | Application framework |
 | Spectre.Console | Console user interface |
-| System.Text.Json | JSON configuration; planned parking-data serialization |
+| System.Text.Json | JSON-konfiguration samt grundläggande serialisering och deserialisering av parkeringsdata |
 | Git | Version control |
 | GitHub | Source repository |
 | Visual Studio Community 2026 | Development environment |
@@ -79,14 +79,20 @@ PragueParkingV2
 
 PragueParkingV2.Data
 │
-└── Configuration
-    ├── AppConfiguration.cs
-    └── ConfigurationService.cs
+├── Configuration
+│   ├── AppConfiguration.cs
+│   └── ConfigurationService.cs
+│
+└── Persistence
+    ├── ParkingDataService.cs
+    ├── ParkingDataDocument.cs
+    ├── ParkingSpotData.cs
+    └── VehicleData.cs
 ```
 
-Domänlogik, användargränssnitt och dataåtkomst hålls separerade. Det separata klassbiblioteket `PragueParkingV2.Data` hanterar i nuläget konfigurationen. **Parkeringspersistens är planerad men ännu inte tillagd i projektstrukturen ovan.**
+Domänlogik, användargränssnitt och dataåtkomst hålls separerade. Klassbiblioteket `PragueParkingV2.Data` innehåller både konfigurationshantering och den påbörjade JSON-persistensen. `ParkingDataDocument`, `ParkingSpotData` och `VehicleData` är separata datamodeller; domänobjekten har ännu inte kopplats till inläsningen och sparningen.
 
-Strukturen visar det senast redovisade utvecklingsläget, inte en ny granskning av alla filer i det lokala Git-repositoryt.
+Strukturen bygger på de filer som har redovisats under utvecklingen, inte en ny fullständig genomgång av det lokala Git-repositoryt.
 
 ---
 
@@ -124,6 +130,8 @@ dotnet run --project <sökväg-till-PragueParkingV2.csproj>
 Ersätt platshållaren med den faktiska sökvägen i din lokala projektstruktur. Den exakta `.csproj`-sökvägen har inte verifierats i denna dokumentationsgenomgång.
 
 **Konfiguration:** `ConfigurationService` läser och validerar `config.json` vid uppstart. Om runtime-filen saknas kan en standardkonfiguration skapas. En befintlig ogiltig konfigurationsfil ska däremot inte skrivas över automatiskt; uppstarten stoppas kontrollerat. Se [`configuration.md`](docs/configuration.md) för struktur och värden.
+
+**Runtime-data:** `ParkingDataService` använder `AppContext.BaseDirectory` och söker efter `Data/parking-data.json` relativt programmets körkatalog. Om filen saknas returnerar `Load()` ett tomt datadokument i minnet; filen skapas inte förrän `Save()` anropas. Inläsning och sparning är ännu inte anslutna till programmets ordinarie parkeringsflöden.
 
 **Begränsning:** Det finns ännu ingen färdig, verifierad paketering för körning på en annan dator utan SDK eller källkod. Detta testas inför leverans, inte nu.
 
@@ -328,7 +336,18 @@ Exempel på tidsformat:
 
 ## Parking Data Persistence
 
-Permanent lagring av parkeringshusets tillstånd i `parking-data.json` är **planerad men ännu inte implementerad**.
+Grundläggande filhantering för `parking-data.json` har **implementerats men inte integrationstestats**. `ParkingDataService` ligger i det separata Data-projektet och använder datamodellerna `ParkingDataDocument`, `ParkingSpotData` och `VehicleData`.
+
+**Redan implementerat i `ParkingDataService`:**
+
+- Portabel sökväg till `Data/parking-data.json` via `AppContext.BaseDirectory` och `Path.Combine()`.
+- Kontroll av om filen finns; en saknad fil ger ett tomt `ParkingDataDocument` i minnet.
+- Grundläggande läsning och deserialisering med `System.Text.Json`.
+- Grundläggande serialisering och sparning till en temporär `.tmp`-fil, följt av `File.Move()` eller `File.Replace()`.
+- `try/finally` för att försöka städa undan temporära filer.
+- Inledande validering av listan `ParkingSpots`, enskilda platsobjekt, positiva `SpotNumber` och att `Vehicles` inte är `null`. Valideringen anropas vid både inläsning och sparning.
+
+Detta skyddar **inte ännu** mot alla felaktiga indata eller mot att en redan korrupt datafil skrivs över. Metoderna används ännu inte för automatisk sparning av riktiga parkeringsåtgärder.
 
 Den fastställda G-strukturen behålls:
 
@@ -349,15 +368,16 @@ Den fastställda G-strukturen behålls:
 }
 ```
 
-När persistensen implementeras ska:
+**Återstående krav innan persistensen kan betraktas som färdig:**
 
-- Endast upptagna parkeringsplatser sparas.
-- Tomma platser återskapas med hjälp av antalet platser i `config.json`.
-- Fordon återställas till **samma plats** med **samma ankomsttid i UTC**.
-- JSON-filen uppdateras efter lyckad incheckning, utcheckning och flytt.
-- Dubbletter, kapacitetsbrott och ogiltiga sparade värden upptäckas vid inläsning.
-- Befintlig felaktig JSON inte tyst skrivas över.
-- Misslyckad lagring inte rapporteras till användaren som en lyckad åtgärd.
+- Säkerställa att endast upptagna parkeringsplatser sparas.
+- Återskapa tomma platser utifrån garageantalet i `config.json`.
+- Återställa fordon till **samma plats** med **samma ankomsttid i UTC**.
+- Spara automatiskt efter lyckad incheckning, utcheckning och flytt.
+- Utöka valideringen med obligatoriska JSON-fält, fordonsuppgifter, dubbletter och kapacitetsregler.
+- Förhindra att befintlig korrupt eller ogiltig JSON skrivs över.
+- Hantera fel under filskrivning och städning utan att rapportera en misslyckad lagring som lyckad.
+- Genomföra tester av sparning, omstart, återställning och felhantering.
 
 Ingen platt JSON-struktur eller nya obligatoriska fält införs i G-versionen. Se [`parking-data.md`](docs/parking-data.md) och [`design-decisions.md`](docs/design-decisions.md).
 
@@ -377,10 +397,13 @@ Ingen platt JSON-struktur eller nya obligatoriska fält införs i G-versionen. S
 | `GarageOverView` and `Spot Details` | Framtagna; utökade tester återstår |
 | `MessageService` | Finns; enhetlig användning i alla vyer återstår |
 | `ParkVehicleView` | Framtaget; integrationstest återstår |
+| `ParkingDataService` | Grundläggande `Load()` och `Save()` implementerade; ännu inte integrationstestade |
+| `ParkingDataDocument`, `ParkingSpotData`, `VehicleData` | DTO-klasser för den fastställda JSON-strukturen; skapade |
 
 ### Remaining Work
 
-- Implementera och verifiera JSON-persistens och återställning vid programstart.
+- Färdigställa och testa validering och säker filhantering i `ParkingDataService`.
+- Implementera återställning av sparade fordon vid programstart.
 - Koppla incheckning till säker sparning och testa hela `Park Vehicle`-flödet.
 - Integrera utcheckning med UI och permanent sparning.
 - Implementera flytt och sökning via UI.
@@ -401,7 +424,7 @@ Följande har tidigare testats manuellt i utvecklingsmiljön:
 - `CheckoutService` och dess resultatobjekt på domännivå.
 - Grundläggande visning av garageöversikt och huvudmenyns navigering.
 
-Detta motsvarar **inte** ett fullständigt end-to-end-test av programmet. Persistens, UI-flöden och körning på en annan dator återstår.
+Detta motsvarar **inte** ett fullständigt end-to-end-test av programmet. Den nya JSON-persistensen är kodad på grundnivå men **inte verifierad med ett fullständigt sparnings- och återställningstest**. UI-flöden och körning på en annan dator återstår.
 
 Genomförda tester och upptäckta problem redovisas i [`LOGGBOK.md`](LOGGBOK.md). Kravstatus redovisas i [`requirements.md`](docs/requirements.md).
 
@@ -439,7 +462,7 @@ Projektets dokumentation består av:
 | [`design-decisions.md`](docs/design-decisions.md) | Arkitektoniska och tekniska beslut |
 | [`class-diagram.md`](docs/class-diagram.md) | Domänmodell och klassrelationer |
 | [`configuration.md`](docs/configuration.md) | `config.json` och konfigurationsregler |
-| [`parking-data.md`](docs/parking-data.md) | Beslutat JSON-format och planerad persistens |
+| [`parking-data.md`](docs/parking-data.md) | Beslutat JSON-format, påbörjad implementation och kvarstående säkerhetskrav |
 
 Länkarna ovan utgår från att ämnesdokumenten ligger i katalogen `docs/`. Om repositoryts faktiska dokumentstruktur skiljer sig behöver länkarna justeras före commit.
 

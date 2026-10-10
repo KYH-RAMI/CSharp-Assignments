@@ -323,30 +323,37 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 ## DD-025 – Fastställd struktur och säker återställning för parking-data.json
 
-**Datum:** 2026-10-10
+### Implementationsstatus 2026-10-10
 
-**Beslut:** Permanent parkeringsdata ska följa den redan beslutade strukturen i `parking-data.md`. Den får inte ersättas av ett platt JSON-format eller få nya obligatoriska fält utan separat beslut.
+Grundläggande persistens har påbörjats i det separata
+klassbiblioteket `PragueParkingV2.Data`.
 
-**Motivering:** Platsnumret, samlingen fordon och fordonens ursprungliga ankomsttider behöver bevaras för att garaget ska kunna återskapas korrekt efter omstart.
+Följande klasser har skapats:
 
-### Beslutad struktur för G-versionen
+- `ParkingDataDocument`
+- `ParkingSpotData`
+- `VehicleData`
+- `ParkingDataService`
 
-```json
-{
-  "ParkingSpots": [
-    {
-      "SpotNumber": 17,
-      "Vehicles": [
-        {
-          "Identifier": "ABC123",
-          "VehicleType": "Car",
-          "ArrivalTime": "2026-10-05T14:30:00Z"
-        }
-      ]
-    }
-  ]
-}
-```
+Datamodellerna representerar den tidigare fastställda
+JSON-strukturen utan nya obligatoriska fält.
+
+`ParkingDataService` hanterar grundläggande filinläsning,
+serialisering och sparning genom en temporär fil.
+
+Vid första sparningen används `File.Move()`.
+När originalfilen redan finns används `File.Replace()`.
+
+Grundläggande datavalidering har implementerats.
+
+**Status:** Delvis implementerat.
+
+Fullständig validering, skydd mot befintlig korrupt data,
+återställning av domänobjekt och automatisk sparning
+efter parkeringsåtgärder återstår.
+
+Implementationens säkerhet och funktion ska verifieras
+genom tester innan den betraktas som färdig.
 
 ### Regler för den planerade persistensen
 

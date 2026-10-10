@@ -27,9 +27,9 @@
 | ID | Krav | Tolkning | Berör | Status |
 |---|---|---|---|---|
 | G-00 | Grundfunktionaliteten från Prague Parking V1 ska finnas kvar | Incheckning, flytt, utcheckning, sökning och översikt ska finnas även efter övergången till OOP-versionen. Parkering, sökning och utcheckning finns på domännivå. Huvudmeny, garageöversikt och kod för `ParkVehicleView` finns, men sammanhängande UI-flöden inklusive persistent sparning återstår | Domain / UI | Pågår |
-| G-01 | Parkerade fordonsdata ska sparas permanent | Parkeringsinformationen ska finnas kvar även efter att programmet har stängts | Persistence | Ej påbörjad |
-| G-02 | Parkeringsdata ska lagras i JSON-format | Parkerade fordon ska serialiseras enligt den beslutade strukturen `ParkingSpots` → `SpotNumber` / `Vehicles` → `Identifier`, `VehicleType`, `ArrivalTime`; endast upptagna platser lagras | Persistence | Ej påbörjad |
-| G-03 | Parkeringsdata ska läsas in vid programstart | Sparad JSON-data ska valideras och användas för att återställa varje fordon på dess ursprungliga `SpotNumber` med oförändrad UTC-ankomsttid. Befintlig ogiltig fil får inte skrivas över | Persistence / Domain | Ej påbörjad |
+| G-01 | Parkerade fordonsdata ska sparas permanent | Grundläggande JSON-inläsning och sparning har implementerats i `ParkingDataService`. Integration med parkeringsfunktionerna och verifiering efter omstart återstår | Persistence | Pågår |
+| G-02 | Parkeringsdata ska lagras i JSON-format | DTO-klasser och grundläggande serialisering/deserialisering med `System.Text.Json` är implementerade enligt den fastställda JSON-strukturen. Fullständig validering och integration återstår | Persistence | Pågår |
+| G-03 | Parkeringsdata ska läsas in vid programstart | `Load()` kan läsa och deserialisera en befintlig JSON-fil. Återställning av domänobjekt och integration vid programstart återstår | Persistence / Domain | Pågår |
 | G-04 | Datafilen ska uppdateras vid incheckning | Efter lyckad incheckning ska aktuell parkeringsdata sparas; användaren får inte få ett felaktigt besked om varaktig framgång vid skrivfel | Persistence | Ej påbörjad |
 | G-05 | Datafilen ska uppdateras vid utcheckning | Efter lyckad utcheckning ska aktuell parkeringsdata sparas och det utcheckade fordonet inte längre finnas i filen; sparfel ska hanteras kontrollerat | Persistence | Ej påbörjad |
 | G-06 | Datafilen ska uppdateras när ett fordon flyttas | Efter lyckad flytt ska både tidigare och ny plats återspeglas i filen, utan att fordonets `ArrivalTime` ändras; sparfel får inte lämna ett motsägelsefullt tillstånd | Persistence | Ej påbörjad |
@@ -60,7 +60,7 @@
 | G-31 | `ParkingSpot` ska finnas som klass | Varje parkeringsplats representeras av ett objekt med platsnummer och parkerade fordon | Domain | Implementerad |
 | G-32 | `ParkingGarage` ska finnas som klass | Parkeringshuset ansvarar för helheten och samlingen av parkeringsplatser | Domain | Implementerad |
 | G-33 | Standardvärdet ska vara 100 parkeringsplatser | Standardkonfigurationen skapar 100 platser, men värdet kan ändras via konfigurationen | Domain / Configuration | Verifierad |
-| G-34 | Lösningen ska innehålla ett separat klassbibliotek för dataåtkomst | `PragueParkingV2.Data` finns och hanterar konfigurationsrelaterad kod. Parkeringspersistensen är ännu inte implementerad | Architecture / Persistence | Implementerad |
+| G-34 | Lösningen ska innehålla ett separat klassbibliotek för dataåtkomst | `PragueParkingV2.Data` innehåller konfigurationshantering samt påbörjad parkeringspersistens med `ParkingDataService` och separata datamodeller | Architecture / Persistence | Implementerad |
 | G-35 | Dataåtkomst ska separeras från övrig logik | Konfigurationshantering är separerad i Data-projektet. Framtida JSON-serialisering och filåtkomst för parkeringsdata ska också ligga utanför UI och domänlogik, utan cirkulära projektreferenser | Architecture / Persistence | Pågår |
 | G-36 | Inställningar ska läsas från konfigurationsfilen vid programstart | `config.json` läses och valideras innan parkeringsmodellen byggs upp | Configuration / Domain | Verifierad |
 | G-37 | Uppgiften ska huvudsakligen lösas med kursens hittills behandlade tekniker | Lösningen använder klasser, arv, collections, loopar, listor och grundläggande LINQ där det förbättrar läsbarheten | Architecture | Pågår |

@@ -3,7 +3,12 @@
 **Uppdaterad:** 2026-10-10  
 **Omfattning:** Planerad persistent lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-**Status:** JSON-formatet är beslutat och dokumenterat. Inläsning, återställning och automatisk sparning av `parking-data.json` är ännu inte implementerade eller integrationstestade.
+**Status:** Den grundläggande JSON-persistensen är under utveckling.
+Datamodeller samt funktioner för inläsning och sparning är
+implementerade i `PragueParkingV2.Data`.
+
+Fullständig validering, återställning av domänobjekt och
+automatisk sparning från parkeringsfunktionerna återstår.
 
 ## Planerad struktur
 
@@ -167,18 +172,113 @@ Om den gamla platsen blir tom ska den utelämnas ur den sparade filen. En missly
 
 ## Ansvar och säker filhantering
 
-JSON-serialisering och filåtkomst hör hemma i det separata projektet `PragueParkingV2.Data`. `ParkingGarage` och `ParkingSpot` ska fortsatt ansvara för parkeringsregler, och UI ska endast presentera resultat och fel.
+JSON-serialisering och filåtkomst hanteras i det separata klassbiblioteket `PragueParkingV2.Data`.
 
-Vid implementationen ska vi:
+`ParkingGarage` och `ParkingSpot` ansvarar fortsatt för parkeringsregler och fordonsplacering, medan UI endast presenterar resultat och felmeddelanden.
 
-- Använda en portabel, kontrollerad lagringsplats utan hårdkodade sökvägar till en viss dator.
-- Spara efter varje **genomförd förändring** av parkeringshuset: incheckning, utcheckning och förflyttning.
-- Undvika att en avbruten skrivning förstör huvudfilen, exempelvis genom skrivning till temporär fil följt av säker ersättning.
-- Säkerställa konsekvens mellan tillståndet i minnet och den sparade filen om en skrivning misslyckas.
-- Aldrig automatiskt skriva över en befintlig, korrupt eller ogiltig datafil med ett tomt parkeringshus.
+Följande principer gäller för persistensen:
 
-**Status:** Detta är implementationskrav och designbeslut; filhanteringen är ännu inte färdigbyggd eller verifierad. Exakt strategi för säker filersättning och återställning vid skrivfel bestäms i implementationen.
+- Använda portabla filsökvägar utan hårdkodade sökvägar till en specifik dator.
+- Spara efter varje genomförd förändring: incheckning, utcheckning och förflyttning.
+- Skydda befintliga parkeringsdata mot ofullständiga skrivningar.
+- Säkerställa konsekvens mellan parkeringshusets tillstånd i minnet och den sparade informationen.
+- Validera parkeringsdata innan informationen används eller sparas.
+- Aldrig automatiskt ersätta en befintlig korrupt eller ogiltig datafil med ett tomt parkeringshus.
 
+### Implementerat 2026-10-10
+
+`ParkingDataService` har implementerats med grundläggande funktionalitet för JSON-inläsning och sparning.
+
+**Sökvägshantering**
+
+- `AppContext.BaseDirectory` används för att utgå från applikationens körkatalog.
+- `Path.Combine()` används för plattformsoberoende sökvägar.
+- Parkeringsdata lagras under `Data/parking-data.json`.
+- `Directory.CreateDirectory()` skapar datakatalogen om den saknas.
+
+**Inläsning**
+
+- `File.Exists()` kontrollerar om datafilen existerar.
+- Om filen saknas returneras ett tomt `ParkingDataDocument`.
+- `File.ReadAllText()` läser en befintlig datafil.
+- `JsonSerializer.Deserialize<T>()` omvandlar JSON till datamodeller.
+- Deserialisering som returnerar `null` avvisas.
+- Grundläggande innehållsvalidering genomförs före retur.
+
+**Sparning**
+
+- `JsonSerializer.Serialize()` omvandlar datamodellerna till JSON.
+- Informationen skrivs först till `parking-data.json.tmp`.
+- `File.Move()` används vid första sparningen när originalfilen saknas.
+- `File.Replace()` används när en befintlig datafil ska ersättas.
+- `try/finally` används för att försöka rensa kvarvarande temporära filer.
+
+Den temporära filen minskar risken för att en avbruten skrivning skadar den befintliga datafilen.
+
+**Grundläggande validering**
+
+Metoden `ValidateParkingData()` har implementerats och anropas från både `Load()` och `Save()`.
+
+Följande kontroller finns:
+
+- `ParkingSpots` får inte vara `null`.
+- En parkeringsplats i listan får inte vara `null`.
+- `SpotNumber` måste vara större än noll.
+- `Vehicles` får inte vara `null`.
+
+En tom `ParkingSpots`-lista är giltig eftersom endast upptagna parkeringsplatser ska sparas.
+
+### Kvarstående arbete
+
+**Datavalidering**
+
+- Kontrollera att varje sparad parkeringsplats innehåller fordon.
+- Validera fordonsidentifierare.
+- Validera fordonstyper.
+- Validera ankomsttider och UTC-format.
+- Kontrollera dubblerade parkeringsplatsnummer.
+- Kontrollera dubblerade fordonsidentifierare.
+- Kontrollera parkeringskapacitet mot `config.json`.
+- Upptäcka saknade obligatoriska JSON-fält.
+
+**Datasäkerhet**
+
+- Förhindra att befintliga korrupta parkeringsdata skrivs över.
+- Förbättra felhantering vid borttagning av temporära filer.
+- Verifiera beteendet vid misslyckad filskrivning.
+- Säkerställa konsekvens mellan minnet och datafilen vid sparfel.
+
+**Integration**
+
+- Återställa parkerade fordon vid programstart.
+- Bevara ursprungliga parkeringsplatser och ankomsttider.
+- Spara automatiskt efter lyckad incheckning.
+- Spara automatiskt efter lyckad utcheckning.
+- Spara automatiskt efter lyckad förflyttning.
+- Genomföra integrationstester.
+
+### Status
+
+**Pågår – grundläggande JSON-inläsning och sparning är implementerad.**
+
+Fullständig validering, återställning av domänobjekt och integration med parkeringsfunktionerna återstår.
+
+Funktionaliteten är ännu inte fullständigt testad eller verifierad.
+
+Den nuvarande implementationen ska därför inte betraktas som färdig för produktionsanvändning.
+
+### Kvarstående säkerhetskontroller
+
+- Validera identifierare, fordonstyper och UTC-tider.
+- Kontrollera dubblerade parkeringsplatser och fordon.
+- Kontrollera kapacitet mot konfigurationen.
+- Upptäcka saknade obligatoriska JSON-fält.
+- Skydda befintliga korrupta data mot överskrivning.
+- Hantera fel vid rensning av temporära filer.
+- Verifiera filskrivning och återställning genom tester.
+
+Den nuvarande implementationen ska inte betraktas som
+fullständigt säker eller färdig för produktionsanvändning.
 ## Förberedelser inför Prague Parking 2.1 (VG)
 
 Den nuvarande JSON-strukturen ska fungera som utgångspunkt även när `Bicycle` och `Bus` införs.

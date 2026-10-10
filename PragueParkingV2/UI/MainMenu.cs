@@ -40,7 +40,7 @@ namespace PragueParkingV2.UI
                     {
                         case "Park Vehicle":
 
-                            ParkVehicleView.Show(ParkingGarage, configuration);
+                            ParkVehicleView.Show(parkingGarage, configuration);
 
                             break;
 
