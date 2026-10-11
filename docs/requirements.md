@@ -1,6 +1,6 @@
 # Prague Parking V2 – Kravanalys
 
-**Uppdaterad:** 2026-10-10
+**Uppdaterad:** 2026-10-11
 
 > Kraven nedan är en projektspecifik nedbrytning av uppgiftens krav till mindre,
 > spårbara delkrav. ID-numren (G-xx och VG-xx) kommer alltså inte från den
@@ -22,14 +22,14 @@
 
 ## Funktionella och tekniska krav
 
-**Lägesbild 2026-10-10:** Domänmodell, grundläggande konfiguration, prisberäkning och checkout-logik finns och har delvis testats manuellt. `GarageOverView`, `AppTheme` och `MessageService` har vidareutvecklats. `ParkVehicleView` har tagits fram men är inte verifierad i ett komplett incheckningsflöde. JSON-persistens, utchecknings-/flytt-/sökflöden i UI och administration återstår. Ingen funktion markeras som verifierad enbart för att koden har skrivits.
+**Lägesbild 2026-10-11:** Domänmodell, konfiguration, prisberäkning och checkout-logik finns och har delvis testats manuellt. `GarageOverView`, `AppTheme` och `MessageService` har vidareutvecklats; `ParkVehicleView` saknar komplett genomgående test. `ParkingDataService` och tre JSON-datamodeller finns. `Load()` har verifierats manuellt med giltig testdata och ogiltig fordonstyp, medan `Save()` endast delvis följts i felsökaren. Återställning till `ParkingGarage`, automatisk sparning, flera UI-flöden och administration återstår. Ingen funktion markeras som verifierad enbart för att koden har skrivits.
 
 | ID | Krav | Tolkning | Berör | Status |
 |---|---|---|---|---|
 | G-00 | Grundfunktionaliteten från Prague Parking V1 ska finnas kvar | Incheckning, flytt, utcheckning, sökning och översikt ska finnas även efter övergången till OOP-versionen. Parkering, sökning och utcheckning finns på domännivå. Huvudmeny, garageöversikt och kod för `ParkVehicleView` finns, men sammanhängande UI-flöden inklusive persistent sparning återstår | Domain / UI | Pågår |
-| G-01 | Parkerade fordonsdata ska sparas permanent | Grundläggande JSON-inläsning och sparning har implementerats i `ParkingDataService`. Integration med parkeringsfunktionerna och verifiering efter omstart återstår | Persistence | Pågår |
-| G-02 | Parkeringsdata ska lagras i JSON-format | DTO-klasser och grundläggande serialisering/deserialisering med `System.Text.Json` är implementerade enligt den fastställda JSON-strukturen. Fullständig validering och integration återstår | Persistence | Pågår |
-| G-03 | Parkeringsdata ska läsas in vid programstart | `Load()` kan läsa och deserialisera en befintlig JSON-fil. Återställning av domänobjekt och integration vid programstart återstår | Persistence / Domain | Pågår |
+| G-01 | Parkerade fordonsdata ska sparas permanent | Grundläggande `Save()` och filhantering finns men automatisk lagring efter parkeringsåtgärder och verifierad återställning efter omstart saknas | Persistence | Pågår |
+| G-02 | Parkeringsdata ska lagras i JSON-format | DTO-formatet `ParkingSpots` → `SpotNumber` / `Vehicles` → `Identifier`, `VehicleType`, `ArrivalTime` och `System.Text.Json`-serialisering med indentering är implementerade. Giltig JSON har lästs in och serialiserad text granskats; fullständigt skriv-/återläsningstest återstår | Persistence | Pågår |
+| G-03 | Parkeringsdata ska läsas in vid programstart | `Load()` anropas från `Program.cs` efter konfigurationen; giltig testfil kan deserialiseras och en okänd typ avvisas. Inlästa fordon återställs ännu inte till `ParkingGarage` eller sin ursprungliga plats; kapacitetsvalidering mot aktuell konfiguration återstår | Persistence / Domain | Pågår |
 | G-04 | Datafilen ska uppdateras vid incheckning | Efter lyckad incheckning ska aktuell parkeringsdata sparas; användaren får inte få ett felaktigt besked om varaktig framgång vid skrivfel | Persistence | Ej påbörjad |
 | G-05 | Datafilen ska uppdateras vid utcheckning | Efter lyckad utcheckning ska aktuell parkeringsdata sparas och det utcheckade fordonet inte längre finnas i filen; sparfel ska hanteras kontrollerat | Persistence | Ej påbörjad |
 | G-06 | Datafilen ska uppdateras när ett fordon flyttas | Efter lyckad flytt ska både tidigare och ny plats återspeglas i filen, utan att fordonets `ArrivalTime` ändras; sparfel får inte lämna ett motsägelsefullt tillstånd | Persistence | Ej påbörjad |
@@ -60,8 +60,8 @@
 | G-31 | `ParkingSpot` ska finnas som klass | Varje parkeringsplats representeras av ett objekt med platsnummer och parkerade fordon | Domain | Implementerad |
 | G-32 | `ParkingGarage` ska finnas som klass | Parkeringshuset ansvarar för helheten och samlingen av parkeringsplatser | Domain | Implementerad |
 | G-33 | Standardvärdet ska vara 100 parkeringsplatser | Standardkonfigurationen skapar 100 platser, men värdet kan ändras via konfigurationen | Domain / Configuration | Verifierad |
-| G-34 | Lösningen ska innehålla ett separat klassbibliotek för dataåtkomst | `PragueParkingV2.Data` innehåller konfigurationshantering samt påbörjad parkeringspersistens med `ParkingDataService` och separata datamodeller | Architecture / Persistence | Implementerad |
-| G-35 | Dataåtkomst ska separeras från övrig logik | Konfigurationshantering är separerad i Data-projektet. Framtida JSON-serialisering och filåtkomst för parkeringsdata ska också ligga utanför UI och domänlogik, utan cirkulära projektreferenser | Architecture / Persistence | Pågår |
+| G-34 | Lösningen ska innehålla ett separat klassbibliotek för dataåtkomst | `PragueParkingV2.Data` finns och hanterar både konfiguration och grundläggande JSON-persistens med `ParkingDataService` och tre DTO-klasser | Architecture / Persistence | Implementerad |
+| G-35 | Dataåtkomst ska separeras från övrig logik | Konfiguration och JSON-filåtkomst ligger i Data-projektet, separerat från UI och domän. Återställning och integration av konsekvent sparning återstår; beroende till domänen ska inte införas i Data-projektet | Architecture / Persistence | Pågår |
 | G-36 | Inställningar ska läsas från konfigurationsfilen vid programstart | `config.json` läses och valideras innan parkeringsmodellen byggs upp | Configuration / Domain | Verifierad |
 | G-37 | Uppgiften ska huvudsakligen lösas med kursens hittills behandlade tekniker | Lösningen använder klasser, arv, collections, loopar, listor och grundläggande LINQ där det förbättrar läsbarheten | Architecture | Pågår |
 

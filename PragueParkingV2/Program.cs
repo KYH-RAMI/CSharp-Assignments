@@ -1,4 +1,5 @@
 ﻿using PragueParkingV2.Data.Configuration;
+using PragueParkingV2.Data.Persistence;
 using PragueParkingV2.Domain;
 using PragueParkingV2.UI;
 using System.IO;
@@ -15,6 +16,9 @@ var configurationService = new ConfigurationService();
 try
 {
     var configuration = configurationService.LoadConfiguration();
+    var parkingDataService = new ParkingDataService();
+    var parkingData = parkingDataService.Load();
+    
 
     var parkingGarage = new ParkingGarage(
         configuration.Garage!.NumberOfParkingSpots);
@@ -40,7 +44,7 @@ try
 catch (InvalidDataException ex)
 {
     MessageService.ShowError(
-        $"Invalid configuration: {ex.Message}");
+        $"Invalid configuration or parking data: {ex.Message}");
 
     Environment.ExitCode = 1;
     return;

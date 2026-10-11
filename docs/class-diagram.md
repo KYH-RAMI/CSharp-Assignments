@@ -1,9 +1,9 @@
 # Prague Parking V2 – Klassdiagram
 
-**Uppdaterad:** 2026-10-10  
+**Uppdaterad:** 2026-10-11  
 **Omfattning:** Domänmodellen för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-Diagrammet visar domänklasserna och deras viktigaste relationer. Det beskriver den befintliga domänmodellen; planerad JSON-persistens och VG-utökningar ingår inte som implementerade klasser.
+Diagrammet visar domänklasserna och deras viktigaste relationer. Den påbörjade JSON-persistensen visas separat nedan och blandas inte med domänmodellen. VG-utökningar ingår inte som implementerade klasser.
 
 UI, konfiguration och persistens dokumenteras separat.
 
@@ -275,20 +275,12 @@ Konfigurationshanteringen finns i det separata Data-projektet och omfattar bland
 
 ### Persistens
 
-Grundläggande JSON-persistens har påbörjats i det separata
-klassbiblioteket `PragueParkingV2.Data`.
-
-Följande klasser har implementerats:
-
-- `ParkingDataDocument` – representerar hela JSON-dokumentet.
-- `ParkingSpotData` – representerar en sparad parkeringsplats.
-- `VehicleData` – representerar ett sparat fordon.
-- `ParkingDataService` – ansvarar för grundläggande JSON-inläsning och sparning.
-
-Datamodellernas relationer:
+Följande klasser är implementerade i det separata klassbiblioteket `PragueParkingV2.Data/Persistence`. Diagrammet nedan visar **DTO-/filnivån**, inte domänklassernas framtida återställningsflöde.
 
 ```mermaid
 classDiagram
+    direction TB
+
     class ParkingDataDocument {
         +List~ParkingSpotData~ ParkingSpots
     }
@@ -312,14 +304,14 @@ classDiagram
 
     ParkingDataDocument "1" *-- "0..*" ParkingSpotData
     ParkingSpotData "1" *-- "0..*" VehicleData
-    ParkingDataService ..> ParkingDataDocument
+    ParkingDataService ..> ParkingDataDocument : reads/writes
 ```
 
-Klasserna tillhör persistenslagret och är därför separerade
-från det huvudsakliga domänklassdiagrammet.
+`ParkingDataService` läser och sparar `Data/parking-data.json`, validerar den interna dokumentstrukturen och kan skriva indenterad JSON via `WriteIndented = true`. Kontroller av dubbletter använder `HashSet<int>` respektive ett skiftlägesokänsligt `HashSet<string>`.
 
-Fullständig validering, återställning av parkerade fordon
-och integration med domänlagret återstår.
+Den positiva JSON-inläsningen och avvisning av en ogiltig fordonstyp har testats manuellt. Slutlig filersättning, återställning av `Car` och `MC` till exakt samma plats samt automatisk sparning från parkeringsfunktionerna återstår.
+
+Konfigurationsberoende kontroller hör hemma i återställningsflödet utanför Data-projektet. En befintlig ogiltig datafil får inte automatiskt ersättas med tom data.
 
 ### VG-versionen
 

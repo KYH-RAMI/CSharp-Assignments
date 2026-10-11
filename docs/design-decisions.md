@@ -1,6 +1,6 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-10  
+**Uppdaterad:** 2026-10-11  
 **Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
@@ -65,7 +65,7 @@ Fordonskapaciteten hämtas från konfigurationen och skickas till parkeringslogi
 
 **Motivering:** Formatet är läsbart, kan hanteras med `System.Text.Json` och uppfyller projektets filkrav.
 
-Permanent lagring av parkeringsdata är ännu inte implementerad.
+Grundläggande inläsning och skrivning av parkeringsdata är implementerad; fullständig återställning och automatisk sparning återstår.
 
 ## DD-009 – Separata filer för konfiguration och parkeringsdata
 
@@ -79,7 +79,7 @@ Permanent lagring av parkeringsdata är ännu inte implementerad.
 
 **Motivering:** Tomma parkeringsplatser kan återskapas utifrån konfigurerat garageantal.
 
-**Status:** Ännu inte implementerat. Den beslutade JSON-strukturen beskrivs i `parking-data.md` och DD-025.
+**Status:** Validering av sparade platser utan fordon är implementerad; konvertering från ett verkligt `ParkingGarage` till en fil med enbart upptagna platser återstår. Se `parking-data.md` och DD-025.
 
 ## DD-011 – UTC för tidpunkter
 
@@ -87,7 +87,7 @@ Permanent lagring av parkeringsdata är ännu inte implementerad.
 
 **Motivering:** Beräkningarna ska vara konsekventa oberoende av lokala tidsomställningar.
 
-Tidszon för presentation anges i konfigurationen, med `Europe/Prague` som standard. Vid framtida återställning från JSON ska fordonets ursprungliga UTC-ankomsttid bevaras.
+Tidszon för presentation anges i konfigurationen, med `Europe/Prague` som standard. JSON-inläsningen har kontrollerats med `ArrivalTime.Kind = Utc`; återställning av fordon i domänmodellen med oförändrad tid återstår.
 
 ## DD-012 – Samlad JSON-konfiguration med priser först
 
@@ -317,43 +317,36 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Motivering:** Exempelvis `ABC123` och `abc123` ska inte kunna registreras som två separata fordon. Samma regel ska även tillämpas när sparad data återställs.
 
-**Status:** Kontroll av dubbletter och jämförelse utan hänsyn till versaler/gemener har tidigare testats i domänmodellen. Kontroll vid inläsning från JSON återstår.
+**Status:** Kontroll av dubbletter och skiftlägesokänslig jämförelse har tidigare testats i domänmodellen. `ValidateParkingData()` har nu `HashSet<string>(StringComparer.OrdinalIgnoreCase)` för inlästa fordonsidentifierare; specifika negativa JSON-test med dubbletter återstår.
 
 ---
 
 ## DD-025 – Fastställd struktur och säker återställning för parking-data.json
 
-### Implementationsstatus 2026-10-10
+**Datum:** 2026-10-10
 
-Grundläggande persistens har påbörjats i det separata
-klassbiblioteket `PragueParkingV2.Data`.
+**Beslut:** Permanent parkeringsdata ska följa den redan beslutade strukturen i `parking-data.md`. Den får inte ersättas av ett platt JSON-format eller få nya obligatoriska fält utan separat beslut.
 
-Följande klasser har skapats:
+**Motivering:** Platsnumret, samlingen fordon och fordonens ursprungliga ankomsttider behöver bevaras för att garaget ska kunna återskapas korrekt efter omstart.
 
-- `ParkingDataDocument`
-- `ParkingSpotData`
-- `VehicleData`
-- `ParkingDataService`
+### Beslutad struktur för G-versionen
 
-Datamodellerna representerar den tidigare fastställda
-JSON-strukturen utan nya obligatoriska fält.
-
-`ParkingDataService` hanterar grundläggande filinläsning,
-serialisering och sparning genom en temporär fil.
-
-Vid första sparningen används `File.Move()`.
-När originalfilen redan finns används `File.Replace()`.
-
-Grundläggande datavalidering har implementerats.
-
-**Status:** Delvis implementerat.
-
-Fullständig validering, skydd mot befintlig korrupt data,
-återställning av domänobjekt och automatisk sparning
-efter parkeringsåtgärder återstår.
-
-Implementationens säkerhet och funktion ska verifieras
-genom tester innan den betraktas som färdig.
+```json
+{
+  "ParkingSpots": [
+    {
+      "SpotNumber": 17,
+      "Vehicles": [
+        {
+          "Identifier": "ABC123",
+          "VehicleType": "Car",
+          "ArrivalTime": "2026-10-05T14:30:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ### Regler för den planerade persistensen
 
@@ -362,11 +355,13 @@ genom tester innan den betraktas som färdig.
 - Varje fordon återställs till samma plats med samma identifierare, fordonstyp och UTC-ankomsttid.
 - Återställning ska kontrollera platsnummer, fordonstyp, kapacitet och dubbletter innan ett inläst tillstånd accepteras.
 - En befintlig felaktig eller ofullständig JSON-fil får inte automatiskt ersättas med en tom fil.
-- Skrivning ska utformas så att ett avbrott inte lämnar en halvskriven huvudfil. Exakt strategi för säker filersättning bestäms vid implementationen.
+- `Save()` skriver till en `.tmp`-fil i samma katalog och använder `File.Move()` vid första sparningen eller `File.Replace()` när originalfilen finns. Fullständig verifiering av filersättning och felhantering återstår.
 - Dataåtkomst och serialisering ska ske utanför UI och hållas separerade från domänens parkeringsregler.
 - Fordonsincheckning, utcheckning och förflyttning ska omfattas av en konsekvent sparrutin; användaren ska få ett korrekt fel om lagring misslyckas.
 
-**Status:** Designbeslut. `ParkingDataService`, återställning vid start och automatisk sparning är ännu inte implementerade eller integrationstestade. Konstruktorsöverlagringar för att återskapa `Car` och `MC` med befintlig UTC-ankomsttid behöver bekräftas mot den aktuella källkoden.
+**Status 2026-10-11:** `ParkingDataService`, de tre DTO-klasserna, validering av grundstrukturen, unika platsnummer/fordonsidentifierare, G-typerna och UTC-tid finns. Inläsning av giltig data och avvisning av typen `Truck` har testats manuellt. Serialiserad JSON med `WriteIndented = true` har granskats. `Save()` har följts till `finally`, men slutlig filersättning, återställning i `ParkingGarage` och automatisk sparning är inte verifierade. Konstruktorsöverlagringar för att återskapa `Car` och `MC` med befintlig UTC-ankomsttid ska bekräftas i källkoden vid integrationen.
+
+**Ansvarsgräns:** `ParkingDataService` validerar dokumentets struktur och interna värden. Att sparade fordon ryms på platsnummer och enligt kapacitetsreglerna i aktuell `AppConfiguration` valideras vid återställning till domänmodellen, inte genom att Data-projektet får ett beroende på domänklasser. Konsekvent behandling av skrivfel och skydd mot överskrivning av befintlig korrupt data ska verifieras innan funktionaliteten används i färdiga UI-flöden.
 
 ---
 

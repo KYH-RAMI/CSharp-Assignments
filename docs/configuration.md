@@ -1,6 +1,6 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-10  
+**Uppdaterad:** 2026-10-11  
 **Omfattning:** Konfiguration för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
 ## Konfigurationsstruktur
@@ -231,8 +231,7 @@ Prisregler och gratisgränser sparas inte i `parking-data.json`, utan hämtas
 från `config.json`. `ArrivalTime` i parkeringsdata ska bevaras i UTC så att
 parkeringstiden förblir korrekt efter omstart.
 
-**Status:** Den permanenta JSON-lagringen och återställningen är planerade,
-men ännu inte implementerade eller integrationstestade.
+**Status 2026-10-11:** Grundläggande `ParkingDataService.Load()`/`Save()` och separata JSON-datamodeller är implementerade. `Load()` har testats med giltig data och ogiltig `VehicleType`. Kontroll mot antalet platser och `VehiclesPerSpot` i den aktuella konfigurationen samt återställning till domänobjekt återstår. Den fullständiga sparningskedjan är inte verifierad.
 
 ## Kapacitetsmodell i Prague Parking 2.0
 

@@ -1,6 +1,6 @@
 # Prague Parking V2 – Projektplan
 
-**Uppdaterad:** 2026-10-10
+**Uppdaterad:** 2026-10-11
 
 **Projekt:** Prague Parking V2  
 **Utvecklare:** Rami Issa  
@@ -46,7 +46,7 @@ VG-versionen utvecklas separat när G-versionen är stabil. Dokumenterade VG-beh
 | 7 | CheckoutService | Implementerad; manuellt testad på domännivå |
 | 8 | Spectre.Console och garageöversikt | Implementerad i huvudsak; utökad verifiering återstår |
 | 9 | Main Menu och UI-flöden | Pågår; `ParkVehicleView` framtagen, integrationstest återstår |
-| 10 | Parkeringspersistens | Pågår; datamodeller samt grundläggande JSON-inläsning och sparning implementerade |
+| 10 | Parkeringspersistens | Pågår; DTO:er, `Load()`/`Save()` och validering implementerade, manuella inläsningstester genomförda |
 | 11 | Administrationsfunktioner | Ej påbörjad i UI |
 | 12 | Integrationstester och dokumentation | Pågår; fullständig G-verifiering återstår |
 | 13 | Prague Parking 2.1 / VG | Ej påbörjad |
@@ -194,7 +194,7 @@ Den praktiska utvecklingsordningen anpassas så att persistensen kommer på plat
 
 ## Milstolpe 6 – Persistens
 
-**Status: Pågår – grundläggande implementation färdig, validering och integration återstår**
+**Status: Pågår – grundläggande JSON-inläsning, serialisering och filskrivningskod finns; fullständig sparverifiering och garageåterställning återstår**
 
 Parkeringsinformation ska sparas i `parking-data.json` via det separata Data-projektet. Den överenskomna strukturen i `parking-data.md` gäller för Prague Parking 2.0:
 
@@ -220,29 +220,23 @@ Regler:
 
 Den planerade lagringen ska kunna vidareutvecklas för `Bicycle` och `Bus`, men **inga nya obligatoriska VG-fält läggs till i G-formatet nu**. Lösningen för en buss som upptar fyra platser fastställs under VG-implementationen.
 
-**Nästa tekniska steg:** Gå igenom aktuella `ParkingSpot.cs`, `Program.cs` och `ConfigurationService.cs` samt projektreferenserna, och implementera laddning, validering, återställning och säker sparning utan att skapa cirkulära beroenden.
+### Implementerat och manuellt verifierat 2026-10-11
 
-### Genomfört 2026-10-10
+- `ParkingDataService` med filväg, `Load()`/`Save()` och tre separata datamodeller har implementerats i `PragueParkingV2.Data/Persistence`.
+- Valideringen kontrollerar plats- och fordonslistor, positiva/unika platsnummer, icke-tomma identifierare, dubbletter via `HashSet`, G-typerna `Car`/`MC` och UTC-tid.
+- `Load()` har läst ett fordon `ABC123` på plats 1 med `ArrivalTime.Kind = Utc`; den ogiltiga typen `Truck` har avvisats via `InvalidDataException`.
+- `Save()` använder indenterad JSON samt temporärfil och `File.Move()`/`File.Replace()`. Felsökningen nådde `finally` och serialiserad JSON granskades, men lyckad slutlig filersättning och städning har ännu inte bekräftats.
 
-- Skapat separat mapp för persistens i Data-projektet.
-- Implementerat `ParkingDataDocument`, `ParkingSpotData` och `VehicleData`.
-- Implementerat `ParkingDataService`.
-- Implementerat kontroll av datafilens existens.
-- Implementerat grundläggande JSON-inläsning och deserialisering.
-- Implementerat JSON-serialisering och sparning.
-- Implementerat temporär filskrivning med `File.Move()` och `File.Replace()`.
-- Implementerat grundläggande innehållsvalidering.
-- Implementerat `try/finally` för städning av temporära filer.
+### Återstående implementation
 
-### Återstående arbete
+- Komplettera validering av utelämnade fält, identifierarlängd och kapacitet mot `AppConfiguration` utan att införa domänberoende i Data-projektet.
+- Skydda en redan korrupt datafil mot överskrivning och verifiera felhantering vid skrivning och städning.
+- Återskapa sparade fordonsobjekt på rätt plats med rätt ankomsttid vid uppstart.
+- Spara automatiskt efter parkeringsåtgärder och garantera korrekt felbesked och minnes-/filkonsekvens vid skrivfel.
+- Testa ny fil, befintlig fil, omstart, ogiltig fil, återställning och avbruten skrivning.
 
-- Fullständig validering av parkeringsdata.
-- Skydd mot överskrivning av redan korrupt data.
-- Verifiering av filskrivning och felhantering.
-- Återställning av fordon till rätt parkeringsplats.
-- Integration med `Program.cs`.
-- Automatisk sparning efter incheckning, utcheckning och förflyttning.
-- Integrationstester av hela persistensflödet.
+**Nästa tekniska steg:** Slutför `Save()`-testet, avsluta den tillfälliga testraden i `Program.cs` och påbörja validerad återställning i ett applikationsnära flöde. `ParkingDataService` fortsätter ansvara för JSON och filåtkomst; domän-/konfigurationsregler kopplas in utanför Data-projektet.
+
 ---
 
 ## Milstolpe 7 – Administration
@@ -310,11 +304,8 @@ Bussens framtida representation i `parking-data.json` är **inte beslutad**. Den
 
 ### Prioritet 1
 
-Färdigställa och testa `ParkingDataService`, inklusive
-validering av parkeringsplatser och fordon, skydd mot korrupt
-data samt korrekt hantering av filfel.
+Färdigställ och verifiera `Save()`-flödet, stärk datavalideringen och implementera säker återställning från `parking-data.json` till `ParkingGarage` enligt `parking-data.md`.
 
-Därefter integreras inläsning och återställning vid programstart.
 ### Prioritet 2
 
 Integrera och testa `ParkVehicleView` med automatisk sparning. Kontrollera samtidigt `GarageOverView` och `Spot Details` med verkligt parkerade fordon.

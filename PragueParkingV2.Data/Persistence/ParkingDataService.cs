@@ -56,7 +56,11 @@ namespace PragueParkingV2.Data.Persistence
 
             ValidateParkingData(parkingData);
 
-           var json = JsonSerializer.Serialize(parkingData);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true
+            };
+            var json = JsonSerializer.Serialize(parkingData, jsonOptions);
             var temporaryPath = path + ".tmp";
 
             try
@@ -84,6 +88,19 @@ namespace PragueParkingV2.Data.Persistence
         }
         private static void ValidateParkingData(ParkingDataDocument parkingData)
         {
+            ArgumentNullException.ThrowIfNull(parkingData);
+
+            if (parkingData.ParkingSpots is null)
+            {
+                throw new InvalidDataException(
+                    "Parking data file is missing parking spots.");
+            }
+
+            var parkingSpotNumbers = new HashSet<int>();
+
+            var vehicleIdentifiers = new HashSet<string>(
+                StringComparer.OrdinalIgnoreCase);
+
             if (parkingData.ParkingSpots is null)
             {
                 throw new InvalidDataException(
@@ -102,14 +119,69 @@ namespace PragueParkingV2.Data.Persistence
                     throw new InvalidDataException(
                         "Parking spot number must be greater than zero.");
                 }
+                if (!parkingSpotNumbers.Add(spot.SpotNumber))
+                {
+                    throw new InvalidDataException(
+                        $"Duplicate parking spot number: {spot.SpotNumber}");
+                }
                 if (spot.Vehicles is null)
                 {
                     throw new InvalidDataException(
                         "Parking spot is missing vehicles.");
                 }
+                if (spot.Vehicles.Count == 0)
+                {
+                    throw new InvalidDataException(
+                        "A saved parking spot must contain at least one vehicle.");
+                }
+                foreach (var vehicle in spot.Vehicles)
+                {
+                    if (vehicle is null)
+                    {
+                        throw new InvalidDataException(
+                            "Parking data contains a null vehicle.");
+                    }
+                    if (string.IsNullOrWhiteSpace(vehicle.Identifier))
+                    {
+                        throw new InvalidDataException(
+                            "Vehicle identifier cannot be empty.");
+                    }
+                    if (!vehicleIdentifiers.Add(vehicle.Identifier))
+                    {
+                        throw new InvalidDataException(
+                            $"Duplicate vehicle identifier: {vehicle.Identifier}");
+                    }
+                    if (string.IsNullOrWhiteSpace(vehicle.VehicleType))
+                    {
+                        throw new InvalidDataException(
+                            "Vehicle type is missing.");
+                    }
+                    if (vehicle.VehicleType != "Car" &&
+                        vehicle.VehicleType != "MC")
+                    {
+                        throw new InvalidDataException(
+                            $"Unsupported vehicle type: {vehicle.VehicleType}");
+                    }
+                    if (vehicle.ArrivalTime == DateTime.MinValue)
+                    {
+                        throw new InvalidDataException(
+                            "Vehicle arrival time is invalid.");
+                    }
+                    if (vehicle.ArrivalTime == DateTime.MinValue)
+                    {
+                        throw new InvalidDataException(
+                            "Vehicle arrival time is invalid.");
+                    }
+                    if (vehicle.ArrivalTime.Kind != DateTimeKind.Utc)
+                    {
+                        throw new InvalidDataException(
+                            "Vehicle arrival time must be in UTC.");
+                    }
+                }
 
             }
     }
+
 
 
     }

@@ -1,16 +1,11 @@
 # Parkeringsdata
 
-**Uppdaterad:** 2026-10-10  
-**Omfattning:** Planerad persistent lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
+**Uppdaterad:** 2026-10-11  
+**Omfattning:** JSON-lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-**Status:** Den grundläggande JSON-persistensen är under utveckling.
-Datamodeller samt funktioner för inläsning och sparning är
-implementerade i `PragueParkingV2.Data`.
+**Status 2026-10-11:** JSON-formatet är beslutat. Grundläggande `ParkingDataService.Load()`/`Save()`, datamodeller och dokumentvalidering är implementerade. `Load()` har verifierats manuellt med giltig data och ogiltig fordonstyp; serialiserad indenterad JSON har granskats. Fullständig sparverifiering, konfigurationsberoende validering, återställning till `ParkingGarage` och automatisk sparning återstår.
 
-Fullständig validering, återställning av domänobjekt och
-automatisk sparning från parkeringsfunktionerna återstår.
-
-## Planerad struktur
+## Beslutad struktur
 
 ```mermaid
 flowchart TD
@@ -65,7 +60,7 @@ Det gör att den sparade tiden kan konverteras till den tidszon som anges i `con
 
 Vid återställning måste den ursprungliga UTC-tiden bevaras. Ett återställt fordon får **inte** få en ny ankomsttid genom att konstruktorn använder `DateTime.UtcNow`.
 
-Domänklasserna behöver därför stöd för att skapa `Car` och `MC` med en befintlig, giltig UTC-ankomsttid. Att dessa konstruktorsöverlagringar finns i den aktuella koden återstår att verifiera.
+Domänklasserna behöver därför stöd för att skapa `Car` och `MC` med en befintlig, giltig UTC-ankomsttid. Vid den kommande integrationen kontrollerar vi att relevanta konstruktorer finns i den aktuella källkoden.
 
 ## Exempel på `parking-data.json`
 
@@ -125,7 +120,9 @@ Den planerade ordningen är:
 
 ### Validering av sparad data
 
-Innan sparad data accepteras ska systemet bland annat kontrollera att:
+`ValidateParkingData()` i `ParkingDataService` kontrollerar redan dokument-/plats-/fordonsobjekt, icke-tomma listor för sparade platser, positiva och unika `SpotNumber`, fordonsidentifierare, dubbletter med `StringComparer.OrdinalIgnoreCase`, fordonstyperna `Car`/`MC` samt `ArrivalTime.Kind == Utc` och icke-standarddatum. Samma interna kontroll anropas vid `Load()` och `Save()`.
+
+Följande ytterligare krav gäller innan sparad data accepteras i det färdiga garaget:
 
 - JSON-strukturen och obligatoriska fält finns och går att läsa.
 - Varje `SpotNumber` är unikt och ligger inom den aktuella garagekapaciteten.
@@ -172,113 +169,43 @@ Om den gamla platsen blir tom ska den utelämnas ur den sparade filen. En missly
 
 ## Ansvar och säker filhantering
 
-JSON-serialisering och filåtkomst hanteras i det separata klassbiblioteket `PragueParkingV2.Data`.
+JSON-serialisering och filåtkomst hör hemma i det separata projektet `PragueParkingV2.Data`. `ParkingGarage` och `ParkingSpot` ska fortsatt ansvara för parkeringsregler, och UI ska endast presentera resultat och fel.
 
-`ParkingGarage` och `ParkingSpot` ansvarar fortsatt för parkeringsregler och fordonsplacering, medan UI endast presenterar resultat och felmeddelanden.
+Vid implementationen ska vi:
 
-Följande principer gäller för persistensen:
+- Använda en portabel, kontrollerad lagringsplats utan hårdkodade sökvägar till en viss dator.
+- Spara efter varje **genomförd förändring** av parkeringshuset: incheckning, utcheckning och förflyttning.
+- Undvika att en avbruten skrivning förstör huvudfilen, exempelvis genom skrivning till temporär fil följt av säker ersättning.
+- Säkerställa konsekvens mellan tillståndet i minnet och den sparade filen om en skrivning misslyckas.
+- Aldrig automatiskt skriva över en befintlig, korrupt eller ogiltig datafil med ett tomt parkeringshus.
 
-- Använda portabla filsökvägar utan hårdkodade sökvägar till en specifik dator.
-- Spara efter varje genomförd förändring: incheckning, utcheckning och förflyttning.
-- Skydda befintliga parkeringsdata mot ofullständiga skrivningar.
-- Säkerställa konsekvens mellan parkeringshusets tillstånd i minnet och den sparade informationen.
-- Validera parkeringsdata innan informationen används eller sparas.
-- Aldrig automatiskt ersätta en befintlig korrupt eller ogiltig datafil med ett tomt parkeringshus.
+### Implementerat 2026-10-11
 
-### Implementerat 2026-10-10
+- `ParkingDataService` använder `AppContext.BaseDirectory` och `Path.Combine()` för körmiljöns `Data/parking-data.json`.
+- `Load()` kontrollerar om filen finns, läser texten, deserialiserar och validerar dokumentet. Saknad fil ger ett tomt dokument i minnet; den skapas inte vid enbart inläsning.
+- `Save()` skapar saknad datakatalog och validerar det inkommande dokumentet innan JSON serialiseras.
+- `JsonSerializerOptions { WriteIndented = true }` ger indenterad och människoläsbar JSON.
+- Innehållet skrivs först till `parking-data.json.tmp` i samma katalog. `File.Move()` används om huvudfilen saknas och `File.Replace()` om den finns.
+- `try/finally` försöker rensa en kvarvarande temporärfil.
 
-`ParkingDataService` har implementerats med grundläggande funktionalitet för JSON-inläsning och sparning.
+### Manuell teststatus
 
-**Sökvägshantering**
+- **Verifierat:** Giltig JSON läses till ett dokument med plats 1, `Car`, `ABC123` och korrekt UTC-ankomsttid.
+- **Verifierat:** Okänd typ (`Truck`) avvisas med `InvalidDataException` och fångas av programmets felhantering.
+- **Verifierat:** Serialiserad text är indenterad och behåller rätt identifierare, fordonstyp och UTC-tidsmarkering.
+- **Delvis testat:** Exekveringen i `Save()` nådde `finally`; detta ensamt bevisar inte att `File.Replace()` slutfördes, att originalfilen ändrades eller att `.tmp` försvann.
 
-- `AppContext.BaseDirectory` används för att utgå från applikationens körkatalog.
-- `Path.Combine()` används för plattformsoberoende sökvägar.
-- Parkeringsdata lagras under `Data/parking-data.json`.
-- `Directory.CreateDirectory()` skapar datakatalogen om den saknas.
+### Kvarstående säkerhet och integration
 
-**Inläsning**
+- Kontroll av att obligatoriska JSON-fält faktiskt förekommer, även om DTO:ernas standardvärden annars kan dölja utelämnade fält.
+- Kontroll av identifierarlängd, normalisering och garagekapacitet i relation till `config.json`.
+- Skydd mot att en redan befintlig korrupt/ogiltig fil skrivs över genom ett fristående `Save()`-anrop. Den normala uppstartssekvensen anropar redan `Load()` och stoppar vid upptäckta ogiltiga data.
+- Fullständig verifiering av `Save()` med befintlig respektive saknad fil, inklusive rensning av temporärfil och hantering av skrivfel.
+- Säker konsekvens mellan tillståndet i minnet och filen när lagring misslyckas.
+- Återställning av fordon på rätt plats med ursprunglig UTC-tid, följt av automatisk sparning efter incheckning, utcheckning och förflyttning.
 
-- `File.Exists()` kontrollerar om datafilen existerar.
-- Om filen saknas returneras ett tomt `ParkingDataDocument`.
-- `File.ReadAllText()` läser en befintlig datafil.
-- `JsonSerializer.Deserialize<T>()` omvandlar JSON till datamodeller.
-- Deserialisering som returnerar `null` avvisas.
-- Grundläggande innehållsvalidering genomförs före retur.
+**Status:** Grundläggande filhantering är påbörjad och testad i avgränsade scenarier, men den fullständiga persistensfunktionen är ännu inte färdig eller verifierad.
 
-**Sparning**
-
-- `JsonSerializer.Serialize()` omvandlar datamodellerna till JSON.
-- Informationen skrivs först till `parking-data.json.tmp`.
-- `File.Move()` används vid första sparningen när originalfilen saknas.
-- `File.Replace()` används när en befintlig datafil ska ersättas.
-- `try/finally` används för att försöka rensa kvarvarande temporära filer.
-
-Den temporära filen minskar risken för att en avbruten skrivning skadar den befintliga datafilen.
-
-**Grundläggande validering**
-
-Metoden `ValidateParkingData()` har implementerats och anropas från både `Load()` och `Save()`.
-
-Följande kontroller finns:
-
-- `ParkingSpots` får inte vara `null`.
-- En parkeringsplats i listan får inte vara `null`.
-- `SpotNumber` måste vara större än noll.
-- `Vehicles` får inte vara `null`.
-
-En tom `ParkingSpots`-lista är giltig eftersom endast upptagna parkeringsplatser ska sparas.
-
-### Kvarstående arbete
-
-**Datavalidering**
-
-- Kontrollera att varje sparad parkeringsplats innehåller fordon.
-- Validera fordonsidentifierare.
-- Validera fordonstyper.
-- Validera ankomsttider och UTC-format.
-- Kontrollera dubblerade parkeringsplatsnummer.
-- Kontrollera dubblerade fordonsidentifierare.
-- Kontrollera parkeringskapacitet mot `config.json`.
-- Upptäcka saknade obligatoriska JSON-fält.
-
-**Datasäkerhet**
-
-- Förhindra att befintliga korrupta parkeringsdata skrivs över.
-- Förbättra felhantering vid borttagning av temporära filer.
-- Verifiera beteendet vid misslyckad filskrivning.
-- Säkerställa konsekvens mellan minnet och datafilen vid sparfel.
-
-**Integration**
-
-- Återställa parkerade fordon vid programstart.
-- Bevara ursprungliga parkeringsplatser och ankomsttider.
-- Spara automatiskt efter lyckad incheckning.
-- Spara automatiskt efter lyckad utcheckning.
-- Spara automatiskt efter lyckad förflyttning.
-- Genomföra integrationstester.
-
-### Status
-
-**Pågår – grundläggande JSON-inläsning och sparning är implementerad.**
-
-Fullständig validering, återställning av domänobjekt och integration med parkeringsfunktionerna återstår.
-
-Funktionaliteten är ännu inte fullständigt testad eller verifierad.
-
-Den nuvarande implementationen ska därför inte betraktas som färdig för produktionsanvändning.
-
-### Kvarstående säkerhetskontroller
-
-- Validera identifierare, fordonstyper och UTC-tider.
-- Kontrollera dubblerade parkeringsplatser och fordon.
-- Kontrollera kapacitet mot konfigurationen.
-- Upptäcka saknade obligatoriska JSON-fält.
-- Skydda befintliga korrupta data mot överskrivning.
-- Hantera fel vid rensning av temporära filer.
-- Verifiera filskrivning och återställning genom tester.
-
-Den nuvarande implementationen ska inte betraktas som
-fullständigt säker eller färdig för produktionsanvändning.
 ## Förberedelser inför Prague Parking 2.1 (VG)
 
 Den nuvarande JSON-strukturen ska fungera som utgångspunkt även när `Bicycle` och `Bus` införs.

@@ -9,9 +9,9 @@ Applikationen använder Spectre.Console för ett interaktivt konsolgränssnitt m
 **Framework:** .NET 10  
 **Language:** C#  
 **Status:** Under Development  
-**Last Updated:** 2026-10-10
+**Last Updated:** 2026-10-11
 
-> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmeny och garageöversikt finns. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. **Grundläggande JSON-inläsning och sparning har nu implementerats i Data-projektet**, men datavalidering, återställning av fordonsobjekt, automatisk sparning och integrationstester återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
+> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmeny och garageöversikt finns. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. **Grundläggande JSON-inläsning och sparning finns i Data-projektet**. Inläsning av en giltig testfil och avvisning av en ogiltig fordonstyp har verifierats manuellt. Validering mot garagekonfigurationen, säker hantering av skrivfel, återställning av fordonsobjekt och automatisk sparning återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
 
 ---
 
@@ -89,6 +89,8 @@ PragueParkingV2.Data
     ├── ParkingSpotData.cs
     └── VehicleData.cs
 ```
+
+`Config/config.json` är konfigurationsfilen i huvudprojektet. Vid körning använder `ParkingDataService` `Data/parking-data.json` under `AppContext.BaseDirectory` (vanligen huvudprojektets `bin/Debug/net10.0/Data/`). Det separata klassbibliotekets källkodsmapp `Persistence` är inte lagringsplats för runtime-filen.
 
 Domänlogik, användargränssnitt och dataåtkomst hålls separerade. Klassbiblioteket `PragueParkingV2.Data` innehåller både konfigurationshantering och den påbörjade JSON-persistensen. `ParkingDataDocument`, `ParkingSpotData` och `VehicleData` är separata datamodeller; domänobjekten har ännu inte kopplats till inläsningen och sparningen.
 
@@ -345,9 +347,10 @@ Grundläggande filhantering för `parking-data.json` har **implementerats men in
 - Grundläggande läsning och deserialisering med `System.Text.Json`.
 - Grundläggande serialisering och sparning till en temporär `.tmp`-fil, följt av `File.Move()` eller `File.Replace()`.
 - `try/finally` för att försöka städa undan temporära filer.
-- Inledande validering av listan `ParkingSpots`, enskilda platsobjekt, positiva `SpotNumber` och att `Vehicles` inte är `null`. Valideringen anropas vid både inläsning och sparning.
+- Indenterad, människoläsbar JSON via `JsonSerializerOptions.WriteIndented = true`.
+- Validering av dokument- och platsobjekt, positiva och unika `SpotNumber`, icke-tomma `Vehicles`, fordonsidentifierare, dubbletter utan skiftlägeskänslighet, `Car`/`MC` som giltiga typer och `ArrivalTime.Kind == Utc`. Valideringen anropas vid både inläsning och sparning.
 
-Detta skyddar **inte ännu** mot alla felaktiga indata eller mot att en redan korrupt datafil skrivs över. Metoderna används ännu inte för automatisk sparning av riktiga parkeringsåtgärder.
+Detta skyddar **inte ännu** mot alla felaktiga indata. Exempelvis saknas validering mot garagekapaciteten och säker upptäckt av alla utelämnade obligatoriska JSON-fält. `Save()` validerar sitt inkommande dokument men kontrollerar inte en redan befintlig datafil innan den ersätts. Vid normal uppstart avvisar `Load()` däremot upptäckta ogiltiga värden. Automatisk sparning från riktiga parkeringsåtgärder är ännu inte integrerad.
 
 Den fastställda G-strukturen behålls:
 
@@ -374,7 +377,7 @@ Den fastställda G-strukturen behålls:
 - Återskapa tomma platser utifrån garageantalet i `config.json`.
 - Återställa fordon till **samma plats** med **samma ankomsttid i UTC**.
 - Spara automatiskt efter lyckad incheckning, utcheckning och flytt.
-- Utöka valideringen med obligatoriska JSON-fält, fordonsuppgifter, dubbletter och kapacitetsregler.
+- Komplettera valideringen med identifierarlängd, saknade obligatoriska JSON-fält och kapacitetsregler från aktuell konfiguration.
 - Förhindra att befintlig korrupt eller ogiltig JSON skrivs över.
 - Hantera fel under filskrivning och städning utan att rapportera en misslyckad lagring som lyckad.
 - Genomföra tester av sparning, omstart, återställning och felhantering.
@@ -397,12 +400,12 @@ Ingen platt JSON-struktur eller nya obligatoriska fält införs i G-versionen. S
 | `GarageOverView` and `Spot Details` | Framtagna; utökade tester återstår |
 | `MessageService` | Finns; enhetlig användning i alla vyer återstår |
 | `ParkVehicleView` | Framtaget; integrationstest återstår |
-| `ParkingDataService` | Grundläggande `Load()` och `Save()` implementerade; ännu inte integrationstestade |
+| `ParkingDataService` | Grundläggande `Load()`/`Save()`, DTO-validering och indenterad JSON implementerade. `Load()` har testats manuellt med giltig och ogiltig data; fullständigt `Save()`-/återställningstest återstår |
 | `ParkingDataDocument`, `ParkingSpotData`, `VehicleData` | DTO-klasser för den fastställda JSON-strukturen; skapade |
 
 ### Remaining Work
 
-- Färdigställa och testa validering och säker filhantering i `ParkingDataService`.
+- Slutföra och verifiera `Save()` (ersättning, städning och skrivfel) och komplettera JSON-valideringen med saknade obligatoriska fält, identifierarlängd och robust skydd mot korrupt befintlig data.
 - Implementera återställning av sparade fordon vid programstart.
 - Koppla incheckning till säker sparning och testa hela `Park Vehicle`-flödet.
 - Integrera utcheckning med UI och permanent sparning.
@@ -424,7 +427,13 @@ Följande har tidigare testats manuellt i utvecklingsmiljön:
 - `CheckoutService` och dess resultatobjekt på domännivå.
 - Grundläggande visning av garageöversikt och huvudmenyns navigering.
 
-Detta motsvarar **inte** ett fullständigt end-to-end-test av programmet. Den nya JSON-persistensen är kodad på grundnivå men **inte verifierad med ett fullständigt sparnings- och återställningstest**. UI-flöden och körning på en annan dator återstår.
+**Manuella tester 2026-10-11 av `ParkingDataService`:**
+
+- Giltig `parking-data.json` med `Car`, identifierare `ABC123`, plats `1` och UTC-ankomsttid kunde läsas via `Load()`; värden och `ArrivalTime.Kind = Utc` kontrollerades i Visual Studios Locals/Watch.
+- Ändring av `VehicleType` till `Truck` gav `InvalidDataException` med meddelandet `Unsupported vehicle type: Truck`. Undantaget fångades av `Program.cs` och stoppade den normala uppstarten.
+- `Save()` kördes under felsökning fram till `finally`, och indenterad JSON granskades i Text Visualizer. Detta **bevisar ännu inte** att ersättningen och städningen slutfördes utan fel; fullständig slutkontroll av datafil och temporärfil är inte redovisad.
+
+Detta är **inte** ett fullständigt end-to-end-test. Återställning i `ParkingGarage`, automatisk sparning efter parkeringsåtgärder, skrivfelstester, övriga UI-flöden och körning på annan dator återstår.
 
 Genomförda tester och upptäckta problem redovisas i [`LOGGBOK.md`](LOGGBOK.md). Kravstatus redovisas i [`requirements.md`](docs/requirements.md).
 

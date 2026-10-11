@@ -8,6 +8,7 @@ namespace PragueParkingV2.Data.Persistence
     {
         public List<ParkingSpotData> ParkingSpots { get; set; } = new();
 
+
     }
 
 }
