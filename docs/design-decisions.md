@@ -1,6 +1,6 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-11  
+**Uppdaterad:** 2026-10-13  
 **Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
@@ -149,49 +149,56 @@ Menybaserad omläsning av prislistan återstår för G-versionen. Omläsning av 
 
 ---
 
-## DD-020 – Interaktiv garageöversikt med Grid och Panel
+## DD-020 – Dynamisk garageöversikt med kompakt Grid och intern viewport
 
-**Beslut:** `GarageOverView` använder Spectre.Console `Grid` med individuella `Panel`-objekt i stället för en lång vertikal `Table`.
+**Senast reviderat:** 2026-10-13
 
-**Motivering:** En 25-raders tabell tog för mycket höjd och försvårade en överblick utan terminalscrollning.
+### Beslut
 
-Ett rutnät med fem kolumner och maximalt fem rader visar 25 parkeringsplatser per sida.
+`GarageOverView` använder en enda kompakt Spectre.Console-`Grid` **inuti en `Panel`** för parkeringskartan. Parkeringsplatserna visas som färgade nummer, **utan individuella panelramar eller tabellens radavgränsare**. En separat `SPOT DETAILS`-panel placeras längst till höger och `GARAGE STATUS` visas under båda panelerna.
 
-Individuella paneler ger dessutom möjlighet att framhäva hela den markerade parkeringsrutan.
+Kartan och detaljpanelen fördelar tillgänglig terminalbredd med **cirka 80/20 som utgångspunkt**. Detaljpanelen får dock minst 23 tecken enligt den aktuella layoutberäkningen; procentfördelningen är därför inte exakt i smalare terminaler. Terminalen behöver vara minst **80 kolumner bred och 18 rader hög** för att denna vy ska öppnas i nuvarande implementation.
 
-### Genomförande
+### Bakgrund och motivering
 
-- `ParkingGarage.ParkingSpots` ordnas efter `SpotNumber`.
-- Parkeringsplatserna delas upp i sidor med `Skip()` och `Take()`.
-- Antalet sidor beräknas dynamiskt utifrån garagekapaciteten.
-- Varje parkeringsplats presenteras i en individuell `Panel`.
-- Fem kolumner används för att skapa parkeringskartan.
-- Piltangenterna flyttar markeringen inom rutnätet.
-- Page Up och Page Down används för sidbyte.
-- ESC lämnar garageöversikten.
-- Vid sidbyte återställs markeringen till första platsen.
-- Markeringens och panelernas färger följer numera `AppTheme` i stället för tidigare fristående färgval som `LightGoldenrod1` och vita ramar.
-- Grön, orange och röd status används för ledig, delvis upptagen respektive full parkeringsplats.
-- Kapacitetsinformationen hämtas från `AppConfiguration`.
-- `Columns` används för att placera parkeringskartan bredvid informationspanelen `SPOT DETAILS`.
-- Informationspanelen visar detaljer om vald plats; tidpunkter presenteras i konfigurerad lokal tidszon.
+Lösningen har ändrats i flera steg under utvecklingen:
 
-### Arkitektur
+- **9–10 oktober:** Ett 5 × 5-rutnät med 25 platser per sida och individuella `Panel`-komponenter användes. Det gav tydliga ramar men utnyttjade skärmytan dåligt.
+- **12 oktober:** En mer kompakt `Table` testades för att visa fler platser samtidigt. Tabellens cellpadding, kantlinjer och radavgränsare gjorde det svårt att beräkna bredd och höjd korrekt.
+- **13 oktober:** Lösningen byggdes om till en kompakt `Grid` utan en separat `Panel` per parkeringsplats. Målet var att visa så mycket som möjligt av garaget utan att terminalen scrollar, och samtidigt behålla `SPOT DETAILS` fullt synlig.
 
-Detta är en lösning i presentationslagret.
+Den nya presentationen är ett **UI-beslut**, inte en ändring av parkeringsregler eller av domänklasserna.
 
-Garageöversikten ansvarar för presentation och användarinteraktion.
+### Nuvarande implementation
 
-`Vehicle`, `ParkingSpot`, `ParkingGarage` och prislogiken behöver inte ändras för att stödja presentationsvalet.
+- Platserna hämtas från `ParkingGarage.ParkingSpots` och sorteras efter `SpotNumber`.
+- `GetGarageLayout()` beräknar kartbredd, detaljbredd, antal kolumner och synliga rader utifrån terminalens rapporterade bredd/höjd och aktuellt antal parkeringsplatser.
+- `BuildGarageGrid()` skapar ett kompakt rutnät där varje plats upptar en liten, obruten cell med ett tresiffrigt eller bredare platsnummer.
+- `CreateParkingSpotCell()` använder `Markup` för statusfärgad bakgrund. `GetSpotColor()` avgör färgen med `AppConfiguration.VehicleTypes` och faktisk beläggning: **grön = ledig**, **orange = delvis upptagen**, **röd = full**.
+- Vald plats markeras med **guldtext**, medan bakgrundsfärgen fortsätter att visa platsens parkeringsstatus.
+- `SPOT DETAILS` visar vald plats, status och beläggning. Vid parkerade fordon visar den dessutom fordonstyp, identifierare, lokalt presenterad ankomsttid och beräknad parkeringstid.
+- `GARAGE STATUS` går över hela den sammansatta layoutens bredd och visar totalt antal lediga/upptagna platser och parkerade fordon. När kartan är begränsad till ett synligt intervall anges det intervallet i footern.
+- `AnsiConsole.Live()` används för att uppdatera garagevyn vid navigering utan att rensa hela konsolen vid varje tangenttryckning. Detta ska inte förväxlas med huvudmenyns positionsbaserade navigering i `AppTheme.ShowMenu()`.
 
-Parkeringsregler och kapacitetskontroll hanteras fortsatt av domänlagret.
+### Navigation och visningsbegränsning
 
-### Kvarstående arbete
+Piltangenterna använder **samma beräknade `ColumnsPerRow`** som rutnätet. Upp/ned flyttar markeringen en visuell rad; vänster/höger flyttar markeringen inom samma rad. `ESC` återgår från garageöversikten. Den tidigare sidindelningen med `Page Up`/`Page Down` är **inte längre den aktuella navigeringsmodellen**.
 
-- Integrationstesta översikten med faktiskt parkerade fordon, inklusive två MC på samma plats.
-- Verifiera statusfärgerna för ledig, delvis upptagen och full plats.
-- Kontrollera navigeringens gränsfall och sista sidan vid andra platsantal än multiplar av 25.
-- Kontrollera layout vid olika terminalstorlekar.
+**Alla platser visas samtidigt när utrymmet räcker.** Om kartan blir högre än tillgänglig terminalhöjd används en **intern viewport**: ett sammanhängande intervall av rader visas kring den valda platsen. Navigering mellan platser kan då ändra det synliga intervallet utan att användaren behöver scrolla själva terminalen. Detta är inte en fast indelning i sidor med 25 eller 100 platser.
+
+Layouten beräknas om vid tangenttryckningar, även efter en eventuell ändring av terminalstorlek. Den kan däremot inte garantera att ett stort garage, exempelvis 1 000 platser, visas **helt samtidigt** på varje skärm. En kompakt Grid minskar utrymmesbehovet men tar inte bort terminalens fysiska begränsningar.
+
+### Status och återstående tester
+
+Den aktuella vyn har **visuellt kontrollerats med 200 lediga parkeringsplatser** i ett tillräckligt stort terminalfönster. Skärmbilden visar samtliga platsnummer, `SPOT DETAILS` längst till höger och `GARAGE STATUS` längst ned utan att den synliga kartan kapas. Detta är **en visuell kontroll**, inte ett fullständigt automatiserat eller genomgående integrationstest.
+
+Följande behöver verifieras innan garageöversikten kan betraktas som färdigtestad:
+
+- Tangentbordsnavigering till första och sista plats samt över radgränser, särskilt i viewport-läge.
+- Färg och beläggning för en bil, en MC och två MC på samma plats (ledig, delvis upptagen och full).
+- Korrekt identifierare, ankomsttid och parkeringstid i `SPOT DETAILS` för parkerade fordon.
+- Layout vid flera terminalstorlekar samt 100, 500 och 1 000 platser, inklusive ändrad fönsterstorlek under körning.
+- Att det inte uppstår oönskad terminalscrollning, klippning eller flimmer i dessa testfall.
 
 ---
 

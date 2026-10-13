@@ -16,6 +16,11 @@ var configurationService = new ConfigurationService();
 try
 {
     var configuration = configurationService.LoadConfiguration();
+    /*Debugging config file
+    Console.WriteLine(
+    $"Configured parking spots: {configuration.Garage!.NumberOfParkingSpots}");
+    */
+    Console.ReadKey();
     var parkingDataService = new ParkingDataService();
     var parkingData = parkingDataService.Load();
     

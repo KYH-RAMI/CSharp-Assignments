@@ -24,6 +24,11 @@ namespace PragueParkingV2.UI
         public const string StatusPartial = "orange1";
         public const string StatusFull = "red";
 
+        public const int GarageMapWidth = 70;
+        public const string StatusText = "#071C35";
+        public const string SelectedSpotText = GoldLight;
+        public const string SelectedSpotBackground = Gold;
+
         public const int GarageSpotWidth = 12;
         public const int GarageDetailsWidth = 40;
         public const int GarageFooterWidth = 80;

@@ -672,3 +672,135 @@ Planerat en utökad informationspanel med samtliga parkerade fordon, identifiera
 6. Fortsätta UI-integrationen och därefter G-verifiering, VG-arbete och eventuell distribution enligt projektplanen.
 
 **Teststatus:** `Load()` och dess typvalidering har verifierats med konkreta testdata. `Save()` är delvis manuellt granskat, men fullständigt slutresultat samt omstart och återställning av `ParkingGarage` är ännu inte verifierade.
+
+## 2026-10-12 - Ombyggnad av Garage Overview
+
+### Målsättning
+Förbättra parkeringsöversikten genom att skapa en kompakt 10x10 karta där samtliga parkeringsplatser visas samtidigt.
+
+### Genomförande
+- Tidigare Grid/Panel-lösning ersattes med Spectre.Console Table.
+- Parkeringsplatser visas nu i ett tabellformat liknande en parkeringskarta.
+- Layouten separerades i:
+  - Garage Overview
+  - Spot Details
+  - Garage Status
+
+### Designbeslut
+- Parkeringsnumret visas endast i kartan.
+- Statusinformation visas inte i varje cell för att minska visuellt brus.
+- Färg används för status:
+  - Grön: ledig
+  - Orange: delvis upptagen
+  - Röd: full
+
+### Tekniska lärdomar
+- Grid och Panel gav för stora komponenter för en 100-platsers översikt.
+- Table passar bättre för fasta rader och kolumner.
+- UI-komponenter måste väljas efter informationsmängd och skärmyta.
+
+### Nästa steg
+- Implementera tydlig markering av vald parkeringsplats.
+- Kontrollera om individuell borderfärg kan lösas utan att påverka tabellens kompakthet.
+- Uppdatera README och övrig dokumentation.
+
+---
+
+## 2026-10-13 - Fortsatt utveckling av Garage Overview
+
+### Genomfört
+
+- Fortsatt utvecklingen av Garage Overview för att få en mer kompakt parkeringskarta.
+- Testat flera olika Spectre.Console-komponenter:
+  - Grid
+  - Panel
+  - Table
+  - Columns
+  - Align
+- Utvärderat skillnaden mellan individuella Panel-komponenter och en tabellbaserad presentation.
+
+### Designbeslut
+
+- Behållit en 10x10-layout för att kunna visa 100 parkeringsplatser samtidigt.
+- Lösningen är fortfarande dynamisk och bygger på antalet parkeringsplatser från konfigurationen.
+- Parkeringsplatsens nummer visas endast i cellen för att undvika visuellt brus.
+- Status presenteras genom cellens bakgrundsfärg:
+  - Grön: ledig parkeringsplats
+  - Orange: delvis upptagen
+  - Röd: full parkeringsplats
+- Markerad parkeringsplats visas genom förändrad textfärg istället för extra komponenter runt cellen.
+
+### Tekniska lärdomar
+
+- Spectre.Console Table har begränsningar när individuell borderfärg behöver ändras per cell.
+- Individuella Panel-komponenter gav bättre kontroll över styling men ökade storleken på presentationen och skapade mer behov av scrollning.
+- Table gav bättre kompakt översikt för många parkeringsplatser.
+- Val av UI-komponent måste balansera visuell kontroll mot mängden information som ska visas.
+
+### Problem och lösningar
+
+#### Problem - Markering av vald parkeringsplats
+
+- Individuell borderfärg per cell var inte direkt tillgänglig genom Spectre.Console Table.
+- Flera alternativa lösningar testades:
+  - extra symboler framför parkeringsnummer
+  - separata paneler
+  - ändrad bakgrundsfärg
+  - ändrad textfärg
+
+### Lösning
+
+- Behöll en enkel markering genom förändrad textfärg på aktiv parkeringsplats.
+- Prioriterade kompakt layout och tydlig navigering framför mer avancerad grafisk presentation.
+
+### Nästa steg
+
+- Slutföra verifiering av:
+  - ledig plats
+  - delvis upptagen plats
+  - full plats
+- Testa navigering med olika antal parkeringsplatser.
+- Fortsätta utveckla SPOT DETAILS.
+
+---
+
+## 2026-10-13 – Senare arbete: fungerande, kompakt Garage Overview
+
+### Genomfört
+
+- Byggt om parkeringskartan från den tillfälliga `Table`-lösningen till ett kompakt `Grid` inuti en gemensam `Panel`. Varje plats behöver inte längre en egen panel eller tabellram.
+- Låtit terminalens faktiska bredd och höjd styra antalet kolumner och hur många rader som kan visas. Parkeringshusets storlek hämtas fortfarande från konfigurationen.
+- Anpassat huvudlayouten så att `PARKING MAP` får huvuddelen av utrymmet och `SPOT DETAILS` ligger i en smalare panel längst till höger. `GARAGE STATUS` visas nedanför och sträcker sig över båda panelerna.
+- Behållit `AnsiConsole.Live()` för uppdatering under tangentbordsnavigering och kopplat navigeringens stegstorlek till samma dynamiska kolumnantal som används för rutnätet.
+- Använt statusfärgad bakgrund på parkeringsplatsnumren och en avvikande textfärg för vald plats. Statusfärgerna hämtas från den befintliga tematiken och garagekonfigurationen.
+- Lagt in en intern, automatiskt flyttad visningsyta när fler parkeringsrader finns än terminalen kan visa; syftet är att undvika att terminalen själv behöver scrolla.
+
+### Tester och observationer
+
+- Körde garageöversikten med **200 konfigurerade parkeringsplatser** i Windows Terminal.
+- Kontrollerade visuellt att **plats 001–200** visas utan avklippta platsnummer i det aktuella terminalfönstret.
+- Kontrollerade att `SPOT DETAILS` syns till höger samtidigt som hela kartan, och att `GARAGE STATUS` visas under båda panelerna.
+- Kontrollerade visuellt att lediga platser har grön bakgrund och att markerad plats har en avvikande textfärg.
+- **Återstår att testa:** navigering till samtliga gränslägen, förändrad terminalstorlek, 100/500/1 000 platser, viewport när alla rader inte ryms samt orange och röd status med parkerade fordon. Detaljpanelen behöver även verifieras med bil, en MC och två MC på samma plats.
+
+### Problem och lösning
+
+De tidigare försöken med en `Table` gjorde att parkeringsnummer radbröts när cellerna blev för smala. När cellbredden ökades blev tabellen i stället för hög, vilket gjorde att delar av parkeringskartan hamnade utanför terminalfönstret. Vid vissa layouter syntes inte heller `SPOT DETAILS`.
+
+**Lösning:** En kompakt `Grid` utan individuella parkeringsplatsramar gör att varje rad tar betydligt mindre plats. Panelernas bredd och antalet kolumner beräknas utifrån terminalstorleken, och detaljpanelen får en tydligt avgränsad del av utrymmet. Den här lösningen ersätter dagens tidigare försök med fast 10 × 10-layout och `Table`; anteckningarna ovan beskriver de mellanliggande experimenten.
+
+### Mina reflektioner
+
+Jag trodde faktiskt att Spectre.Console skulle vara ganska enkelt att arbeta med eftersom jag använde det redan i den första versionen av Prague Parking. Men i V2 ville jag göra en mycket mer avancerad parkeringsöversikt, och då märkte jag att det inte alls var lika enkelt. Jag har lagt ungefär två dagar på att försöka få gränssnittet att se bra ut, visa alla parkeringsplatser som får plats och samtidigt slippa onödig scrollning. Flera lösningar fungerade på ett sätt men skapade nya problem: siffror delades upp på flera rader, delar av kartan försvann eller så fick informationspanelen inte plats.
+
+Det har varit både frustrerande och tidskrävande, särskilt när en ändring som skulle förbättra utseendet i stället gjorde något annat sämre. Jag ville inte nöja mig med en lösning som bara tekniskt fungerade men såg ful och rörig ut. Därför fortsatte jag att testa olika komponenter tills jag fick en översikt som både är mer lättläst och använder terminalens utrymme bättre.
+
+Det viktigaste jag har lärt mig är att man måste förstå hur `Grid`, `Table`, `Panel` och terminalens bredd och höjd samverkar. En konsolapplikation kan också kräva ganska mycket UI-arbete när man vill göra något mer avancerat än en vanlig meny. Jag är nöjd med hur parkeringsöversikten ser ut nu, men jag vill fortfarande testa den ordentligt innan jag räknar den som färdig.
+
+### Nästa steg
+
+- Testa piltangenterna och markeringen även på sista parkeringsraden.
+- Kontrollera kompakt layout vid andra terminalstorlekar och större garage.
+- Testa statusfärgerna och `SPOT DETAILS` med verkligt parkerade fordon.
+- Uppdatera `README.md`, designbeslut, projektplan och kravstatus efter de verifierade ändringarna.
+- Kontrollera ändrade filer och Git-historiken innan nästa commit och push till GitHub.

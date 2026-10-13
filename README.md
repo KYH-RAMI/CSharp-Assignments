@@ -9,9 +9,9 @@ Applikationen använder Spectre.Console för ett interaktivt konsolgränssnitt m
 **Framework:** .NET 10  
 **Language:** C#  
 **Status:** Under Development  
-**Last Updated:** 2026-10-11
+**Last Updated:** 2026-10-13
 
-> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmeny och garageöversikt finns. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. **Grundläggande JSON-inläsning och sparning finns i Data-projektet**. Inläsning av en giltig testfil och avvisning av en ogiltig fordonstyp har verifierats manuellt. Validering mot garagekonfigurationen, säker hantering av skrivfel, återställning av fordonsobjekt och automatisk sparning återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
+> **Aktuellt läge:** Domänmodell, konfigurationsinläsning, prisberäkning och utcheckningslogik är implementerade och har testats manuellt i grundläggande scenarier. Huvudmenyn är implementerad och garageöversikten har byggts om till ett kompakt, terminalanpassat `Grid` med separat detaljpanel. En visuell testkörning med 200 parkeringsplatser har genomförts i Windows Terminal; navigeringens gränsfall och beläggningsfärger med parkerade fordon återstår att verifiera. Ett incheckningsgränssnitt har tagits fram men behöver integrationstestas. **Grundläggande JSON-inläsning och sparning finns i Data-projektet**. Inläsning av en giltig testfil och avvisning av en ogiltig fordonstyp har verifierats manuellt. Validering mot garagekonfigurationen, säker hantering av skrivfel, återställning av fordonsobjekt och automatisk sparning återstår. Projektet är därför **inte färdigt för inlämning eller extern betatestning**.
 
 ---
 
@@ -218,7 +218,7 @@ Applikationen använder `config.json` för priser, gratisminuter, garagekapacite
 | MC Capacity | 2 per spot |
 | Time Zone | Europe/Prague |
 
-Konfigurationen läses och valideras vid programstart. Prisberäkningen arbetar med aktiva värden i minnet; `config.json` behöver inte läsas vid varje beräkning.
+Konfigurationen läses och valideras vid programstart. **100 platser är standardvärdet**; antalet parkeringsplatser kan ändras i konfigurationen. Garageöversikten har kontrollerats visuellt med 200 konfigurerade platser. Prisberäkningen arbetar med aktiva värden i minnet; `config.json` behöver inte läsas vid varje beräkning.
 
 `UpdatePricing()` finns i domänlagret. **Omläsning av prislistan via administrationsmenyn är ännu inte implementerad.**
 
@@ -275,39 +275,45 @@ Terminalstorlek, tangentbordsbeteende, ANSI-sekvenser och återställning av bak
 
 ## Garage Overview
 
-Garageöversikten använder Spectre.Console `Grid`, `Panel` och `Columns` för parkeringskarta och platsinformation.
+Garageöversikten (`GarageOverView.cs`) använder ett kompakt Spectre.Console-`Grid` **inuti en gemensam `Panel`** för parkeringskartan. Den tidigare `Table`-lösningen, med tabellramar och radavgränsare, har ersatts eftersom den krävde för mycket utrymme och orsakade radbrutna platsnummer. Separata paneler per parkeringsplats används inte längre.
 
-### Parking Grid
+### Parking Map and Layout
 
-- Upp till 25 parkeringsplatser per sida.
-- Fem kolumner och fem rader.
-- Dynamisk paginering utifrån garagets storlek.
-- Separata paneler för parkeringsplatserna.
-- Visuell markering av vald parkeringsplats.
-- Färgkodning av beläggning enligt konfigurationen.
+- Parkeringsplatserna sorteras efter `SpotNumber` och visas som numrerade, färgade celler utan egna ramar.
+- Antalet parkeringsplatser hämtas från `ParkingGarage` (som skapas med konfigurerat antal); inget fast rutnät med 5 × 5 eller 10 × 10 platser används.
+- `GetGarageLayout()` beräknar kartans bredd, detaljpanelens bredd, antal kolumner och synliga rader utifrån Spectre.Consoles rapporterade terminalstorlek.
+- `PARKING MAP` får **ungefär 80 % av den tillgängliga bredden** och `SPOT DETAILS` ungefär 20 %, med en minsta bredd på 23 tecken för detaljpanelen. Fördelningen är alltså inte exakt 80/20 i alla terminalstorlekar.
+- `SPOT DETAILS` ligger längst till höger. `GARAGE STATUS` visas under båda panelerna och redovisar `FREE`, `OCCUPIED` och `VEHICLES`.
+- För att undvika terminalscrollning används en **intern viewport endast när hela parkeringskartan inte ryms på höjden**. När viewporten behövs visar footern vilket intervall av parkeringsplatser som syns.
+- Ett terminalfönster under 80 kolumner eller 18 rader får ett meddelande om att fönstret behöver förstoras i stället för att en oläsbar karta renderas.
 
 ### Parking Status
 
-| Status | Color |
-|---|---|
-| FREE | Green |
-| PARTIALLY OCCUPIED | Orange |
-| FULL | Red |
-| SELECTED SPOT | Gold |
+| Status | Bakgrund | Text i markerad cell |
+|---|---|---|
+| FREE | Grön | Guld |
+| PARTIALLY OCCUPIED | Orange | Guld |
+| FULL | Röd | Guld |
+
+Beläggningsstatus beräknas med `GetSpotColor()` utifrån antalet parkerade fordon och den konfigurerade kapaciteten per fordonstyp. Normalt används temats mörka statustext. **Markering ändrar textfärgen, inte statusbakgrunden.** Färgerna hämtas från `AppTheme`.
 
 ### Navigation
 
 | Key | Action |
 |---|---|
-| Arrow Up | Previous row |
-| Arrow Down | Next row |
-| Arrow Left | Previous spot |
-| Arrow Right | Next spot |
-| Page Up | Previous page |
-| Page Down | Next page |
-| ESC | Return to Main Menu |
+| Arrow Up | Flytta markeringen en rutnätsrad uppåt |
+| Arrow Down | Flytta markeringen en rutnätsrad nedåt |
+| Arrow Left | Flytta markeringen en plats åt vänster inom aktuell rad |
+| Arrow Right | Flytta markeringen en plats åt höger inom aktuell rad |
+| ESC | Gå tillbaka till huvudmenyn |
 
-Grundläggande visning och sidnavigering har testats manuellt. Gränsfall och presentation med parkerade fordon behöver verifieras ytterligare.
+Navigationen använder **samma dynamiskt beräknade kolumnantal** som parkeringskartan. Layouten beräknas om vid nästa tangenttryckning, exempelvis efter att terminalen har ändrat storlek. Den tidigare sidnavigeringen med `Page Up`/`Page Down` används inte i den här implementationen. `AnsiConsole.Live()` hanterar uppdateringarna under navigering.
+
+### Verified and Remaining Tests
+
+**Visuellt kontrollerat 2026-10-13 i Windows Terminal:** 200 konfigurerade platser (001–200) visades samtidigt utan avklippta nummer eller terminalscrollning i det använda fönstret. `SPOT DETAILS` syntes längst till höger och `GARAGE STATUS` under båda panelerna. Lediga platser hade grön bakgrund och den valda platsen avvikande textfärg.
+
+**Återstår att verifiera:** navigeringens samtliga gränsfall, förändrad terminalstorlek, andra konfigurerade garageantal (inklusive 100, 500 och 1 000), viewport vid otillräcklig höjd samt statusfärger för halvfull och full plats med parkerade fordon. Det visuella testet med 200 lediga platser är inte ett fullständigt integrationstest.
 
 ---
 
@@ -332,7 +338,7 @@ Exempel på tidsformat:
 1d 3h 20m
 ```
 
-**Status:** Kod för den utökade panelen har tagits fram. Den senaste implementationen behöver fortfarande testas med en bil, en MC och två MC på samma plats samt vid olika terminalstorlekar.
+**Status:** Panelen visas i den nya 200-platsersöversikten och fungerar visuellt för en markerad, ledig plats. Presentationen behöver fortfarande testas med en bil, en MC och två MC på samma plats samt vid olika terminalstorlekar.
 
 ---
 
@@ -397,7 +403,7 @@ Ingen platt JSON-struktur eller nya obligatoriska fält införs i G-versionen. S
 | `ParkingFeeCalculator` and `ParkingFeeResult` | Implementerade; beräkningsfall testade |
 | `CheckoutService` and `CheckoutResult` | Implementerade; domänflöde testat |
 | `MainMenu` and `AppTheme` | Implementerade; grundläggande navigering testad |
-| `GarageOverView` and `Spot Details` | Framtagna; utökade tester återstår |
+| `GarageOverView` and `Spot Details` | Kompakt dynamiskt `Grid` med separata paneler och intern viewport implementerad; 200 lediga platser har kontrollerats visuellt. Navigeringsgränsfall och parkerade fordon återstår att verifiera |
 | `MessageService` | Finns; enhetlig användning i alla vyer återstår |
 | `ParkVehicleView` | Framtaget; integrationstest återstår |
 | `ParkingDataService` | Grundläggande `Load()`/`Save()`, DTO-validering och indenterad JSON implementerade. `Load()` har testats manuellt med giltig och ogiltig data; fullständigt `Save()`-/återställningstest återstår |
@@ -411,8 +417,9 @@ Ingen platt JSON-struktur eller nya obligatoriska fält införs i G-versionen. S
 - Integrera utcheckning med UI och permanent sparning.
 - Implementera flytt och sökning via UI.
 - Implementera administrationsmeny och omläsning av prislista.
-- Verifiera garageöversikt och platsdetaljer med parkerade fordon.
-- Testa ogiltiga filer, navigeringsgränser och terminalkompatibilitet.
+- Verifiera garageöversikt och platsdetaljer med parkerade fordon (Car, en MC, två MC) och kontrollera grön/orange/röd status.
+- Testa navigationens gränslägen, terminalstorlekar, viewport och konfigurationer med 100/500/1 000 platser.
+- Testa ogiltiga filer och terminalkompatibilitet.
 - Genomföra fullständiga integrationstester och stämma av samtliga G-krav.
 
 ---
@@ -426,6 +433,7 @@ Följande har tidigare testats manuellt i utvecklingsmiljön:
 - Prisberäkning med gratisgränsen, timavrundning och ändring av aktiva priser.
 - `CheckoutService` och dess resultatobjekt på domännivå.
 - Grundläggande visning av garageöversikt och huvudmenyns navigering.
+- **2026-10-13:** Visuell kontroll i Windows Terminal av den nya `Grid`-baserade översikten med 200 konfigurerade, lediga parkeringsplatser: 001–200 visades, `SPOT DETAILS` fanns till höger och `GARAGE STATUS` under kartan. Ingen avklippning eller terminalscrollning observerades i det använda fönstret. Navigeringens alla gränsfall och beläggning med fordon är inte verifierade.
 
 **Manuella tester 2026-10-11 av `ParkingDataService`:**
 

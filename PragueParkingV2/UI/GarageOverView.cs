@@ -7,160 +7,227 @@ namespace PragueParkingV2.UI
 {
     internal static class GarageOverView
     {
-        private const int SpotsPerPage = 25;
-        private const int ColumnsPerRow = 5;
+        // The map is measured from the terminal, not from a fixed garage capacity.
+        private static (int MapWidth, int DetailsWidth, int ColumnsPerRow, int VisibleRows)
+            GetGarageLayout(int numberOfSpots)
+        {
+            int terminalWidth = AnsiConsole.Console.Profile.Width;
+            int terminalHeight = AnsiConsole.Console.Profile.Height;
+
+            // Leave the last terminal column unused to avoid automatic line wrapping.
+            int availableWidth = Math.Max(1, terminalWidth - 1);
+
+            // Details uses about 20 percent, but needs a readable minimum width.
+            int detailsWidth = Math.Max(23, availableWidth / 5);
+            int mapWidth = availableWidth - detailsWidth - 1;
+
+            // The panel has a border (2) and horizontal padding (2).
+            int mapContentWidth = Math.Max(1, mapWidth - 4);
+
+            // Each number uses two colored spaces and one separating space.
+            int numberWidth = Math.Max(3, numberOfSpots.ToString().Length);
+            int cellWidth = numberWidth + 3;
+
+            int columnsPerRow = Math.Max(
+                1,
+                Math.Min(numberOfSpots, mapContentWidth / cellWidth));
+
+            // Footer, panel borders, and a safety margin are reserved below the map.
+            int visibleRows = Math.Max(1, terminalHeight - 12);
+
+            return (mapWidth, detailsWidth, columnsPerRow, visibleRows);
+        }
 
         public static void DisplayGarageOverview(
             ParkingGarage parkingGarage,
             AppConfiguration configuration)
         {
-            int currentPage = 1;
-            int selectedSpotIndex = 0;
+            var garageSpots = parkingGarage.ParkingSpots
+                .OrderBy(spot => spot.SpotNumber)
+                .ToList();
 
-            int totalSpots = parkingGarage.ParkingSpots.Count;
-
-            int totalPages = Math.Max(
-                1,
-                (int)Math.Ceiling((double)totalSpots / SpotsPerPage));
-
-            while (true)
+            if (garageSpots.Count == 0)
             {
-                AppTheme.PrepareScreen();
-
-                AnsiConsole.MarkupLine(
-                    AppTheme.GradientMarkup("GARAGE ", "OVER", "VIEW"));
-
-                AnsiConsole.WriteLine();
-
-                var pageSpots = parkingGarage.ParkingSpots
-                    .OrderBy(spot => spot.SpotNumber)
-                    .Skip((currentPage - 1) * SpotsPerPage)
-                    .Take(SpotsPerPage)
-                    .ToList();
-
-                var selectedSpot = pageSpots[selectedSpotIndex];
-
-                Grid garageGrid = BuildGarageGrid(
-                    pageSpots,
-                    selectedSpotIndex,
-                    configuration);
-
-                Panel detailsPanel = BuildDetailsPanel(
-                    selectedSpot,
-                    configuration);
-
-                var columns = new Columns(garageGrid, detailsPanel)
-                {
-                    Expand = false,
-                    Padding = new Padding(1, 0, 1, 0)
-                };
-
-                AnsiConsole.Write(columns);
-
-                AnsiConsole.WriteLine();
-
-                Panel footer = BuildFooter(
-                    currentPage,
-                    totalPages,
-                    totalSpots,
-                    pageSpots);
-
-                AnsiConsole.Write(footer);
-
-                ConsoleKey key =
-                    Console.ReadKey(intercept: true).Key;
-
-                switch (key)
-                {
-                    case ConsoleKey.UpArrow
-                        when selectedSpotIndex >= ColumnsPerRow:
-
-                        selectedSpotIndex -= ColumnsPerRow;
-                        break;
-
-                    case ConsoleKey.DownArrow
-                        when selectedSpotIndex + ColumnsPerRow < pageSpots.Count:
-
-                        selectedSpotIndex += ColumnsPerRow;
-                        break;
-
-                    case ConsoleKey.LeftArrow
-                        when selectedSpotIndex % ColumnsPerRow > 0:
-
-                        selectedSpotIndex--;
-                        break;
-
-                    case ConsoleKey.RightArrow
-                        when selectedSpotIndex % ColumnsPerRow < ColumnsPerRow - 1
-                        && selectedSpotIndex + 1 < pageSpots.Count:
-
-                        selectedSpotIndex++;
-                        break;
-
-                    case ConsoleKey.PageUp when currentPage > 1:
-
-                        currentPage--;
-                        selectedSpotIndex = 0;
-                        break;
-
-                    case ConsoleKey.PageDown when currentPage < totalPages:
-
-                        currentPage++;
-                        selectedSpotIndex = 0;
-                        break;
-
-                    case ConsoleKey.Escape:
-                        return;
-                }
+                AnsiConsole.MarkupLine("[yellow]No parking spots are configured.[/]");
+                return;
             }
+
+            // A smaller terminal cannot show both panels and the footer readably.
+            if (AnsiConsole.Console.Profile.Width < 80 ||
+                AnsiConsole.Console.Profile.Height < 18)
+            {
+                AnsiConsole.MarkupLine(
+                    "[yellow]Enlarge the terminal to at least 80 columns and 18 rows.[/]");
+                return;
+            }
+
+            int selectedSpotIndex = 0;
+            var layout = GetGarageLayout(garageSpots.Count);
+
+            AppTheme.PrepareScreen();
+
+            AnsiConsole.Live(
+                BuildOverviewLayout(
+                    garageSpots,
+                    selectedSpotIndex,
+                    parkingGarage,
+                    configuration,
+                    layout))
+                .Start(ctx =>
+                {
+                    ctx.Refresh();
+
+                    while (true)
+                    {
+                        ConsoleKey key = Console.ReadKey(intercept: true).Key;
+
+                        if (key == ConsoleKey.Escape)
+                        {
+                            return;
+                        }
+
+                        // Recalculate on each keypress, including after a terminal resize.
+                        layout = GetGarageLayout(garageSpots.Count);
+                        int columnsPerRow = layout.ColumnsPerRow;
+
+                        switch (key)
+                        {
+                            case ConsoleKey.UpArrow
+                                when selectedSpotIndex >= columnsPerRow:
+                                selectedSpotIndex -= columnsPerRow;
+                                break;
+
+                            case ConsoleKey.DownArrow
+                                when selectedSpotIndex + columnsPerRow < garageSpots.Count:
+                                selectedSpotIndex += columnsPerRow;
+                                break;
+
+                            case ConsoleKey.LeftArrow
+                                when selectedSpotIndex % columnsPerRow > 0:
+                                selectedSpotIndex--;
+                                break;
+
+                            case ConsoleKey.RightArrow
+                                when selectedSpotIndex % columnsPerRow < columnsPerRow - 1 &&
+                                     selectedSpotIndex + 1 < garageSpots.Count:
+                                selectedSpotIndex++;
+                                break;
+                        }
+
+                        ctx.UpdateTarget(
+                            BuildOverviewLayout(
+                                garageSpots,
+                                selectedSpotIndex,
+                                parkingGarage,
+                                configuration,
+                                layout));
+                    }
+                });
+        }
+
+        private static IRenderable BuildOverviewLayout(
+            IReadOnlyList<ParkingSpot> garageSpots,
+            int selectedSpotIndex,
+            ParkingGarage parkingGarage,
+            AppConfiguration configuration,
+            (int MapWidth, int DetailsWidth, int ColumnsPerRow, int VisibleRows) layout)
+        {
+            // A viewport is used only if the complete map exceeds the terminal height.
+            int totalRows = (garageSpots.Count + layout.ColumnsPerRow - 1) /
+                            layout.ColumnsPerRow;
+            int visibleRows = Math.Min(totalRows, layout.VisibleRows);
+            int selectedRow = selectedSpotIndex / layout.ColumnsPerRow;
+            int firstVisibleRow = Math.Clamp(
+                selectedRow - visibleRows / 2,
+                0,
+                Math.Max(0, totalRows - visibleRows));
+
+            int firstVisibleIndex = firstVisibleRow * layout.ColumnsPerRow;
+            int endVisibleIndex = Math.Min(
+                garageSpots.Count,
+                (firstVisibleRow + visibleRows) * layout.ColumnsPerRow);
+
+            Panel garagePanel = BuildGaragePanel(
+                garageSpots,
+                selectedSpotIndex,
+                configuration,
+                layout.MapWidth,
+                layout.ColumnsPerRow,
+                firstVisibleIndex,
+                endVisibleIndex);
+
+            Panel detailsPanel = BuildDetailsPanel(
+                garageSpots[selectedSpotIndex],
+                configuration,
+                layout.DetailsWidth);
+
+            int totalWidth = layout.MapWidth + 1 + layout.DetailsWidth;
+            Panel footer = BuildFooter(
+                parkingGarage,
+                totalWidth,
+                garageSpots[firstVisibleIndex].SpotNumber,
+                garageSpots[endVisibleIndex - 1].SpotNumber);
+
+            var top = new Grid();
+            top.AddColumn(new GridColumn
+            {
+                Width = layout.MapWidth,
+                Padding = new Padding(0, 0, 0, 0)
+            });
+            top.AddColumn(new GridColumn
+            {
+                Width = 1,
+                Padding = new Padding(0, 0, 0, 0)
+            });
+            top.AddColumn(new GridColumn
+            {
+                Width = layout.DetailsWidth,
+                Padding = new Padding(0, 0, 0, 0)
+            });
+            top.AddRow(garagePanel, new Text(""), detailsPanel);
+
+            // Footer spans both panels rather than occupying only the first column.
+            return new Rows(top, footer);
         }
 
         private static Grid BuildGarageGrid(
-            IReadOnlyList<ParkingSpot> pageSpots,
+            IReadOnlyList<ParkingSpot> garageSpots,
             int selectedSpotIndex,
-            AppConfiguration configuration)
+            AppConfiguration configuration,
+            int columnsPerRow,
+            int firstVisibleIndex,
+            int endVisibleIndex)
         {
+            int numberWidth = Math.Max(3, garageSpots[^1].SpotNumber.ToString().Length);
+            int cellWidth = numberWidth + 3;
+
             var grid = new Grid();
 
-            for (int column = 0; column < ColumnsPerRow; column++)
+            for (int column = 0; column < columnsPerRow; column++)
             {
                 grid.AddColumn(new GridColumn
                 {
-                    Padding = new Padding(0, 0, 1, 0)
+                    Width = cellWidth,
+                    NoWrap = true,
+                    Padding = new Padding(0, 0, 0, 0)
                 });
             }
 
-            for (int row = 0; row < pageSpots.Count; row += ColumnsPerRow)
+            for (int row = firstVisibleIndex; row < endVisibleIndex;
+                 row += columnsPerRow)
             {
-                IRenderable[] cells = new IRenderable[ColumnsPerRow];
+                var cells = new IRenderable[columnsPerRow];
 
-                for (int column = 0; column < ColumnsPerRow; column++)
+                for (int column = 0; column < columnsPerRow; column++)
                 {
                     int index = row + column;
 
-                    if (index >= pageSpots.Count)
-                    {
-                        cells[column] = new Text("");
-                        continue;
-                    }
-
-                    ParkingSpot spot = pageSpots[index];
-
-                    bool isSelected = index == selectedSpotIndex;
-
-                    string status = GetSpotStatus(
-                        spot,
-                        configuration);
-
-                    cells[column] = AppTheme.CreatePanel(
-                        new Markup(
-                            $"[bold]{spot.SpotNumber:D3}[/]\n{status}"),
-
-                        width: AppTheme.GarageSpotWidth,
-
-                        borderColor: isSelected
-                            ? AppTheme.SelectedSpotBorder
-                            : AppTheme.NormalSpotBorder);
+                    cells[column] = index < endVisibleIndex
+                        ? CreateParkingSpotCell(
+                            garageSpots[index],
+                            index == selectedSpotIndex,
+                            configuration)
+                        : new Text("");
                 }
 
                 grid.AddRow(cells);
@@ -169,36 +236,82 @@ namespace PragueParkingV2.UI
             return grid;
         }
 
-        private static string GetSpotStatus(
+        private static Panel BuildGaragePanel(
+            IReadOnlyList<ParkingSpot> garageSpots,
+            int selectedSpotIndex,
+            AppConfiguration configuration,
+            int mapWidth,
+            int columnsPerRow,
+            int firstVisibleIndex,
+            int endVisibleIndex)
+        {
+            Grid map = BuildGarageGrid(
+                garageSpots,
+                selectedSpotIndex,
+                configuration,
+                columnsPerRow,
+                firstVisibleIndex,
+                endVisibleIndex);
+
+            return AppTheme.CreatePanel(
+                map,
+                title: "PARKING MAP",
+                width: mapWidth,
+                padding: new Padding(1, 0, 1, 0));
+        }
+
+        private static Markup CreateParkingSpotCell(
             ParkingSpot spot,
+            bool isSelected,
             AppConfiguration configuration)
         {
-            int vehicleCount = spot.ParkedVehicles.Count;
+            string backgroundColor = GetSpotColor(spot, configuration);
+            string foregroundColor = isSelected
+                ? AppTheme.Gold
+                : AppTheme.StatusText;
+
+            // The final space is deliberately outside the colored area.
+            return new Markup(
+                $"[bold {foregroundColor} on {backgroundColor}] " +
+                $"{spot.SpotNumber:D3} [/] ");
+        }
+
+        private static string GetSpotColor(
+            ParkingSpot parkingSpot,
+            AppConfiguration configuration)
+        {
+            int vehicleCount =
+                parkingSpot.ParkedVehicles.Count;
+
 
             if (vehicleCount == 0)
             {
-                return $"[{AppTheme.StatusFree}]FREE[/]";
+                return AppTheme.StatusFree;
             }
 
+
             string vehicleType =
-                GetVehicleType(spot.ParkedVehicles[0]);
+                GetVehicleType(
+                    parkingSpot.ParkedVehicles[0]);
+
 
             int capacity =
-                configuration.VehicleTypes![vehicleType].VehiclesPerSpot;
+                configuration.VehicleTypes![vehicleType]
+                    .VehiclesPerSpot;
+
 
             if (vehicleCount >= capacity)
             {
-                return $"[{AppTheme.StatusFull}]FULL[/]";
+                return AppTheme.StatusFull;
             }
 
-            return
-                $"[{AppTheme.StatusPartial}]" +
-                $"{vehicleType} {vehicleCount}/{capacity}[/]";
-        }
 
+            return AppTheme.StatusPartial;
+        }
         private static Panel BuildDetailsPanel(
             ParkingSpot selectedSpot,
-            AppConfiguration configuration)
+            AppConfiguration configuration,
+            int detailsWidth)
         {
             var detailLines = new List<string>
             {
@@ -297,38 +410,56 @@ namespace PragueParkingV2.UI
             return AppTheme.CreatePanel(
                 new Markup(string.Join("\n", detailLines)),
                 title: "SPOT DETAILS",
-                width: AppTheme.GarageDetailsWidth);
+                width: detailsWidth,
+                padding: new Padding(1, 0, 1, 0));
         }
 
         private static Panel BuildFooter(
-            int currentPage,
-            int totalPages,
-            int totalSpots,
-            IReadOnlyList<ParkingSpot> pageSpots)
+            ParkingGarage parkingGarage,
+            int width,
+            int firstVisibleSpot,
+            int lastVisibleSpot)
         {
+            int totalSpots =
+                parkingGarage.ParkingSpots.Count;
+
+            int occupiedSpots =
+                parkingGarage.ParkingSpots.Count(
+                    spot => spot.ParkedVehicles.Count > 0);
+
+            int freeSpots =
+                totalSpots - occupiedSpots;
+
+            int totalVehicles =
+                parkingGarage.ParkingSpots.Sum(
+                    spot => spot.ParkedVehicles.Count);
+
             string content =
-                $"[bold {AppTheme.Gold}]PAGE {currentPage:00} / {totalPages:00}[/]" +
+                $"[bold {AppTheme.Gold}]FREE {freeSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
-                $"[{AppTheme.Text}]SPOTS {pageSpots[0].SpotNumber:D3}–{pageSpots[^1].SpotNumber:D3}[/]" +
+                $"[{AppTheme.Text}]OCCUPIED {occupiedSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
-                $"[{AppTheme.Text}]TOTAL {totalSpots}[/]\n\n" +
+                $"[{AppTheme.Text}]VEHICLES {totalVehicles}[/]\n\n" +
 
                 $"[{AppTheme.GoldLight}]← ↑ ↓ →[/] " +
                 $"[{AppTheme.Muted}]Navigate[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
-                $"[{AppTheme.GoldLight}]PgUp / PgDn[/] " +
-                $"[{AppTheme.Muted}]Pages[/]" +
-                $"   [{AppTheme.Muted}]│[/]   " +
                 $"[{AppTheme.GoldLight}]ESC[/] " +
                 $"[{AppTheme.Muted}]Back[/]";
 
+            if (firstVisibleSpot > 1 || lastVisibleSpot < totalSpots)
+            {
+                content +=
+                    $"\n[{AppTheme.Muted}]Showing spots " +
+                    $"{firstVisibleSpot:D3}–{lastVisibleSpot:D3} of {totalSpots}[/]";
+            }
+
             return AppTheme.CreatePanel(
                 new Markup(content),
-                title: "GARAGE NAVIGATION",
-                width: AppTheme.GarageFooterWidth,
+                title: "GARAGE STATUS",
+                width: width,
                 padding: new Padding(2, 1, 2, 1));
         }
-
         private static string GetVehicleType(Vehicle vehicle)
         {
             return vehicle switch

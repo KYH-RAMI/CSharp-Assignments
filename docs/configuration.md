@@ -1,6 +1,6 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-11  
+**Uppdaterad:** 2026-10-13  
 **Omfattning:** Konfiguration för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
 ## Konfigurationsstruktur
@@ -29,7 +29,7 @@ flowchart TD
     E2 --> E21[VehiclesPerSpot = 2]
 ```
 
-Diagrammet beskriver **den nuvarande G-konfigurationen**. Fordonstyperna `Bicycle` och `Bus` ingår ännu inte.
+Diagrammet beskriver **standardkonfigurationen för G-versionen**. Värdet `NumberOfParkingSpots = 100` är ett exempelvärde, inte ett fast antal platser i programkoden. Fordonstyperna `Bicycle` och `Bus` ingår ännu inte.
 
 ## Exempel på `config.json`
 
@@ -56,6 +56,8 @@ Diagrammet beskriver **den nuvarande G-konfigurationen**. Fordonstyperna `Bicycl
   }
 }
 ```
+
+Exemplet visar standardvärden, inte nödvändigtvis de värden som användes vid det senaste manuella testet.
 
 ## Syfte
 
@@ -86,6 +88,12 @@ Projektets ursprungliga konfigurationsfil finns under
 `PragueParkingV2/Config/config.json` och kopieras till körmiljön. Under körning
 används `Config/config.json` relativt `AppContext.BaseDirectory`.
 
+**Skillnad mellan projektfil och runtime-fil:** Vid test med 200 platser upptäcktes
+att en ändring av projektets `Config/config.json` inte nödvändigtvis motsvarade
+innehållet i den redan existerande kopian under `bin/Debug/net10.0/Config/`.
+Kontrollera därför vilken fil som faktiskt läses vid körning. Ändringar av
+antalet parkeringsplatser behöver därefter läsas in vid en ny programstart.
+
 Den inlästa konfigurationen valideras innan värdena används för att skapa
 och konfigurera övriga delar av applikationen.
 
@@ -105,6 +113,34 @@ felmeddelande via `MessageService`.
 Om runtime-versionen av `config.json` saknas kan `ConfigurationService`
 återskapa den med systemets standardvärden. Detta gäller körmiljön och ska
 inte förväxlas med projektets ursprungliga fil.
+
+## Antal parkeringsplatser och Garage Overview
+
+`Garage.NumberOfParkingSpots` avgör hur många `ParkingSpot`-objekt
+`ParkingGarage` skapar vid uppstart. Antalet platser är inte låst till
+100 i domänmodellen eller i garageöversiktens kolumnberäkning.
+
+Under utvecklingen den **13 oktober 2026** visades **200 konfigurerade
+parkeringsplatser (001–200)** samtidigt i ett tillräckligt stort
+terminalfönster. Det verifierades visuellt, men är inte ett fullständigt
+automatiserat test av samtliga terminalstorlekar och garagekapaciteter.
+
+`GarageOverView` använder ett kompakt Spectre.Console-`Grid` i en panel
+för parkeringskartan. Antalet kolumner och den synliga ytan beräknas med
+hänsyn till terminalens bredd och höjd; parkeringskartan prioriteras med
+ungefär **80 % av bredden** och detaljpanelen med ungefär **20 %**,
+med en minsta läsbar bredd för detaljerna.
+
+När fler parkeringsplatser finns än terminalen kan visa samtidigt
+används en intern visningsyta (viewport) för kartan. Tanken är att
+undvika oönskad scrollning av hela terminalen och låta piltangenterna
+flytta markeringen. Den aktuella implementationen kräver ett
+terminalfönster på minst **80 kolumner och 18 rader** för att visa
+översikten; annars visas en uppmaning om att förstora fönstret.
+
+**Teststatus:** Visning av 200 lediga platser är manuellt kontrollerad.
+Navigeringsgränser, olika terminalstorlekar, 500–1 000 platser och
+statusfärger med faktiskt parkerade fordon behöver fortfarande verifieras.
 
 ## Prisregler vid körning
 
@@ -225,13 +261,14 @@ ParkingSpots
 ```
 
 Endast upptagna parkeringsplatser ska skrivas till datafilen. Tomma platser
-återskapas från konfigurationen vid programstart.
+ska återskapas från konfigurationen när återställning av parkeringsdata
+är integrerad med programstarten.
 
 Prisregler och gratisgränser sparas inte i `parking-data.json`, utan hämtas
 från `config.json`. `ArrivalTime` i parkeringsdata ska bevaras i UTC så att
 parkeringstiden förblir korrekt efter omstart.
 
-**Status 2026-10-11:** Grundläggande `ParkingDataService.Load()`/`Save()` och separata JSON-datamodeller är implementerade. `Load()` har testats med giltig data och ogiltig `VehicleType`. Kontroll mot antalet platser och `VehiclesPerSpot` i den aktuella konfigurationen samt återställning till domänobjekt återstår. Den fullständiga sparningskedjan är inte verifierad.
+**Status 2026-10-13:** Grundläggande `ParkingDataService.Load()`/`Save()` och separata JSON-datamodeller är implementerade. `Load()` har testats med giltig data och ogiltig `VehicleType`. Kontroll mot antalet platser och `VehiclesPerSpot` i den aktuella konfigurationen samt återställning till domänobjekt återstår. Den fullständiga sparningskedjan är inte verifierad.
 
 ## Kapacitetsmodell i Prague Parking 2.0
 

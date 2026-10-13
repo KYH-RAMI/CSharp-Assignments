@@ -1,9 +1,9 @@
 # Parkeringsdata
 
-**Uppdaterad:** 2026-10-11  
+**Uppdaterad:** 2026-10-13  
 **Omfattning:** JSON-lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-**Status 2026-10-11:** JSON-formatet är beslutat. Grundläggande `ParkingDataService.Load()`/`Save()`, datamodeller och dokumentvalidering är implementerade. `Load()` har verifierats manuellt med giltig data och ogiltig fordonstyp; serialiserad indenterad JSON har granskats. Fullständig sparverifiering, konfigurationsberoende validering, återställning till `ParkingGarage` och automatisk sparning återstår.
+**Status 2026-10-13:** JSON-formatet är beslutat och oförändrat. Grundläggande `ParkingDataService.Load()`/`Save()`, datamodeller och dokumentvalidering är implementerade. `Load()` har tidigare verifierats manuellt med giltig data och ogiltig fordonstyp; serialiserad indenterad JSON har granskats. Fullständig sparverifiering, konfigurationsberoende validering, återställning till `ParkingGarage` och automatisk sparning återstår. Ombyggnaden av `GarageOverView` den 12–13 oktober ändrar inte JSON-formatet eller persistensens teststatus.
 
 ## Beslutad struktur
 
@@ -33,9 +33,18 @@ Konfigurationsdata lagras inte här utan separat i `config.json`.
 
 Endast parkeringsplatser som innehåller fordon ska sparas i `parking-data.json`.
 
-Tomma parkeringsplatser återskapas från `config.json` när programmet startar. Standardkonfigurationen innehåller 100 parkeringsplatser, men det faktiska antalet bestäms av den giltiga konfigurationen.
+I det färdiga återställningsflödet ska tomma parkeringsplatser återskapas utifrån antalet platser i `config.json`. Standardkonfigurationen innehåller 100 parkeringsplatser, men det faktiska antalet bestäms av den giltiga konfigurationen. Att återställa parkerade fordon från JSON till domänobjekt är ännu inte färdigimplementerat.
 
 Prisregler och gratisgränser sparas inte i `parking-data.json` utan hämtas från `config.json`. `ParkingFeeResult` och `CheckoutResult` är tillfälliga beräknings- och resultatobjekt, inte permanent parkeringsdata.
+
+## Samband med den dynamiska garageöversikten (2026-10-13)
+
+`GarageOverView` visar platser och fordon från `ParkingGarage`, inte direkt från `parking-data.json`. Den nya kompakta `Grid`-baserade kartan beräknar sitt utseende utifrån garagekapacitet och terminalens storlek, men ändrar inte hur parkeringsdata ska sparas.
+
+- Garagekapaciteten styrs av `config.json` och får inte härledas från antalet poster i `parking-data.json`, eftersom datafilen endast ska innehålla **upptagna** platser.
+- En garageöversikt med **200 platser har kontrollerats visuellt** i utvecklingsmiljön. Detta verifierar **inte** att 200 parkerade platser kan sparas och återställas efter omstart.
+- När återställningen implementeras ska alla sparade `SpotNumber` valideras mot det faktiskt konfigurerade antalet platser, även om terminalen använder en intern viewport för presentationen.
+- Layout, färger och markering av vald plats tillhör UI-lagret och ska inte lägga till fält i G-versionens JSON-format.
 
 ## VehicleType
 

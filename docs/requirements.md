@@ -1,6 +1,6 @@
 # Prague Parking V2 – Kravanalys
 
-**Uppdaterad:** 2026-10-11
+**Uppdaterad:** 2026-10-13
 
 > Kraven nedan är en projektspecifik nedbrytning av uppgiftens krav till mindre,
 > spårbara delkrav. ID-numren (G-xx och VG-xx) kommer alltså inte från den
@@ -22,7 +22,7 @@
 
 ## Funktionella och tekniska krav
 
-**Lägesbild 2026-10-11:** Domänmodell, konfiguration, prisberäkning och checkout-logik finns och har delvis testats manuellt. `GarageOverView`, `AppTheme` och `MessageService` har vidareutvecklats; `ParkVehicleView` saknar komplett genomgående test. `ParkingDataService` och tre JSON-datamodeller finns. `Load()` har verifierats manuellt med giltig testdata och ogiltig fordonstyp, medan `Save()` endast delvis följts i felsökaren. Återställning till `ParkingGarage`, automatisk sparning, flera UI-flöden och administration återstår. Ingen funktion markeras som verifierad enbart för att koden har skrivits.
+**Lägesbild 2026-10-13:** Domänmodell, konfiguration, prisberäkning och checkout-logik finns och har delvis testats manuellt. `GarageOverView` har byggts om till en kompakt, terminalanpassad parkeringskarta med Spectre.Console `Grid`, utan separata paneler runt varje plats. En testkörning med 200 lediga platser har kontrollerats visuellt: kartan, detaljpanelen och den sammanhängande statuspanelen ryms utan oönskad terminalscrollning. Detta är **inte** ett fullständigt funktionstest; navigeringens gränsfall, mindre terminaler, större garage och faktiska beläggningsfärger återstår. `ParkVehicleView` saknar genomgående integrationstest. `ParkingDataService` och tre JSON-datamodeller finns. `Load()` har verifierats manuellt med giltig testdata och ogiltig fordonstyp, medan `Save()` endast delvis följts i felsökaren. Återställning till `ParkingGarage`, automatisk sparning, flera UI-flöden och administration återstår. Statusarna nedan avser det arbete som faktiskt har dokumenterats och testats, inte en fullständig granskning av det lokala Git-repositoryt.
 
 | ID | Krav | Tolkning | Berör | Status |
 |---|---|---|---|---|
@@ -34,8 +34,8 @@
 | G-05 | Datafilen ska uppdateras vid utcheckning | Efter lyckad utcheckning ska aktuell parkeringsdata sparas och det utcheckade fordonet inte längre finnas i filen; sparfel ska hanteras kontrollerat | Persistence | Ej påbörjad |
 | G-06 | Datafilen ska uppdateras när ett fordon flyttas | Efter lyckad flytt ska både tidigare och ny plats återspeglas i filen, utan att fordonets `ArrivalTime` ändras; sparfel får inte lämna ett motsägelsefullt tillstånd | Persistence | Ej påbörjad |
 | G-07 | Systemet ska kunna hantera olika parkeringskapacitet | I G används konfigurerbart antal fordon per plats. Kapacitetsregler för Car och MC har implementerats och verifierats. Den generella storleksmodellen för Bicycle, MC, Car och Bus implementeras först i VG-versionen | Domain / Configuration | Verifierad |
-| G-08 | Parkeringshuset ska visas som en karta/översikt | Interaktiv 5 × 5-karta med Spectre.Console `Grid` och `Panel` finns. Högst 25 platser visas per sida, med paginering, piltangenter, Page Up/Page Down, markering och panelen `SPOT DETAILS`. Verifiering med verkligt parkerade fordon, navigeringsgränser och varierande terminalstorlekar återstår | UI | Pågår |
-| G-09 | Det ska vara enkelt att se hur många platser som är lediga | Kartan visar ledig, delvis upptagen och full plats med färgkodning utifrån kapacitetsreglerna. Att användaren enkelt ser **antalet** lediga platser behöver kontrolleras och vid behov kompletteras med en sammanställd räknare. Verifiering med parkerade fordon återstår | UI | Pågår |
+| G-08 | Parkeringshuset ska visas som en karta/översikt | `GarageOverView` använder ett kompakt `Grid` med dynamiskt antal kolumner utifrån terminalbredden. Kartan och `SPOT DETAILS` ligger sida vid sida (cirka 80/20 när terminalutrymmet tillåter), med `GARAGE STATUS` under båda. En intern viewport används när alla platser inte ryms på höjden. Markering, piltangenter, ESC och uppdatering via `AnsiConsole.Live()` finns; tidigare 25-platser-per-sida-paginering och individuella platsramar har ersatts. 200 lediga platser har visats i samma vy utan oönskad terminalscrollning. Navigeringsgränser, viewport och beläggning med fordon behöver verifieras ytterligare | UI | Implementerad |
+| G-09 | Det ska vara enkelt att se hur många platser som är lediga | `GARAGE STATUS` visar räknare för `FREE`, `OCCUPIED` och `VEHICLES`. Kartan färgkodar ledig (grön), delvis upptagen (orange) och full (röd) plats utifrån konfigurerad kapacitet. Vyn med 200 lediga platser har kontrollerats visuellt, men räknare och statusfärger behöver fortfarande testas med en bil, en MC och två MC på samma plats | UI | Implementerad |
 | G-10 | Prislista ska kunna lagras utanför programkoden | Priser lagras i `config.json` och används av prisberäkningen utan att C#-koden behöver ändras eller kompileras om | Configuration | Verifierad |
 | G-11 | Prislistan ska läsas in vid programstart | Programmet använder aktuella priser från konfigurationen när det startar | Configuration | Verifierad |
 | G-12 | Prislistan ska kunna läsas om under körning via menyval | Ändrade priser ska kunna aktiveras utan omstart. `ParkingFeeCalculator.UpdatePricing()` finns och är manuellt testad, men det synliga menyvalet för omläsning av prislistan från `config.json` saknas | Configuration / UI | Pågår |
@@ -50,7 +50,7 @@
 | G-21 | Parkering kortare än 10 minuter är gratis | Gratisgränsen hämtas från konfigurationen och används av `ParkingFeeCalculator`. Tester har verifierat parkering under gränsen samt exakt vid gränsen | Domain / Configuration | Verifierad |
 | G-22 | Fordonets ankomsttid ska registreras | `Vehicle` får automatiskt en UTC-tid vid ny incheckning. Ankomsttiden används och har verifierats i pris- och checkout-logiken. Återställning från persistent lagring återstår under separata persistenskrav | Domain / Persistence | Verifierad |
 | G-23 | Systemet ska kunna ange hur länge fordonet varit parkerat | Parkeringstiden beräknas från `ArrivalTime` och `departureTime` och returneras via `ParkingFeeResult` och `CheckoutResult`. Funktionen har verifierats i checkout-test | Domain | Verifierad |
-| G-24 | Applikationen ska ha ett visuellt användargränssnitt i konsolen | Spectre.Console används för meny, meddelanden och garagekarta. `AppTheme` samlar gemensam presentation och `MessageService` meddelandetyper. `ParkVehicleView` finns som framtagen kod men saknar komplett integrationstest; checkout, flytt, sökning och administration återstår som färdiga UI-flöden | UI | Pågår |
+| G-24 | Applikationen ska ha ett visuellt användargränssnitt i konsolen | Spectre.Console används för meny, meddelanden och den nya kompakt renderade garagekartan med detaljpanel och övergripande statusrad. `AppTheme` samlar gemensam presentation och `MessageService` meddelandetyper. `ParkVehicleView` finns som framtagen kod men saknar komplett integrationstest; checkout, flytt, sökning och administration återstår som färdiga UI-flöden | UI | Pågår |
 | G-25 | Konsolapplikationen ska använda Spectre.Console | Spectre.Console används i huvudmeny, statusmeddelanden och garageöversikt | UI | Verifierad |
 | G-26 | Alla fordon ska hanteras som objekt | Fordonsdata representeras med objekt i stället för sammansatta strängar som i V1 | Domain | Implementerad |
 | G-27 | Systemet ska innehålla minst fem klasser | Kravet är uppfyllt genom bland annat `Vehicle`, `Car`, `MC`, `ParkingSpot`, `ParkingGarage`, `ParkingFeeCalculator`, `ParkingFeeResult`, `CheckoutService` och `CheckoutResult` | Architecture / Domain | Implementerad |
@@ -126,10 +126,11 @@
 - En befintlig men ogiltig konfiguration ska inte skrivas över automatiskt; programmet ska i stället avsluta kontrollerat.
 - `AppTheme.ShowMenu()` används för återanvändbar menypresentation. `MessageService` samlar återkommande statusmeddelanden; enhetlig integration i alla UI-vyer återstår att verifiera.
 - `ParkVehicleView` har tagits fram men är inte ännu verifierad i ett genomgående flöde med persistent lagring.
+- `GarageOverView` använder ett kompakt Spectre.Console-`Grid` i stället för tabellrader med avgränsare eller separata paneler per parkeringsplats. Antalet visade kolumner och en eventuell viewport beror på terminalutrymmet; `GARAGE STATUS` visar lediga och upptagna platser samt antal fordon. Den visuella kontrollen med 200 tomma platser är genomförd, medan ytterligare navigerings- och beläggningstester återstår.
 - **VG – Bus:** Vid nyparkering gäller fyra sammanhängande platser inom nummer 1–50, men vid flytt kan fyra sammanhängande platser även ligga efter nummer 50. Bussens exakta flerplatsrepresentation i JSON är ännu inte beslutad.
 - Körbar Windows-version och eventuell Docker-baserad betatestning på Synology NAS planeras efter att kärnfunktionerna är färdiga; detta är inte nya uppgiftskrav.
 
 # Future improvements
 
-- Undersök möjlighet att visuellt gruppera flera sammanhängande lediga parkeringsplatser i garageöversikten.
+- Undersök möjlighet att visuellt gruppera flera sammanhängande lediga parkeringsplatser i garageöversikten utan att försämra den kompakta kartan eller orsaka terminalscrollning.
 - Utforska möjlighet till separat webbaserad betatestning med Docker och webterminal utan att exponera NAS-administration. En framtida gemensam parkeringsmiljö kräver samordning av samtidiga ändringar; en delad JSON-fil mellan fristående processer räcker inte på egen hand.

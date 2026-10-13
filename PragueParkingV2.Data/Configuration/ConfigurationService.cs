@@ -19,6 +19,10 @@ namespace PragueParkingV2.Data.Configuration
         {
             var path = GetConfigurationPath();
 
+            /* Debugging load file
+            Console.WriteLine($"Loading config from: {path}");
+            Console.ReadKey(); */
+
             if (!File.Exists(path))
             {
                 var defaultConfiguration = CreateDefaultConfiguration();

@@ -1,6 +1,6 @@
 # Prague Parking V2 – Projektplan
 
-**Uppdaterad:** 2026-10-11
+**Uppdaterad:** 2026-10-13
 
 **Projekt:** Prague Parking V2  
 **Utvecklare:** Rami Issa  
@@ -29,7 +29,7 @@ Systemet ska innehålla:
 
 VG-versionen utvecklas separat när G-versionen är stabil. Dokumenterade VG-behov beaktas i arkitekturen, men implementeras inte i förtid.
 
-**Statusprincip:** *Implementerad* betyder att kod har tagits fram. *Testad* eller *verifierad* används endast när ett motsvarande test faktiskt har genomförts. Planerade funktioner räknas inte som färdiga. Statusen nedan bygger på det senast redovisade utvecklingsläget; slutlig avstämning mot hela källkodsträdet återstår.
+**Statusprincip:** *Implementerad* betyder att kod har tagits fram. *Testad* eller *verifierad* används endast när ett motsvarande test faktiskt har genomförts. Planerade funktioner räknas inte som färdiga. Statusen nedan bygger på det senast redovisade utvecklingsläget och genomgången av aktuell `GarageOverView.cs`; slutlig avstämning mot hela det lokala källkodsträdet återstår.
 
 ---
 
@@ -44,7 +44,7 @@ VG-versionen utvecklas separat när G-versionen är stabil. Dokumenterade VG-beh
 | 5 | Parkering och sökning i domänlagret | Implementerad; grundfall manuellt testade |
 | 6 | Prisberäkning | Implementerad; manuellt testad |
 | 7 | CheckoutService | Implementerad; manuellt testad på domännivå |
-| 8 | Spectre.Console och garageöversikt | Implementerad i huvudsak; utökad verifiering återstår |
+| 8 | Spectre.Console och garageöversikt | Kompakt och responsiv `Grid`-karta implementerad; 200 tomma platser visuellt kontrollerade, fler tester återstår |
 | 9 | Main Menu och UI-flöden | Pågår; `ParkVehicleView` framtagen, integrationstest återstår |
 | 10 | Parkeringspersistens | Pågår; DTO:er, `Load()`/`Save()` och validering implementerade, manuella inläsningstester genomförda |
 | 11 | Administrationsfunktioner | Ej påbörjad i UI |
@@ -147,30 +147,37 @@ Temat används av huvudmenyn och garageöversikten. Kompatibilitet med andra ter
 
 ### Garage Overview
 
-Funktionalitet som har implementerats i vy-koden:
+**Status 2026-10-13: Ny kompakt layout implementerad; visuellt testad med 200 lediga platser.**
 
-- Parkeringskarta med Spectre.Console `Grid` och `Panel`.
-- 25 parkeringsplatser per sida, fördelade på fem kolumner och fem rader.
-- Dynamisk sidindelning utifrån garagets storlek.
-- Navigering med piltangenter, Page Up, Page Down och ESC.
-- Visuell markering av vald parkeringsplats.
-- Färgkodning för ledig, delvis upptagen och full plats.
-- Informationspanel och sidfot.
+Efter försök med individuella `Panel`-komponenter och en `Table` med radavgränsare byggdes översikten om för att utnyttja terminalens bredd utan onödig scrollning eller avklippta parkeringsnummer.
 
-Utökade tester med parkerade fordon, två MC på samma plats, sidgränser och olika terminalstorlekar återstår.
+Funktionalitet som finns i den aktuella `GarageOverView.cs`:
+
+- En kompakt Spectre.Console-`Grid` för parkeringsplatserna, inuti en gemensam `Panel` utan separata ramar runt varje plats.
+- Dynamiskt antal kolumner beräknat utifrån terminalbredden och antalet siffror i platsnumren; ingen fast 5 × 5- eller 10 × 10-begränsning.
+- Huvudlayout där `PARKING MAP` använder ungefär 80 % av bredden och `SPOT DETAILS` ungefär 20 %, med en minsta läsbar bredd för detaljpanelen.
+- Status visas med grön bakgrund för ledig plats, orange för delvis upptagen och röd för full plats. Markerad plats får guldtext utan att statusbakgrunden ändras.
+- Piltangenterna flyttar markeringen enligt samma kolumnantal som kartan; **ESC** går tillbaka. Den tidigare sidnavigeringen med Page Up/Page Down används inte i den aktuella vyn.
+- `AnsiConsole.Live()` används för uppdatering av kartan och detaljpanelen vid navigering.
+- En intern viewport begränsar antalet synliga kartrader **endast när hela kartan inte får plats på höjden**. Det synliga platsintervallet visas då i sidfoten.
+- `GARAGE STATUS` placeras under kartan och detaljpanelen och sträcker sig över deras sammanlagda bredd.
+- För smala eller låga terminalfönster visas en uppmaning att förstora fönstret; layouten kräver minst 80 kolumner och 18 rader.
+
+**Visuellt verifierat 2026-10-13:** I det visade testet med 200 lediga parkeringsplatser syntes hela kartan, `SPOT DETAILS` och `GARAGE STATUS` samtidigt utan avklippta platsnummer eller oönskad terminalscrollning.
+
+**Återstår:** Testa navigation till första och sista platsen, navigering efter fönsterstorleksändring, viewport med 500–1 000 platser, olika terminalstorlekar, statusfärger med faktiskt parkerade fordon samt uppdatering av detaljpanelen under användning.
 
 ### Spot Details
 
-Informationspanelen är framtagen för att visa:
+Informationspanelen är implementerad för att visa:
 
-- Parkeringsplatsnummer.
-- Status och beläggning.
-- Parkerade fordon.
-- Fordonstyp och identifierare.
-- Lokal presentation av ankomsttid.
-- Parkeringstid.
+- Markerat parkeringsplatsnummer, status och beläggning.
+- Tillgänglig kapacitet för `Car` och `MC` när platsen är ledig.
+- Varje parkerat fordons typ och identifierare.
+- Ankomsttid i den konfigurerade tidszonen.
+- Parkeringstid (`Duration`) beräknad från UTC-ankomsttiden.
 
-Den senaste implementationen behöver integrationstestas med faktiskt parkerade fordon. Dokumentet markerar därför inte den delen som slutverifierad.
+Panelen ligger längst till höger med mindre utrymme än parkeringskartan. Presentationen av **ledig plats** har kontrollerats visuellt i det nya 200-platsers testet. Presentation av en bil, en MC och två MC på samma plats är ännu inte integrationstestad. Dokumentet markerar därför inte de scenarierna som verifierade.
 
 ---
 
@@ -271,7 +278,8 @@ Tidigare manuella domäntester finns noterade i `LOGGBOK.md`. De utgör inte en 
 - Felaktig JSON, ogiltiga platsnummer och simulerade skrivfel.
 - Omläsning av prislistan och avvisning av ogiltiga priser.
 - Spot Details med parkerade fordon, inklusive två MC på samma plats.
-- Navigeringens gränsfall, färger och varierande terminalstorlekar.
+- Garageöversiktens navigering till första/sista platsen, korrekt beteende vid ändrad terminalstorlek och statusfärger med faktiskt parkerade fordon.
+- Intern viewport och kartans placering vid 500–1 000 platser samt mindre terminalfönster.
 - Körning utan hårdkodade sökvägar på en annan dator.
 
 Slutlig dokumentation och status i `requirements.md` uppdateras utifrån faktiskt genomförda tester.
@@ -336,7 +344,7 @@ Bygga vidare till VG och därefter förbereda distribution och frivillig betates
 
 ### Console Rendering
 
-Olika terminaler kan hantera ANSI-sekvenser, färger, tangentbordsinmatning och fönsterstorlekar olika. Applikationen ska verifieras i fler terminalmiljöer.
+Olika terminaler kan hantera ANSI-sekvenser, färger, tangentbordsinmatning och fönsterstorlekar olika. Applikationen ska verifieras i fler terminalmiljöer. Den nya `Grid`-layouten utnyttjar tillgänglig skärmyta bättre än de tidigare alternativen, men behöver särskilt testas vid stor garagekapacitet, liten terminal, fönsterstorleksändring och långa fordonsuppgifter i den smala detaljpanelen.
 
 ### Data Persistence
 
@@ -368,7 +376,7 @@ Utvecklingsarbetet dokumenteras löpande i:
 - `parking-data.md` – fastställt G-format och regler för planerad persistens.
 - `README.md` – projektöversikt och instruktioner för att köra applikationen.
 
-Dokumenten ska beskriva **samma utvecklingsläge**. Historiska aktiviteter redovisas i loggboken; framtida arbete ska inte framställas som genomfört. Efter avslutad dokumentationsgenomgång jämförs filerna och sammanställs i en gemensam Git-commit. **Ingen sådan commit är genomförd inom denna dokumentationsgenomgång ännu.**
+Dokumenten ska beskriva **samma utvecklingsläge**. Historiska aktiviteter redovisas i loggboken; framtida arbete ska inte framställas som genomfört. Efter avslutad dokumentationsgenomgång jämförs filerna och sammanställs i en gemensam Git-commit. Kontrollera faktiskt `git status` och `git log` före commit; dokumentationen i sig bekräftar inte vad som redan har skickats till GitHub.
 
 ---
 

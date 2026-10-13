@@ -1,11 +1,11 @@
 # Prague Parking V2 – Klassdiagram
 
-**Uppdaterad:** 2026-10-11  
+**Uppdaterad:** 2026-10-13  
 **Omfattning:** Domänmodellen för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
 Diagrammet visar domänklasserna och deras viktigaste relationer. Den påbörjade JSON-persistensen visas separat nedan och blandas inte med domänmodellen. VG-utökningar ingår inte som implementerade klasser.
 
-UI, konfiguration och persistens dokumenteras separat.
+UI och konfiguration beskrivs översiktligt i detta dokument. JSON-persistensen har ett separat klassdiagram längre ned. Den senaste ändringen i `GarageOverView` påverkar presentationslagret, inte relationerna i domänmodellen.
 
 ## Aktuell domänmodell
 
@@ -257,10 +257,16 @@ Följande klasser tillhör UI och ingår inte i domänklassdiagrammet:
 - `AppTheme` – gemensamma färger, menyer och presentationskomponenter.
 - `MainMenu` – huvudmenyn och navigering mellan funktioner.
 - `ParkVehicleView` – användarflöde för fordonsincheckning.
-- `GarageOverView` – parkeringskarta och detaljer för vald plats.
+- `GarageOverView` – dynamisk parkeringskarta, detaljer för vald plats och sammanfattande garagestatus.
 - `MessageService` – informations-, varnings-, fel- och bekräftelsemeddelanden.
 
 UI-komponenterna har refaktorerats för att minska duplicerad kod, bland annat genom gemensamma panelkomponenter i `AppTheme`.
+
+**Garageöversiktens aktuella presentationslösning (2026-10-13):** `GarageOverView` använder ett kompakt `Spectre.Console.Grid` inuti en gemensam `Panel` för parkeringskartan i stället för en `Table` eller en egen `Panel` per parkeringsplats. Kartan och `SPOT DETAILS` ligger sida vid sida; målet är ungefär 80/20-fördelning av den tillgängliga bredden, med ett minsta läsbart utrymme för detaljpanelen. `GARAGE STATUS` visas under båda panelerna.
+
+Antalet kolumner och synliga rader beräknas utifrån terminalens storlek och garagets faktiska antal platser. En intern visningsyta används när hela parkeringskartan inte får plats på höjden. Piltangenterna använder samma kolumnberäkning som rutnätet, och `AnsiConsole.Live()` uppdaterar vyn. Parkeringsplatsens bakgrundsfärg uttrycker ledig, delvis upptagen eller full plats enligt konfigurationen; en markerad plats får en avvikande textfärg utan att statusbakgrunden byts ut. Presentationen hämtar information från befintliga `ParkingGarage`, `ParkingSpot` och `Vehicle`, utan att införa nya domänklasser.
+
+**Verifieringsstatus:** Visningen av 200 lediga parkeringsplatser tillsammans med detaljpanel och footer har kontrollerats visuellt i Windows Terminal. Navigeringens gränsfall, 500–1 000 platser, terminalstorleksändringar och status med parkerade fordon återstår att verifiera.
 
 Parkeringslogiken har tidigare testats direkt från `Program.cs`. Integrationen av det nya incheckningsflödet via `ParkVehicleView` är ännu inte bekräftad som testad.
 
