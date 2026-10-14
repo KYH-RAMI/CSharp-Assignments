@@ -74,6 +74,30 @@ namespace PragueParkingV2.Domain
             return parkingSpot;
         }
 
+        public void ParkVehicleAtSpot(
+            Vehicle vehicle,
+            int spotNumber,
+            int maxVehiclesPerSpot)
+        {
+            ArgumentNullException.ThrowIfNull(vehicle);
+            var parkingSpot = _parkingSpots.Find(
+                spot => spot.SpotNumber == spotNumber);
+            if (FindVehicle(vehicle.Identifier) is not null)
+                {
+                    throw new InvalidOperationException(
+                        $"Vehicle '{vehicle.Identifier}' is already parked.");
+                }
+            if (parkingSpot is null)
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {spotNumber} does not exist.");
+            }
+
+            parkingSpot.ParkVehicle(
+                vehicle,
+                maxVehiclesPerSpot);
+        }
+
         public Vehicle? FindVehicle(string identifier)
         {
             foreach (var spot in _parkingSpots)
@@ -100,6 +124,8 @@ namespace PragueParkingV2.Domain
             }
             return null;
         }
+
+
 
 
     }

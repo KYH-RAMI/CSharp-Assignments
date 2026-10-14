@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Text.Json;
+using PragueParkingV2.Application;
 Console.Title = "Prague Parking V2 | Rami Issa";
 Console.OutputEncoding = Encoding.UTF8;
 Console.InputEncoding = Encoding.UTF8;
@@ -16,17 +17,13 @@ var configurationService = new ConfigurationService();
 try
 {
     var configuration = configurationService.LoadConfiguration();
-    /*Debugging config file
-    Console.WriteLine(
-    $"Configured parking spots: {configuration.Garage!.NumberOfParkingSpots}");
-    */
-    Console.ReadKey();
+
     var parkingDataService = new ParkingDataService();
     var parkingData = parkingDataService.Load();
-    
 
-    var parkingGarage = new ParkingGarage(
-        configuration.Garage!.NumberOfParkingSpots);
+    var parkingGarage = ParkingDataMapper.ToGarage(
+        parkingData,
+        configuration);
 
 
     var pricing = configuration.Pricing!;
@@ -42,7 +39,7 @@ try
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 
-    MainMenu.Show(parkingGarage, configuration);
+    MainMenu.Show(parkingGarage, configuration, parkingDataService);
 }
 
 

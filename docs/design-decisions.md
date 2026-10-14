@@ -1,6 +1,6 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-13  
+**Uppdaterad:** 2026-10-14  
 **Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
@@ -362,13 +362,39 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 - Varje fordon återställs till samma plats med samma identifierare, fordonstyp och UTC-ankomsttid.
 - Återställning ska kontrollera platsnummer, fordonstyp, kapacitet och dubbletter innan ett inläst tillstånd accepteras.
 - En befintlig felaktig eller ofullständig JSON-fil får inte automatiskt ersättas med en tom fil.
-- `Save()` skriver till en `.tmp`-fil i samma katalog och använder `File.Move()` vid första sparningen eller `File.Replace()` när originalfilen finns. Fullständig verifiering av filersättning och felhantering återstår.
+- `Save()` skriver till en `.tmp`-fil i samma katalog och använder `File.Move()` vid första sparningen eller `File.Replace()` när originalfilen finns. Ett lyckat normalflöde med befintlig datafil har verifierats 2026-10-14; krasch- och skrivfelsscenarier återstår.
 - Dataåtkomst och serialisering ska ske utanför UI och hållas separerade från domänens parkeringsregler.
 - Fordonsincheckning, utcheckning och förflyttning ska omfattas av en konsekvent sparrutin; användaren ska få ett korrekt fel om lagring misslyckas.
 
 **Status 2026-10-11:** `ParkingDataService`, de tre DTO-klasserna, validering av grundstrukturen, unika platsnummer/fordonsidentifierare, G-typerna och UTC-tid finns. Inläsning av giltig data och avvisning av typen `Truck` har testats manuellt. Serialiserad JSON med `WriteIndented = true` har granskats. `Save()` har följts till `finally`, men slutlig filersättning, återställning i `ParkingGarage` och automatisk sparning är inte verifierade. Konstruktorsöverlagringar för att återskapa `Car` och `MC` med befintlig UTC-ankomsttid ska bekräftas i källkoden vid integrationen.
 
+**Verifieringsuppdatering 2026-10-14:** `ParkingDataMapper.ToGarage()` och `ToDocument()` har kopplats in. Vanlig bilparkering, sparning och återställning till ursprunglig plats/tid har testats genom omstart; skrivfel och återställning av två MC är inte slutverifierade.
+
 **Ansvarsgräns:** `ParkingDataService` validerar dokumentets struktur och interna värden. Att sparade fordon ryms på platsnummer och enligt kapacitetsreglerna i aktuell `AppConfiguration` valideras vid återställning till domänmodellen, inte genom att Data-projektet får ett beroende på domänklasser. Konsekvent behandling av skrivfel och skydd mot överskrivning av befintlig korrupt data ska verifieras innan funktionaliteten används i färdiga UI-flöden.
+
+---
+
+## DD-027 – Mapper i applikationslagret för att isolera DTO och domän
+
+**Datum:** 2026-10-14
+
+**Beslut:** `ParkingDataMapper` placeras i huvudprojektets `Application`-mapp, inte i solution-roten eller i `PragueParkingV2.Data`. Den konverterar mellan DTO:er och domänobjekt. `ToDocument()` använder LINQ för att projektera endast upptagna platser, medan `ToGarage()` behåller nästlade `foreach`-loopar för att tydligt skapa och parkera varje fordon med domänreglerna.
+
+**Motivering:** Data-biblioteket behöver inte känna till de interna domänklasserna. Vid återställning skapas exakt konfigurerat antal platser, varpå fordon återskapas med samma UTC-ankomsttid och får samma plats genom `ParkVehicleAtSpot()`.
+
+**Verifiering:** En äldre bil på plats 001 och en ny bil på plats 002 återställdes efter omstart den 14 oktober. LINQ valdes inte för återställningens sidoeffekter då det skulle försvåra läsbarhet och felsökning.
+
+---
+
+## DD-028 – Incheckning sparas innan bekräftelse
+
+**Datum:** 2026-10-14
+
+**Beslut:** `ParkVehicleView` anropar `ParkingDataMapper.ToDocument()` och `ParkingDataService.Save()` efter `ParkingGarage.ParkVehicle()`, men före framgångsmeddelandet. Vid `IOException` eller `UnauthorizedAccessException` försöker programmet ångra tillägget med `ParkingGarage.RemoveVehicle()` och visar ett fel.
+
+**Motivering:** En ny incheckning ska inte presenteras som permanent sparad innan filskrivningen har slutförts. Normalflödet verifierades genom att parkera `UKB48K`, avsluta programmet, starta igen och återfinna bilen på samma plats.
+
+**Begränsning:** Rollback-försöket har ännu inte testats vid faktiska skrivfel, och denna implementering utgör ingen formell transaktion. Skydd av befintlig korrupt JSON, atomisk filersättning vid avbrott och centralisering av mutation/sparning är fortfarande öppna förbättringar inför slutlig G-verifiering.
 
 ---
 

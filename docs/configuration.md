@@ -1,6 +1,6 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-13  
+**Uppdaterad:** 2026-10-14  
 **Omfattning:** Konfiguration för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
 ## Konfigurationsstruktur
@@ -138,9 +138,7 @@ flytta markeringen. Den aktuella implementationen kräver ett
 terminalfönster på minst **80 kolumner och 18 rader** för att visa
 översikten; annars visas en uppmaning om att förstora fönstret.
 
-**Teststatus:** Visning av 200 lediga platser är manuellt kontrollerad.
-Navigeringsgränser, olika terminalstorlekar, 500–1 000 platser och
-statusfärger med faktiskt parkerade fordon behöver fortfarande verifieras.
+**Teststatus 2026-10-14:** Den 13 oktober kontrollerades 200 lediga platser. Den 14 oktober visades dessutom två fulla bilplatser och korrekt beläggningsstatistik. Navigeringsgränser, olika terminalstorlekar, 500–1 000 platser och orange status för delvis upptagen MC-plats behöver fortfarande verifieras.
 
 ## Prisregler vid körning
 
@@ -260,15 +258,13 @@ ParkingSpots
               └── ArrivalTime
 ```
 
-Endast upptagna parkeringsplatser ska skrivas till datafilen. Tomma platser
-ska återskapas från konfigurationen när återställning av parkeringsdata
-är integrerad med programstarten.
+Endast upptagna parkeringsplatser ska skrivas till datafilen. Tomma platser återskapas nu från konfigurationen vid programstart genom `ParkingDataMapper.ToGarage()`.
 
 Prisregler och gratisgränser sparas inte i `parking-data.json`, utan hämtas
 från `config.json`. `ArrivalTime` i parkeringsdata ska bevaras i UTC så att
 parkeringstiden förblir korrekt efter omstart.
 
-**Status 2026-10-13:** Grundläggande `ParkingDataService.Load()`/`Save()` och separata JSON-datamodeller är implementerade. `Load()` har testats med giltig data och ogiltig `VehicleType`. Kontroll mot antalet platser och `VehiclesPerSpot` i den aktuella konfigurationen samt återställning till domänobjekt återstår. Den fullständiga sparningskedjan är inte verifierad.
+**Status 2026-10-14:** `ParkingDataMapper.ToGarage()` skapar det konfigurerade antalet platser och återställer sparade fordon till angivet platsnummer med rätt ankomsttid. Platsnummer utanför garagets storlek och otillåten beläggning avvisas via domänregler vid återställning, men negativa tester av dessa fall återstår. Ett lyckat end-to-end-test av bilparkering, JSON-sparning och omstart har genomförts med **200 konfigurerade platser**. Standardvärdet för en ny konfiguration är fortfarande **100**. Felsäkert beteende vid felaktiga filer och filskrivning är inte fullständigt verifierat.
 
 ## Kapacitetsmodell i Prague Parking 2.0
 

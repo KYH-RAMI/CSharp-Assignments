@@ -1,11 +1,11 @@
 # Prague Parking V2 – Klassdiagram
 
-**Uppdaterad:** 2026-10-13  
+**Uppdaterad:** 2026-10-14  
 **Omfattning:** Domänmodellen för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-Diagrammet visar domänklasserna och deras viktigaste relationer. Den påbörjade JSON-persistensen visas separat nedan och blandas inte med domänmodellen. VG-utökningar ingår inte som implementerade klasser.
+Diagrammet visar domänklasserna och deras viktigaste relationer. JSON-persistensen och applikationens mapper visas separat nedan och blandas inte med domänmodellen. VG-utökningar ingår inte som implementerade klasser.
 
-UI och konfiguration beskrivs översiktligt i detta dokument. JSON-persistensen har ett separat klassdiagram längre ned. Den senaste ändringen i `GarageOverView` påverkar presentationslagret, inte relationerna i domänmodellen.
+UI och konfiguration beskrivs översiktligt i detta dokument. JSON-persistensen har ett separat klassdiagram längre ned. Den 14 oktober tillkom `ParkingDataMapper` i huvudprojektets applikationslager och `ParkingGarage.ParkVehicleAtSpot()` för återställning. `GarageOverView` behöver inte ändras för detta.
 
 ## Aktuell domänmodell
 
@@ -23,10 +23,12 @@ classDiagram
 
     class Car {
         +Car(string identifier)
+        +Car(string identifier, DateTime arrivalTime)
     }
 
     class MC {
         +MC(string identifier)
+        +MC(string identifier, DateTime arrivalTime)
     }
 
     class ParkingSpot {
@@ -45,6 +47,7 @@ classDiagram
         +ParkingGarage(int numberOfParkingSpots)
         +ParkingSpot? FindAvailableSpot(Vehicle vehicle, int maxVehiclesPerSpot)
         +ParkingSpot ParkVehicle(Vehicle vehicle, int maxVehiclesPerSpot)
+        +void ParkVehicleAtSpot(Vehicle vehicle, int spotNumber, int maxVehiclesPerSpot)
         +Vehicle? FindVehicle(string identifier)
         +Vehicle? RemoveVehicle(string identifier)
     }
@@ -107,19 +110,19 @@ Alla fordon identifieras med en generell identifierare. Detta gör modellen mer 
 
 Konstruktorn validerar identifieraren och ankomsttiden. Vid nyregistrering används `DateTime.UtcNow`, och ankomsttiden lagras internt i UTC.
 
-Basklassen har även en skyddad konstruktor som tar emot en befintlig UTC-ankomsttid. Den är avsedd att användas när ett parkerat fordon återställs från JSON. Motsvarande konstruktorsöverlagringar i `Car` och `MC` behöver verifieras eller färdigställas i samband med persistensen; de visas därför inte som bekräftat implementerade i diagrammet.
+Basklassen har även en skyddad konstruktor som tar emot en befintlig UTC-ankomsttid. Den är avsedd att användas när ett parkerat fordon återställs från JSON. Konstruktorsöverlagringar i `Car` och `MC` tar emot en befintlig UTC-ankomsttid och används nu i `ParkingDataMapper.ToVehicle()` vid återställning.
 
 ### Car
 
 `Car` ärver från `Vehicle`.
 
-Klassen representerar en bil och använder de gemensamma egenskaperna och valideringen från basklassen. Den verifierade konstruktorn tar emot `identifier`.
+Klassen representerar en bil och använder basklassens validering. Den kan skapas med antingen en ny `identifier` eller en befintlig `identifier` och UTC-ankomsttid för återställning.
 
 ### MC
 
 `MC` ärver från `Vehicle`.
 
-Klassen representerar en motorcykel och använder de gemensamma egenskaperna och valideringen från basklassen. Den verifierade konstruktorn tar emot `identifier`.
+Klassen representerar en motorcykel och använder basklassens validering. Den kan skapas med antingen en ny `identifier` eller en befintlig `identifier` och UTC-ankomsttid för återställning.
 
 ### ParkingSpot
 
@@ -266,9 +269,9 @@ UI-komponenterna har refaktorerats för att minska duplicerad kod, bland annat g
 
 Antalet kolumner och synliga rader beräknas utifrån terminalens storlek och garagets faktiska antal platser. En intern visningsyta används när hela parkeringskartan inte får plats på höjden. Piltangenterna använder samma kolumnberäkning som rutnätet, och `AnsiConsole.Live()` uppdaterar vyn. Parkeringsplatsens bakgrundsfärg uttrycker ledig, delvis upptagen eller full plats enligt konfigurationen; en markerad plats får en avvikande textfärg utan att statusbakgrunden byts ut. Presentationen hämtar information från befintliga `ParkingGarage`, `ParkingSpot` och `Vehicle`, utan att införa nya domänklasser.
 
-**Verifieringsstatus:** Visningen av 200 lediga parkeringsplatser tillsammans med detaljpanel och footer har kontrollerats visuellt i Windows Terminal. Navigeringens gränsfall, 500–1 000 platser, terminalstorleksändringar och status med parkerade fordon återstår att verifiera.
+**Verifieringsstatus:** Den 14 oktober visades två fulla bilplatser (001 och 002) bland 200 konfigurerade platser, samt korrekt detaljpanel och statusräknare (`FREE 198`, `OCCUPIED 2`, `VEHICLES 2`). Navigeringens gränsfall, orange MC-status, 500–1 000 platser och terminalstorleksändringar återstår att verifiera.
 
-Parkeringslogiken har tidigare testats direkt från `Program.cs`. Integrationen av det nya incheckningsflödet via `ParkVehicleView` är ännu inte bekräftad som testad.
+Parkeringslogiken har tidigare testats direkt från `Program.cs`. Incheckning via `ParkVehicleView` har nu testats tillsammans med JSON-sparning och omstart.
 
 ### Konfiguration
 
@@ -281,7 +284,7 @@ Konfigurationshanteringen finns i det separata Data-projektet och omfattar bland
 
 ### Persistens
 
-Följande klasser är implementerade i det separata klassbiblioteket `PragueParkingV2.Data/Persistence`. Diagrammet nedan visar **DTO-/filnivån**, inte domänklassernas framtida återställningsflöde.
+Följande klasser är implementerade i det separata klassbiblioteket `PragueParkingV2.Data/Persistence`. Diagrammet nedan visar DTO-/filnivån. `ParkingDataMapper` visas i ett separat diagram eftersom den ligger i huvudprojektets `Application`-lager.
 
 ```mermaid
 classDiagram
@@ -315,9 +318,31 @@ classDiagram
 
 `ParkingDataService` läser och sparar `Data/parking-data.json`, validerar den interna dokumentstrukturen och kan skriva indenterad JSON via `WriteIndented = true`. Kontroller av dubbletter använder `HashSet<int>` respektive ett skiftlägesokänsligt `HashSet<string>`.
 
-Den positiva JSON-inläsningen och avvisning av en ogiltig fordonstyp har testats manuellt. Slutlig filersättning, återställning av `Car` och `MC` till exakt samma plats samt automatisk sparning från parkeringsfunktionerna återstår.
+Grundläggande JSON-inläsning och avvisning av okänd fordonstyp har tidigare testats. Den 14 oktober verifierades dessutom ett komplett normalflöde för bil: ny parkering, JSON-sparning, omstart och återställning till samma plats och ankomsttid. Fullständiga feltester och återställning av två MC på samma plats återstår.
 
 Konfigurationsberoende kontroller hör hemma i återställningsflödet utanför Data-projektet. En befintlig ogiltig datafil får inte automatiskt ersättas med tom data.
+
+### Applikationslager – mappning och startup/incheckning (2026-10-14)
+
+```mermaid
+classDiagram
+    class ParkingDataMapper {
+        <<static>>
+        +Vehicle ToVehicle(VehicleData data)
+        +VehicleData ToVehicleData(Vehicle vehicle)
+        +ParkingDataDocument ToDocument(ParkingGarage garage)
+        +ParkingGarage ToGarage(ParkingDataDocument document, AppConfiguration configuration)
+    }
+
+    ParkingDataMapper ..> ParkingGarage : reads / constructs
+    ParkingDataMapper ..> ParkingDataDocument : maps
+    ParkingDataMapper ..> VehicleData : converts
+    ParkingDataMapper ..> AppConfiguration : reads capacity
+```
+
+`Program.cs` läser konfiguration och DTO-dokument, sedan anropas `ParkingDataMapper.ToGarage()`. `ParkVehicleView` anropar `ToDocument()` följt av `ParkingDataService.Save()` efter incheckning. Två nästlade `foreach`-loopar används avsiktligt i `ToGarage()` eftersom varje fordon skapas och parkeras på en bestämd plats. `ToDocument()` använder LINQ för projektion till DTO:er. Det här valet prioriterar läsbarhet framför att använda LINQ överallt.
+
+**Avgränsning:** Mappern är en översättningsklass, inte en transaktionshanterare. Skrivfelkompensation ligger för närvarande i incheckningsvyn och behöver robusthetstestas och eventuellt flyttas till en central applikationstjänst.
 
 ### VG-versionen
 

@@ -1,7 +1,7 @@
 ﻿using PragueParkingV2.Data.Configuration;
+using PragueParkingV2.Data.Persistence;
 using PragueParkingV2.Domain;
 using Spectre.Console;
-
 namespace PragueParkingV2.UI
 {
     internal static class MainMenu
@@ -19,7 +19,8 @@ namespace PragueParkingV2.UI
 
         public static void Show(
             ParkingGarage parkingGarage,
-            AppConfiguration configuration)
+            AppConfiguration configuration,
+            ParkingDataService parkingDataService)
         {
             int selectedIndex = 0;
 
@@ -40,7 +41,11 @@ namespace PragueParkingV2.UI
                     {
                         case "Park Vehicle":
 
-                            ParkVehicleView.Show(parkingGarage, configuration);
+                            
+                            ParkVehicleView.Show(
+                                parkingGarage,
+                                configuration,
+                                parkingDataService);
 
                             break;
 

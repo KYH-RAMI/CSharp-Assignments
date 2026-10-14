@@ -1,6 +1,8 @@
 ﻿using PragueParkingV2.Data.Configuration;
+using PragueParkingV2.Data.Persistence;
 using PragueParkingV2.Domain;
 using Spectre.Console;
+using PragueParkingV2.Application;
 
 namespace PragueParkingV2.UI
 {
@@ -15,7 +17,8 @@ namespace PragueParkingV2.UI
 
         public static void Show(
             ParkingGarage parkingGarage,
-            AppConfiguration configuration)
+            AppConfiguration configuration,
+            ParkingDataService parkingDataService)
         {
             int selectedIndex = 0;
 
@@ -38,7 +41,8 @@ namespace PragueParkingV2.UI
                 bool parkingCompleted = RegisterVehicle(
                     parkingGarage,
                     configuration,
-                    vehicleType);
+                    vehicleType,
+                    parkingDataService);
 
                 if (parkingCompleted)
                 {
@@ -50,7 +54,8 @@ namespace PragueParkingV2.UI
         private static bool RegisterVehicle(
             ParkingGarage parkingGarage,
             AppConfiguration configuration,
-            string vehicleType)
+            string vehicleType,
+            ParkingDataService parkingDataService)
         {
             while (true)
             {
@@ -89,6 +94,26 @@ namespace PragueParkingV2.UI
                         parkingGarage.ParkVehicle(
                             vehicle,
                             capacity);
+                    try
+                    {
+                        var document = ParkingDataMapper.ToDocument(parkingGarage);
+
+                        parkingDataService.Save(document);
+                    }
+                    catch (Exception ex) when (
+                        ex is IOException or UnauthorizedAccessException)
+                    {
+                        parkingGarage.RemoveVehicle(vehicle.Identifier);
+
+                        AppTheme.PrepareScreen();
+
+                        MessageService.ShowError(
+                            $"Failed to save parking data: {ex.Message}\n" +
+                            "The parking registration has been cancelled.",
+                            waitForKey: true);
+
+                        return false;
+                    }
 
                     AppTheme.PrepareScreen();
 

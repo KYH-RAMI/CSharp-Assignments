@@ -804,3 +804,53 @@ Det viktigaste jag har lärt mig är att man måste förstå hur `Grid`, `Table`
 - Testa statusfärgerna och `SPOT DETAILS` med verkligt parkerade fordon.
 - Uppdatera `README.md`, designbeslut, projektplan och kravstatus efter de verifierade ändringarna.
 - Kontrollera ändrade filer och Git-historiken innan nästa commit och push till GitHub.
+
+---
+
+## 2026-10-14 – JSON-återställning, automatisk sparning och felsökning
+
+### Genomfört
+
+- Lade `ParkingDataMapper.cs` i huvudprojektets `Application`-mapp. Klassen översätter mellan domänmodellen (`ParkingGarage`, `ParkingSpot`, `Vehicle`, `Car`, `MC`) och DTO-modellerna i `PragueParkingV2.Data.Persistence`.
+- Implementerade `ToVehicle()` och `ToVehicleData()` samt `ToDocument()` och `ToGarage()`. `ToDocument()` tar med endast upptagna parkeringsplatser. `ToGarage()` skapar det konfigurerade antalet platser och placerar sparade fordon på deras ursprungliga plats med bevarad UTC-ankomsttid.
+- Lade till `ParkVehicleAtSpot()` i `ParkingGarage` för återställning av en bestämd plats; återanvänder befintlig kapacitets- och dubblettkontroll.
+- Kopplade `ParkingDataService.Load()` och `ParkingDataMapper.ToGarage()` till programstarten i `Program.cs`.
+- Skickade samma `ParkingDataService` genom `Program.cs` → `MainMenu.Show()` → `ParkVehicleView.Show()` → `RegisterVehicle()` så att incheckningsvyn kan spara.
+- Kopplade in `ParkingDataMapper.ToDocument()` och `ParkingDataService.Save()` efter lyckad `ParkingGarage.ParkVehicle()`. Bekräftelse visas först efter att `Save()` har returnerat utan rapporterat fel.
+- Lade in felhantering för `IOException` och `UnauthorizedAccessException`; vid dessa fel försöker programmet ångra parkeringen i minnet med `RemoveVehicle()`. Detta är **grundläggande återställning**, inte ett färdigtestat transaktionsskydd.
+- Lät den fungerande `GarageOverView` vara oförändrad.
+
+### Tester och resultat
+
+- **Kompilering:** Visual Studio rapporterade `Build: 1 succeeded, 0 failed, 1 up-to-date`.
+- **Inläsning:** Den befintliga testbilen `ABC123` återställdes från JSON och visades på plats **001** med äldre ankomsttid.
+- **Ny incheckning:** Registrerade bilen `UKB48K` via `Park Vehicle`. Programmet tilldelade plats **002**, visade korrekt registreringsnummer och lokal ankomsttid **2026-10-14 20:53** samt meddelandet *Vehicle parked successfully!*.
+- **Sparning och omstart:** Avslutade programmet helt och startade igen. Bilen `UKB48K` återkom på **plats 002** med samma ankomsttid. `ABC123` fanns kvar på plats 001.
+- **Garageöversikt:** `Garage Status` visade **FREE 198**, **OCCUPIED 2** och **VEHICLES 2** av 200 konfigurerade platser. Båda upptagna bilplatserna visades röda (FULL).
+- Testet verifierar en **lyckad normal incheckning, fysisk JSON-sparning och återställning efter omstart**. Det verifierar **inte** simulerade skrivfel, korrupt fil, två MC på samma plats efter omstart eller sparning efter utcheckning/flytt.
+
+### Problem och lösningar
+
+**1. `Application` hittades inte.** Först låg `ParkingDataMapper.cs` på solution-nivå/i en *Solution Folder* i stället för som kompilerad fil i huvudprojektet. Jag skapade en riktig `Application`-mapp under C#-projektet `PragueParkingV2` och lade in filen där.
+
+**2. Ändrad metodsignatur gav kompileringsfel.** Jag lade till `ParkingDataService` som parameter i `MainMenu.Show()` men missade först att skicka den från `Program.cs`. Visual Studios felmeddelande visade att det tredje argumentet saknades. Efter ändringen byggdes projektet utan fel.
+
+**3. Felsökaren stannade vid `File.WriteAllText()` i `ParkingDataService.Save()`.** Jag misstänkte först ett fel i lagringen. Efter fortsatt körning kom dock en lyckad parkeringsbekräftelse och det efterföljande omstartstestet visade att datan bevarats. Den exakta orsaken till att felsökaren stannade är inte slutligt fastställd; jag ska skilja på brytpunkter och undantag nästa gång.
+
+### Mina reflektioner
+
+Idag var det ganska körigt att hålla reda på alla filer, metoder och hur de hänger ihop. Jag märkte att när man ändrar något i en fil kan det påverka flera andra filer, vilket inte alltid är lätt att komma ihåg.
+
+Jag lärde mig också att använda Shift + F12 i Visual Studio för att hitta var en metod används. Det är en genväg jag ska försöka komma ihåg eftersom den kan underlätta arbetet.
+
+Jag försökte även tillämpa lite enklare LINQ i koden. Det fungerade bra på vissa ställen, men när jag försökte ersätta två nästlade foreach-loopar blev det alldeles för bökigt. Därför valde jag att behålla den mer traditionella lösningen med foreach, eftersom den var enklare att förstå.
+
+Mot slutet var jag ganska trött och gjorde några onödiga misstag. Trots det lyckades vi få JSON-sparningen att fungera, och jag kunde testa att parkera ett fordon, avsluta programmet och starta om det. Fordonet fanns fortfarande kvar med rätt parkeringsplats och ankomsttid.
+### Nästa steg
+
+1. Implementera **Check Out Vehicle** i UI med prisinformation och säker JSON-uppdatering när fordonet lämnar garaget.
+2. Implementera **Move Vehicle** med bibehållen ankomsttid och sparning; därefter **Find Vehicle**.
+3. Implementera administrationsmenyns prisomläsning för G-versionen.
+4. Testa skrivfel, ogiltig/korrupt befintlig JSON, saknade fält, dubbletter, återställning av två MC på samma plats samt garagekapacitet som inte matchar sparade platsnummer.
+5. Fortsätta testa terminalstorlekar, navigation och konfigurerade garageantal (standard **100**, aktuellt test **200**).
+6. Kontrollera `git status` och säkerställ att `bin/`, `obj/` och runtime-`parking-data.json` inte av misstag inkluderas i commit.
