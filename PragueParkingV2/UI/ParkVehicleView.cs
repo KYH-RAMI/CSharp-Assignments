@@ -117,13 +117,41 @@ namespace PragueParkingV2.UI
 
                     AppTheme.PrepareScreen();
 
-                    MessageService.ShowSuccess(
+                    string successContent =
                         $"Vehicle parked successfully!\n\n" +
                         $"Vehicle Type: {vehicleType}\n" +
                         $"Registration: {vehicle.Identifier}\n" +
                         $"Parking Spot: {assignedSpot.SpotNumber:D3}\n" +
-                        $"Arrival Time: {localArrival:yyyy-MM-dd HH:mm}",
-                        waitForKey: true);
+                        $"Arrival Time: {localArrival:yyyy-MM-dd HH:mm}";
+
+                    var successPanel = AppTheme.CreatePanel(
+                        new Markup(successContent),
+                        title: "PARKING COMPLETED",
+                        width: 62,
+                        borderColor: AppTheme.SuccessBorderColor);
+
+                    AppTheme.WriteCenteredPanel(successPanel);
+                    AnsiConsole.WriteLine();
+
+                    int leftMargin = Math.Max(
+                        0,
+                        (Console.WindowWidth - 62) / 2);
+
+                    Console.SetCursorPosition(
+                        leftMargin,
+                        Console.CursorTop);
+
+                    AnsiConsole.MarkupLine(
+                        $"[{AppTheme.Muted}]Press any key to continue...[/]");
+
+                    Thread.Sleep(3000);
+
+                    while (Console.KeyAvailable)
+                    {
+                        Console.ReadKey(intercept: true);
+                    }
+
+                    Console.ReadKey(intercept: true);
 
                     return true;
                 }
@@ -149,7 +177,12 @@ namespace PragueParkingV2.UI
         private static string? ReadRegistrationId(string vehicleType)
         {
             AppTheme.PrepareScreen();
+            const int formWidth = 62;
+            int leftMargin = Math.Max(
+                0,
+                (Console.WindowWidth - formWidth) / 2);
 
+            string padding = new string(' ', leftMargin);
             string content =
                 $"[bold {AppTheme.GoldLight}]VEHICLE TYPE[/]\n" +
                 $"{Markup.Escape(vehicleType)}\n\n" +
@@ -163,13 +196,17 @@ namespace PragueParkingV2.UI
                 title: "VEHICLE REGISTRATION",
                 width: 62);
 
-            AnsiConsole.Write(panel);
+            AppTheme.WriteCenteredPanel(panel);
 
             AnsiConsole.WriteLine();
 
+            Console.SetCursorPosition(
+                leftMargin,
+                Console.CursorTop);
+
             string identifier = AnsiConsole.Prompt(
                 new TextPrompt<string>(
-                    $"[{AppTheme.Gold}]Registration ID:[/] ")
+                    $"{padding}[{AppTheme.Gold}]Registration ID:[/] ")
                     .AllowEmpty());
 
             if (string.IsNullOrWhiteSpace(identifier))

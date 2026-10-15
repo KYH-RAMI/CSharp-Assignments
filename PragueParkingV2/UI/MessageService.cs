@@ -50,9 +50,10 @@ namespace PragueParkingV2.UI
             var panel = AppTheme.CreatePanel(
                 content,
                 title: title,
+                width: 62,
                 borderColor: color);
 
-            AnsiConsole.Write(panel);
+            AppTheme.WriteCenteredPanel(panel);
 
             if (waitForKey)
             {

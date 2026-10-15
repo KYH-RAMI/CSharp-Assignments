@@ -16,8 +16,9 @@ namespace PragueParkingV2.UI
         public const string Muted = "#B8CBE0";
         public const string Border = "#4488BE";
         public const string SelectionText = "#071C35";
+        public const int FormWidth = 62;
+        private const int PanelWidth = FormWidth;
 
-        private const int PanelWidth = 62;
         private const int PanelHeight = 22;
         private const int OptionWidth = 26;
         public const string StatusFree = "green";
@@ -38,7 +39,7 @@ namespace PragueParkingV2.UI
 
         public static readonly Color BorderColor =
             new(68, 136, 190);
-
+        public static readonly Color SuccessBorderColor = Color.Green;
         public static void PrepareScreen()
         {
             Console.CursorVisible = false;
@@ -433,36 +434,43 @@ namespace PragueParkingV2.UI
                 Muted);
 
             _ = Console.ReadKey(intercept: true);
-            }
-            public static Panel CreatePanel(
-                IRenderable content,
-                string? title = null,
-                int? width = null,
-                Color? borderColor = null,
-                Padding? padding = null)
+        }
+        public static Panel CreatePanel(
+            IRenderable content,
+            string? title = null,
+            int? width = null,
+            Color? borderColor = null,
+            Padding? padding = null)
+        {
+            var panel = new Panel(content)
             {
-                    var panel = new Panel(content)
-                    {
-                        Border = BoxBorder.Rounded,
+                Border = BoxBorder.Rounded,
 
-                        BorderStyle = new Style(
-                            foreground: borderColor ?? BorderColor),
+                BorderStyle = new Style(
+                    foreground: borderColor ?? BorderColor),
 
-                        Padding = padding ?? new Padding(1, 0, 1, 0)
-                    };
+                Padding = padding ?? new Padding(1, 0, 1, 0)
+            };
 
-                    if (!string.IsNullOrWhiteSpace(title))
-                    {
-                        panel.Header = new PanelHeader(
-                            $"[bold {Gold}] {Markup.Escape(title)} [/]");
-                    }
-
-                    if (width.HasValue)
-                    {
-                        panel.Width = width.Value;
-                    }
-
-                    return panel;
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                panel.Header = new PanelHeader(
+                    $"[bold {Gold}] {Markup.Escape(title)} [/]");
             }
+
+            if (width.HasValue)
+            {
+                panel.Width = width.Value;
+            }
+
+            return panel;
+        }
+        public static void WriteCenteredPanel(Panel panel)
+        {
+            ArgumentNullException.ThrowIfNull(panel);
+
+            AnsiConsole.Write(
+                Align.Center(panel));
         }
     }
+}

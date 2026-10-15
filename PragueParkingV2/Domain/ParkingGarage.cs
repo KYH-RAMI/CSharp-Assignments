@@ -83,10 +83,10 @@ namespace PragueParkingV2.Domain
             var parkingSpot = _parkingSpots.Find(
                 spot => spot.SpotNumber == spotNumber);
             if (FindVehicle(vehicle.Identifier) is not null)
-                {
-                    throw new InvalidOperationException(
-                        $"Vehicle '{vehicle.Identifier}' is already parked.");
-                }
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{vehicle.Identifier}' is already parked.");
+            }
             if (parkingSpot is null)
             {
                 throw new InvalidOperationException(
@@ -123,6 +123,69 @@ namespace PragueParkingV2.Domain
                 }
             }
             return null;
+        }
+        public void MoveVehicle(
+            string identifier,
+            int targetSpotNumber,
+            int maxVehiclesPerSpot)
+        {
+            var vehicle = FindVehicle(identifier);
+
+            if (vehicle is null)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{identifier}' was not found.");
+            }
+            var sourceSpot = _parkingSpots.Find(
+                spot => spot.ParkedVehicles.Contains(vehicle));
+
+            if (sourceSpot is null)
+            {
+                throw new InvalidOperationException(
+                    $"The parking spot for vehicle '{identifier}' was not found.");
+            }
+
+            var targetSpot = _parkingSpots.Find(
+                spot => spot.SpotNumber == targetSpotNumber);
+            if (targetSpot is null)
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {targetSpotNumber} does not exist.");
+            }
+            if (sourceSpot.SpotNumber == targetSpot.SpotNumber)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{identifier}' is already parked at spot {targetSpotNumber}.");
+            }
+            if (!targetSpot.CanPark(vehicle, maxVehiclesPerSpot))
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle cannot be parked at spot {targetSpotNumber}.");
+            }
+
+            var removedVehicle = sourceSpot.RemoveVehicle(identifier);
+
+            if (removedVehicle is null)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{identifier}' could not be removed.");
+            }
+            try
+            {
+                targetSpot.ParkVehicle(
+                    removedVehicle,
+                    maxVehiclesPerSpot);
+            }
+            catch
+            {
+                sourceSpot.ParkVehicle(
+                    removedVehicle,
+                    maxVehiclesPerSpot);
+
+                throw;
+            }
+
+
         }
 
 

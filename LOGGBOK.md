@@ -854,3 +854,73 @@ Mot slutet var jag ganska trött och gjorde några onödiga misstag. Trots det l
 4. Testa skrivfel, ogiltig/korrupt befintlig JSON, saknade fält, dubbletter, återställning av två MC på samma plats samt garagekapacitet som inte matchar sparade platsnummer.
 5. Fortsätta testa terminalstorlekar, navigation och konfigurerade garageantal (standard **100**, aktuellt test **200**).
 6. Kontrollera `git status` och säkerställ att `bin/`, `obj/` och runtime-`parking-data.json` inte av misstag inkluderas i commit.
+
+---
+
+## 2026-10-15 – Check Out, Move Vehicle och förbättrad felhantering
+
+### Genomfört
+
+#### Check Out Vehicle
+
+- Kopplat `CheckOutVehicleView` till huvudmenyn och den befintliga domänlogiken i `CheckoutService` och `ParkingFeeCalculator`.
+- Visar registreringsnummer, parkeringstid, beräknad avgift och en bekräftelse innan utcheckningen genomförs.
+- Använder `ParkingDataMapper.ToDocument()` och `ParkingDataService.Save()` för att spara att fordonet har lämnat garaget.
+- Lagt in ett försök att återställa fordonet på dess ursprungliga plats om JSON-sparningen misslyckas.
+- Anpassat vyn till centrerade Spectre.Console-paneler och en grön kvittopanel efter lyckad utcheckning.
+
+#### Move Vehicle – domänlogik och användargränssnitt
+
+- Implementerat `ParkingGarage.MoveVehicle()` genom att återanvända `FindVehicle()`, `ParkingSpot.CanPark()`, `RemoveVehicle()` och `ParkVehicle()`.
+- Kontrollerar att fordonet och destinationsplatsen finns, att platserna inte är samma och att fordonstyp och kapacitet tillåter flytten.
+- Återanvänder samma `Vehicle`-objekt vid flytten för att behålla den ursprungliga `ArrivalTime`.
+- Lagt till ett återställningsförsök om parkeringen på den nya platsen misslyckas.
+- Skapat `MoveVehicleView.cs` och anslutit vyn till `MainMenu`.
+- Byggt centrerade paneler för fordonsinformation, val av ny plats, bekräftelse och grönt kvitto med `AppTheme`.
+- Använt `int.TryParse()` för att kontrollera platsnumret och hämtar kapacitet för `Car` respektive `MC` ur `config.json` via `AppConfiguration`.
+- Infört en `while`-loop som låter användaren välja en ny plats direkt efter ogiltig inmatning. Tomt inmatningsfält och Enter avbryter; direkt avbrytning med ESC i textfältet är ännu inte implementerad.
+- Kontrollerar destinationsplatsens kapacitet redan före bekräftelsen, men behåller samma kontroll i domänlogiken.
+- Kopplat flytten till JSON-sparning med försök till återflytt till ursprungsplatsen om sparningen rapporterar ett filfel.
+
+#### Gemensam presentation och felmeddelanden
+
+- Uppdaterat `MessageService` så att fel- och informationspaneler centreras genom `AppTheme.WriteCenteredPanel()`.
+- Förbättrat `MoveVehicleView` så att felaktiga platsförsök inte skapar en växande stapel av felpaneler. Med `Console.CursorTop`, `Console.SetCursorPosition()` och ANSI-rensning (`\x1b[0J`) ritas endast inmatningsområdet om.
+- Behållit `GarageOverView` som separat, terminalanpassad helbreddsvy; övriga formulär använder konsekventa centrerade paneler.
+
+### Tester och resultat
+
+- **Kompilering:** Flera byggningar av lösningen genomfördes utan kompileringsfel under arbetet.
+- **Utcheckning och omstart:** Testfordonet `UKB48K` checkades ut via UI med kvitto och avgift. Efter omstart var dess tidigare plats ledig medan övriga parkerade fordon fanns kvar. Därmed verifierades normalflödet för sparad utcheckning.
+- **Flytt av bil:** `ABC123` flyttades från plats **001** till plats **050**. `Garage Overview` visade därefter plats 001 som ledig och plats 050 som upptagen.
+- **Flytt och omstart:** Efter att programmet avslutats och startats igen fanns bilen kvar på den nya platsen. Normalflödet för JSON-sparning och återställning efter flytt är därmed verifierat.
+- **Felaktig destinationsplats:** En bil nekades flytt till en plats som inte kunde ta emot den. Kontroll sker nu redan när destinationsplatsen anges, utan att användaren måste bekräfta en flytt som ändå inte kan genomföras.
+- **Inmatning:** Ogiltiga värden, platsnummer utanför garaget och val av samma plats ger ett felmeddelande och möjlighet att ange ett nytt platsnummer utan att registreringsnumret behöver anges på nytt.
+- **Motorcyklar:** Verifierat att två MC kan dela plats **003** när kapaciteten är två och att en MC inte får flyttas till en plats som innehåller en bil. `Garage Overview` visade två MC på samma plats, en bil på en annan plats samt status **FREE 198 / OCCUPIED 2 / VEHICLES 3** vid 200 platser.
+
+### Problem och lösningar
+
+**1. Svårt att hitta rätt metod och klass.** Under arbetet med `MoveVehicle()` blandade jag till en början ihop `List<T>.Find()`, LINQ:s `FirstOrDefault()` och den befintliga `ParkingSpot.CanPark()`. Jag fick reda ut vilken klass som ansvarar för respektive metod och hur ett `ParkingSpot`-objekt används från `ParkingGarage`.
+
+**2. Risk att fordon tas bort för tidigt.** Den första versionen tog bort fordonet innan destinationsplatsen hade validerats. Jag ändrade ordningen så att samtliga kontroller sker före borttagningen och lade till försök att återställa fordonet vid fel.
+
+**3. Felaktigt platsnummer skickade tillbaka användaren till huvudmenyn.** Jag ersatte direkt återgång med en `while`-loop och `continue`, så att användaren kan försöka igen. Jag arbetade också med skillnaden mellan `continue`, `break` och `return`.
+
+**4. Felpanelerna hamnade fel och staplades på varandra.** Jag återanvände `AppTheme.WriteCenteredPanel()` i `MessageService` och begränsade omritningen till området med platsinmatning och senaste felmeddelandet. Layouten blev tydligare utan att övriga paneler behövde ritas om.
+
+### Mina reflektioner
+
+Jag känner att jag gör stora framsteg nu när jag börjar implementera och använda metoder och funktioner som jag har byggt tidigare. Programmet börjar verkligen ta form, och jag märker hur de olika delarna fungerar tillsammans.
+
+Samtidigt märker jag att jag ibland lägger för mycket tid på det visuella gränssnittet och lätt tappar tråden när jag växlar mellan olika klasser och funktioner. Det är något jag behöver bli bättre på att hantera.
+
+Trots det är jag väldigt nöjd med det jag har åstadkommit hittills. Det känns motiverande att se hur projektet utvecklas och att funktionerna jag byggt tidigare nu faktiskt används i programmet.
+
+### Nästa steg
+
+1. Kontrollera efter omstart att **båda motorcyklarna** på en delad plats finns kvar med rätt identifierare och ursprunglig ankomsttid.
+2. Testa och verifiera återställningsförsöken vid **simulerade JSON-sparfel**, både för utcheckning och flytt. Den normala sparningen fungerar, men felscenarierna är ännu inte verifierade och innebär ingen fullständig transaktionsgaranti.
+3. Implementera och testa **Find Vehicle** i UI.
+4. Implementera **Administration** med omläsning och validering av prislistan för G-versionen.
+5. Fortsätta tester av felaktig JSON, konfigurationsgränser och terminalbeteende samt uppdatera övrig dokumentation.
+6. Granska Git-ändringarna innan commit; säkerställ att `bin/`, `obj/` och runtime-`parking-data.json` inte inkluderas av misstag.

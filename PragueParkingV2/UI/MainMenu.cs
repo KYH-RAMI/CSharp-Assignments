@@ -48,6 +48,24 @@ namespace PragueParkingV2.UI
                                 parkingDataService);
 
                             break;
+                        
+                        case "Check Out Vehicle":
+
+                            CheckOutVehicleView.Show(
+                                parkingGarage,
+                                configuration,
+                                parkingDataService);
+
+                            break;
+                        
+                        case "Move Vehicle":
+                            
+                            MoveVehicleView.Show(
+                                parkingGarage,
+                                configuration,
+                                parkingDataService);
+                            
+                            break;
 
                         case "Garage Overview":
 

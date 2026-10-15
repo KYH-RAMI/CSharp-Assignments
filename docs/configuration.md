@@ -1,6 +1,6 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-14  
+**Uppdaterad:** 2026-10-15  
 **Omfattning:** Konfiguration för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
 ## Konfigurationsstruktur
@@ -138,7 +138,7 @@ flytta markeringen. Den aktuella implementationen kräver ett
 terminalfönster på minst **80 kolumner och 18 rader** för att visa
 översikten; annars visas en uppmaning om att förstora fönstret.
 
-**Teststatus 2026-10-14:** Den 13 oktober kontrollerades 200 lediga platser. Den 14 oktober visades dessutom två fulla bilplatser och korrekt beläggningsstatistik. Navigeringsgränser, olika terminalstorlekar, 500–1 000 platser och orange status för delvis upptagen MC-plats behöver fortfarande verifieras.
+**Teststatus 2026-10-15:** Den 13 oktober kontrollerades 200 lediga platser. Den 14 oktober visades två fulla bilplatser och korrekt beläggningsstatistik. Den 15 oktober kontrollerades också en bil på plats 050 och två motorcyklar på plats 003: `FREE 198`, `OCCUPIED 2`, `VEHICLES 3`. `SPOT DETAILS` visade båda motorcyklarna och beläggning `2/2`. Navigeringsgränser, olika terminalstorlekar, 500–1 000 platser samt återställning av två MC på samma plats **efter omstart** behöver fortfarande verifieras.
 
 ## Prisregler vid körning
 
@@ -156,7 +156,7 @@ De aktiva värdena för:
 dem vid beräkning av parkeringsavgifter.
 
 Det innebär att `config.json` inte behöver läsas från disk vid varje
-prisberäkning.
+prisberäkning. **Check Out Vehicle** använder konfigurerade priser och gratisminuter vid beräkningen av avgiften; ett komplett normalt utcheckningsflöde med JSON-sparning har testats manuellt den 15 oktober. **Menybaserad omläsning av prislistan är fortfarande inte implementerad**.
 
 Prisberäkningen använder aktuell fordonstyp för att välja rätt timpris:
 
@@ -264,7 +264,7 @@ Prisregler och gratisgränser sparas inte i `parking-data.json`, utan hämtas
 från `config.json`. `ArrivalTime` i parkeringsdata ska bevaras i UTC så att
 parkeringstiden förblir korrekt efter omstart.
 
-**Status 2026-10-14:** `ParkingDataMapper.ToGarage()` skapar det konfigurerade antalet platser och återställer sparade fordon till angivet platsnummer med rätt ankomsttid. Platsnummer utanför garagets storlek och otillåten beläggning avvisas via domänregler vid återställning, men negativa tester av dessa fall återstår. Ett lyckat end-to-end-test av bilparkering, JSON-sparning och omstart har genomförts med **200 konfigurerade platser**. Standardvärdet för en ny konfiguration är fortfarande **100**. Felsäkert beteende vid felaktiga filer och filskrivning är inte fullständigt verifierat.
+**Status 2026-10-15:** `ParkingDataMapper.ToGarage()` skapar det konfigurerade antalet platser och återställer sparade fordon till angivet platsnummer med rätt ankomsttid. Platsnummer utanför garagets storlek och otillåten beläggning avvisas via domänregler vid återställning, men negativa tester av dessa fall återstår. Normala flöden för **incheckning, utcheckning och flytt** är nu kopplade till JSON-sparning och har testats manuellt. En bil flyttades från plats 001 till 050, och placeringen fanns kvar efter omstart. Standardvärdet för en ny konfiguration är fortfarande **100** platser; de aktuella UI-testerna använder **200** genom konfigurationen. Återställning av två MC på samma plats **efter omstart**, framprovocerade skrivfel och fullständig kompensation/filersättningssäkerhet är ännu inte verifierade.
 
 ## Kapacitetsmodell i Prague Parking 2.0
 
@@ -286,6 +286,8 @@ Kapacitetsvärdena ska därför inte hårdkodas i `ParkingSpot`.
 `ParkingSpot` ansvarar fortfarande för att kontrollera om ett fordon får
 parkeras på platsen. Olika fordonstyper får inte blandas på samma plats i
 den nuvarande G-modellen.
+
+**Verifiering 2026-10-15:** `MoveVehicleView` avgör om det befintliga objektet är `Car` eller `MC` och hämtar motsvarande `VehiclesPerSpot` från `configuration.VehicleTypes`. Innan användaren får bekräfta en flytt kontrolleras destinationsplatsen via `ParkingSpot.CanPark()`. Tester visar att en MC kan flyttas till en plats med en annan MC (två totalt), medan flytt av MC till en bilupptagen plats nekas. Detta är verifierade kapacitetsregler, inte stöd för VG-versionens storleksenheter.
 
 > Den generella storleksmodellen med storleksenheter för Bicycle, MC, Car
 > och Bus införs först i Prague Parking 2.1 (VG).

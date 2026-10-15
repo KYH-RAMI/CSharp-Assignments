@@ -17,6 +17,7 @@ namespace PragueParkingV2.Domain
             _parkingGarage = parkingGarage;
             _feeCalculator = feeCalculator;
         }
+
         public CheckoutResult CheckOut(
             string identifier,
             DateTime departureTime)
