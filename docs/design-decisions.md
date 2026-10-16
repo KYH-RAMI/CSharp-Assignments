@@ -1,6 +1,6 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-15  
+**Uppdaterad:** 2026-10-16  
 **Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
@@ -65,7 +65,7 @@ Fordonskapaciteten hämtas från konfigurationen och skickas till parkeringslogi
 
 **Motivering:** Formatet är läsbart, kan hanteras med `System.Text.Json` och uppfyller projektets filkrav.
 
-Inläsning, domänåterställning och automatisk JSON-sparning vid incheckning, utcheckning och flytt är implementerade. Normala flöden har manuellt verifierats, medan avsiktligt framprovocerade skrivfel och vissa ogiltiga datafall återstår att testa.
+Inläsning, domänåterställning och automatisk JSON-sparning vid incheckning, utcheckning och flytt är implementerade och manuellt testade. Den 16 oktober verifierades även avvisning av korrupt och logiskt ogiltig JSON samt kontrollerade sparfel med återställningsförsök för alla tre åtgärderna. Tester av specifika felvägar innebär inte att fullständig transaktions- eller kraschsäkerhet har bevisats.
 
 ## DD-009 – Separata filer för konfiguration och parkeringsdata
 
@@ -87,7 +87,7 @@ Inläsning, domänåterställning och automatisk JSON-sparning vid incheckning, 
 
 **Motivering:** Beräkningarna ska vara konsekventa oberoende av lokala tidsomställningar.
 
-Tidszon för presentation anges i konfigurationen, med `Europe/Prague` som standard. JSON-inläsning med `ArrivalTime.Kind = Utc` och återställning av sparade bilar med oförändrad ankomsttid har testats. Vid flytt används samma fordonsobjekt, vilket bevarar `ArrivalTime`.
+Tidszon för presentation anges i konfigurationen, med `Europe/Prague` som standard. JSON-inläsning med `ArrivalTime.Kind = Utc` och återställning av sparade bilar **och två MC på samma plats** med oförändrade ankomsttider har testats. Vid flytt används samma fordonsobjekt, vilket bevarar `ArrivalTime`.
 
 ## DD-012 – Samlad JSON-konfiguration med priser först
 
@@ -123,7 +123,7 @@ Detta gäller runtime-filen, inte en automatisk omskrivning av projektets urspru
 
 **Motivering:** Nya priser ska kunna tas i bruk utan att bygga om hela domänmodellen.
 
-Menybaserad omläsning av prislistan återstår för G-versionen. Omläsning av **hela** konfigurationen tillhör VG-kraven.
+Menybaserad omläsning av prislistan är implementerad och verifierad via **Administration → Reload Pricing**. En ändring av bilpriset från 20 till 30 CZK/timme användes vid avgiftsberäkning utan omstart. Ett ogiltigt pris (`-10`) avvisades, och föregående giltiga pris behölls. Priset återställdes därefter till 20 CZK/timme. Omläsning av **hela** konfigurationen tillhör VG-kraven.
 
 ## DD-017 – Read-only resultat för prisberäkning
 
@@ -137,7 +137,7 @@ Menybaserad omläsning av prislistan återstår för G-versionen. Omläsning av 
 
 **Motivering:** Fordonet ska inte tas bort innan en korrekt avgift har kunnat beräknas.
 
-**Status 2026-10-15:** `CheckOutVehicleView` är integrerad med avgiftsberäkning, bekräftelse och JSON-sparning. Ett normalt utcheckningsflöde har verifierats efter omstart; återställning vid framprovocerat skrivfel återstår att testa. Se DD-029.
+**Status 2026-10-16:** `CheckOutVehicleView` är integrerad med avgiftsberäkning, bekräftelse och JSON-sparning. Normal utcheckning är verifierad med omstart. Vid ett kontrollerat sparfel visades fel i stället för kvitto, och fordonet fanns kvar i garaget efter återställningsförsöket. Se DD-029.
 
 ## DD-019 – Strukturerat utcheckningsresultat
 
@@ -190,15 +190,15 @@ Layouten beräknas om vid tangenttryckningar, även efter en eventuell ändring 
 
 ### Status och återstående tester
 
-Den aktuella vyn har **visuellt kontrollerats med 200 parkeringsplatser** i ett tillräckligt stort terminalfönster. Den 13 oktober visades samtliga platser som lediga utan att kartan kapades. Den 14–15 oktober har översikten också kontrollerats med parkerade bilar och två MC på samma plats. Ett dokumenterat läge visade `FREE 198`, `OCCUPIED 2`, `VEHICLES 3`. Detta är manuella visuella kontroller, inte en fullständig verifiering av samtliga layoutgränsfall.
+Vyn har **manuellt kontrollerats med 100, 200 och 1 000 parkeringsplatser**. Den 13 oktober visades 200 lediga platser utan att kartan kapades; den 14–15 oktober testades parkerade bilar och två MC på samma plats. Den 16 oktober visade ett garage med 1 000 platser intern viewport (bland annat intervallen 001–234 och 768–1000), korrekt status `FREE 998`, `OCCUPIED 2`, `VEHICLES 3`, navigering till plats 1000 och tillbaka till början. Markeringen gick inte förbi plats 1000. Efter återgång till 100 platser visades `FREE 98`, `OCCUPIED 2`, `VEHICLES 3` och de sparade fordonen låg kvar. Detta täcker inte alla terminal- och layoutgränsfall.
 
 Följande behöver verifieras innan garageöversikten kan betraktas som färdigtestad:
 
-- Tangentbordsnavigering till första och sista plats samt över radgränser, särskilt i viewport-läge.
-- Ytterligare färg- och beläggningsgränsfall för ledig, delvis upptagen och full plats, inklusive efter omstart.
-- Korrekt identifierare, ankomsttid och parkeringstid i `SPOT DETAILS` vid fler fordonskombinationer och efter omstart.
-- Layout vid flera terminalstorlekar samt 100, 500 och 1 000 platser, inklusive ändrad fönsterstorlek under körning.
-- Att det inte uppstår oönskad terminalscrollning, klippning eller flimmer i dessa testfall.
+- Ytterligare färg- och beläggningsgränsfall, inklusive andra fordonskombinationer efter omstart.
+- Korrekt identifierare, ankomsttid och parkeringstid i `SPOT DETAILS` vid fler kombinationer; de två sparade MC-fordonen har redan kontrollerats efter omstart.
+- Fler terminalstorlekar och ändrad fönsterstorlek **under körning**, särskilt nära minimimåtten.
+- Att det inte uppstår oönskad scrollning, klippning eller flimmer i ännu oprövade terminalmiljöer.
+- Eventuella kvarstående detaljtester av navigeringsgränsen vid plats 001 och radbyten.
 
 ---
 
@@ -231,7 +231,7 @@ Genom att centralisera färgpaletten och gemensamma panel- och menyfunktioner ka
 - `ShowMenu()` för menyvisning och tangentbordsnavigering.
 - Hjälpmetoder för gemensam text- och färgpresentation.
 
-Temat används i huvudmenyn, garageöversikten samt vyerna för parkering, utcheckning och flytt. `MessageService` återanvänder `AppTheme` för centrerade status- och felpaneler; de övriga vyerna använder främst panelbredden 62 tecken. `GarageOverView` behåller sin breda, terminalanpassade layout.
+Temat används i huvudmenyn, garageöversikten samt vyerna för parkering, utcheckning, flytt, sökning och administration. `MessageService` återanvänder `AppTheme` för centrerade status- och felpaneler; vanliga formulärvyer använder främst panelbredden 62 tecken. `GarageOverView` behåller sin breda, terminalanpassade layout.
 
 ### Fördelar
 
@@ -310,9 +310,9 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Motivering:** UI-vyer ska inte duplicera panelkonstruktion, färgval och väntan på användarinmatning.
 
-**Genomförande:** `ShowError()`, `ShowSuccess()`, `ShowWarning()` och `ShowInfo()` använder `AppTheme.CreatePanel()` och `AppTheme.WriteCenteredPanel()` för att visa centrerade statuspaneler. Flyttvyn har testats med upprepad felaktig platsinmatning. Fortsatt kontroll av väntetext, tangentbuffert och avbrytningsbeteende återstår.
+**Genomförande:** `ShowError()`, `ShowSuccess()`, `ShowWarning()` och `ShowInfo()` använder `AppTheme.CreatePanel()` och `AppTheme.WriteCenteredPanel()` för att visa centrerade statuspaneler. Flyttvyn har testats med upprepad felaktig platsinmatning. Den 16 oktober justerades `ShowPanel()` så att `Press any key to continue...` får ett beräknat vänsterindrag utifrån panelbredden 62 tecken och terminalbredden. Resultatet verifierades visuellt vid försök att parkera en redan registrerad bil. Kontroll av tangentbuffert och avbrytningsbeteende i alla terminalmiljöer återstår.
 
-**Viktig regel:** En parkering, flytt eller utcheckning ska inte presenteras som varaktigt sparad om skrivningen till `parking-data.json` misslyckas. De tre UI-flödena visar framgång först efter `Save()` utan rapporterat fel, men felinjektionstester återstår.
+**Viktig regel:** En parkering, flytt eller utcheckning ska inte presenteras som varaktigt sparad om skrivningen till `parking-data.json` misslyckas. De tre UI-flödena visar framgång först efter `Save()` utan rapporterat fel. Kontrollerade felinjektionstester för samtliga tre åtgärder genomfördes den 16 oktober, med korrekt felbesked och återställning av det observerade garagetillståndet.
 
 ---
 
@@ -324,7 +324,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Motivering:** Exempelvis `ABC123` och `abc123` ska inte kunna registreras som två separata fordon. Samma regel ska även tillämpas när sparad data återställs.
 
-**Status:** Kontroll av dubbletter och skiftlägesokänslig jämförelse har tidigare testats i domänmodellen. `ValidateParkingData()` har nu `HashSet<string>(StringComparer.OrdinalIgnoreCase)` för inlästa fordonsidentifierare; specifika negativa JSON-test med dubbletter återstår.
+**Status 2026-10-16:** Dubblettkontrollen är manuellt verifierad både vid JSON-inläsning (`ABC123` och `abc123` i olika platser avvisades) och via det ordinarie **Park Vehicle**-gränssnittet (försök att parkera `abc123` när `ABC123` redan fanns avvisades). `ValidateParkingData()` använder `HashSet<string>(StringComparer.OrdinalIgnoreCase)` för sparade fordonsidentifierare.
 
 ---
 
@@ -362,17 +362,19 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 - Varje fordon återställs till samma plats med samma identifierare, fordonstyp och UTC-ankomsttid.
 - Återställning ska kontrollera platsnummer, fordonstyp, kapacitet och dubbletter innan ett inläst tillstånd accepteras.
 - En befintlig felaktig eller ofullständig JSON-fil får inte automatiskt ersättas med en tom fil.
-- `Save()` skriver till en `.tmp`-fil i samma katalog och använder `File.Move()` vid första sparningen eller `File.Replace()` när originalfilen finns. Ett lyckat normalflöde med befintlig datafil har verifierats 2026-10-14; krasch- och skrivfelsscenarier återstår.
+- `Save()` skriver till en `.tmp`-fil i samma katalog och använder `File.Move()` vid första sparningen eller `File.Replace()` när originalfilen finns. Lyckad sparning till befintlig datafil har verifierats genom omstart; ett kontrollerat nekad-åtkomst-fel mot temporärfilen har testats. Strömavbrott, abrupt processavslut och samtliga filsystemsavvikelser är inte verifierade.
 - Dataåtkomst och serialisering ska ske utanför UI och hållas separerade från domänens parkeringsregler.
 - Fordonsincheckning, utcheckning och förflyttning ska omfattas av en konsekvent sparrutin; användaren ska få ett korrekt fel om lagring misslyckas.
 
-**Status 2026-10-11:** `ParkingDataService`, de tre DTO-klasserna, validering av grundstrukturen, unika platsnummer/fordonsidentifierare, G-typerna och UTC-tid finns. Inläsning av giltig data och avvisning av typen `Truck` har testats manuellt. Serialiserad JSON med `WriteIndented = true` har granskats. `Save()` har följts till `finally`, men slutlig filersättning, återställning i `ParkingGarage` och automatisk sparning är inte verifierade. Konstruktorsöverlagringar för att återskapa `Car` och `MC` med befintlig UTC-ankomsttid ska bekräftas i källkoden vid integrationen.
+**Historik 2026-10-11:** `ParkingDataService`, DTO-klasserna och grundvalideringen infördes. Då var den fullständiga UI-integrationen ännu inte verifierad; detta beskrivs som ett historiskt läge, inte som aktuell status.
 
 **Verifieringsuppdatering 2026-10-14:** `ParkingDataMapper.ToGarage()` och `ToDocument()` har kopplats in. Vanlig bilparkering, sparning och återställning till ursprunglig plats/tid har testats genom omstart.
 
-**Verifieringsuppdatering 2026-10-15:** Automatisk sparning används också vid utcheckning och flytt. Ett utcheckat fordon förblev borttaget efter omstart. En bil flyttades från plats 001 till 050 och placeringen bestod efter omstart. Två MC har visats på samma plats och flytt till bilupptagen plats har nekats. Skrivfel, rollback vid sådana fel och återställning av två MC efter omstart är ännu inte testade.
+**Verifieringsuppdatering 2026-10-15:** Automatisk sparning infördes och provades vid utcheckning och flytt. Ett utcheckat fordon förblev borttaget efter omstart. En bil flyttades från plats 001 till 050 och placeringen bestod efter omstart. Två MC kunde dela en plats och flytt till bilupptagen plats nekades.
 
-**Ansvarsgräns:** `ParkingDataService` validerar dokumentets struktur och interna värden. Att sparade fordon ryms på platsnummer och enligt kapacitetsreglerna i aktuell `AppConfiguration` valideras vid återställning till domänmodellen, inte genom att Data-projektet får ett beroende på domänklasser. De fungerande UI-flödena använder denna uppdelning, men konsekvent behandling av skrivfel och skydd mot överskrivning av befintlig korrupt data är inte fullständigt verifierade.
+**Verifieringsuppdatering 2026-10-16:** Efter omstart återställdes två MC på samma plats med bibehållna UTC-tider. Korrupt JSON, dubbletter med skiftlägesvariation, plats utanför garagegränsen, tre MC på samma plats och blandade Car/MC avvisades under kontrollerad uppstart utan att originalfilen skrevs över. Ett avsiktligt skrivfel via en katalog på den förväntade `.tmp`-sökvägen användes för att testa kompensation vid Park, Check Out och Move. Efter borttagning av felinjektionen sparades och återställdes en lyckad flytt till plats 051. Fullständig kraschåterhämtning eller generellt transaktionsskydd är inte fastställt.
+
+**Ansvarsgräns:** `ParkingDataService` validerar dokumentets struktur och interna värden. Att sparade fordon ryms på platsnummer och enligt kapacitetsreglerna i aktuell `AppConfiguration` valideras vid återställning till domänmodellen, inte genom att Data-projektet får ett beroende på domänklasser. Denna uppdelning är manuellt prövad med ogiltiga platsnummer och kapacitetsfall. Vid upptäckt fel under normal uppstart skrivs den felaktiga filen inte över. Ett fristående `Save()`-anrop och alla möjliga filsystemfel är däremot inte fullständigt verifierade.
 
 ---
 
@@ -384,7 +386,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Motivering:** Data-biblioteket behöver inte känna till de interna domänklasserna. Vid återställning skapas exakt konfigurerat antal platser, varpå fordon återskapas med samma UTC-ankomsttid och får samma plats genom `ParkVehicleAtSpot()`.
 
-**Verifiering:** En äldre bil på plats 001 och en ny bil på plats 002 återställdes efter omstart den 14 oktober. LINQ valdes inte för återställningens sidoeffekter då det skulle försvåra läsbarhet och felsökning.
+**Verifiering:** En äldre bil på plats 001 och en ny bil på plats 002 återställdes efter omstart den 14 oktober. Den 16 oktober återställdes även två MC på plats 003 med bibehållna ankomsttider. Mappern gav specifika fel vid platsnummer 201 när garaget hade 200 platser, vid tre MC på samma plats och vid försök att blanda Car och MC. LINQ valdes inte för återställningens sidoeffekter eftersom det skulle försvåra läsbarhet och felsökning.
 
 ---
 
@@ -396,7 +398,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Motivering:** En ny incheckning ska inte presenteras som permanent sparad innan filskrivningen har slutförts. Normalflödet verifierades genom att parkera `UKB48K`, avsluta programmet, starta igen och återfinna bilen på samma plats.
 
-**Begränsning:** Rollback-försöket har ännu inte testats vid faktiska skrivfel, och denna implementering utgör ingen formell transaktion. Skydd av befintlig korrupt JSON, atomisk filersättning vid avbrott och centralisering av mutation/sparning är fortfarande öppna förbättringar inför slutlig G-verifiering.
+**Verifiering 2026-10-16:** När en katalog med namnet `parking-data.json.tmp` framkallade nekad åtkomst under sparning, avvisades en parkering av `ROLL123` med felmeddelande. Efteråt hittades fordonet inte i garagets minnestillstånd. Detta visar att kompensationen fungerade i det testade scenariot; det utgör ingen formell transaktion eller garanti vid plötsligt processavbrott.
 
 ---
 
@@ -410,7 +412,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Återställning:** Före utcheckningen identifieras ursprungsplatsen. Om `Save()` kastar `IOException` eller `UnauthorizedAccessException` försöker UI återparkera samma fordonsobjekt på ursprungsplatsen med `ParkVehicleAtSpot()`, vilket bevarar `ArrivalTime`.
 
-**Verifiering:** Ett normalt utcheckningsflöde med kvitto och avgift har körts; det borttagna fordonet saknades även efter omstart. Felinjektion och alla möjliga rollback-fel är inte verifierade. Detta är inte en generell transaktionsgaranti.
+**Verifiering 2026-10-16:** Normal utcheckning är testad med kvitto, avgift och omstart. Vid samma kontrollerade `.tmp`-skrivfel avbröts utcheckning av `ABC123` med felmeddelande och bilen kunde fortfarande hittas på ursprungsplatsen. Alla tänkbara rollback-fel är inte verifierade; detta är ingen generell transaktionsgaranti.
 
 ---
 
@@ -424,9 +426,9 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 **Återställning i domänen:** `MoveVehicle()` kontrollerar resultatet från `RemoveVehicle()` och försöker återparkera fordonet på ursprungsplatsen om `targetSpot.ParkVehicle()` kastar ett undantag. `ParkingSpot.ParkVehicle()` kör `CanPark()` före listans `Add()`. Återställningen är en kompensationsåtgärd, inte en garanterat atomisk transaktion.
 
-**Sparning och återställning i UI:** Efter användarbekräftelse anropas `MoveVehicle()`, följt av `ParkingDataMapper.ToDocument()` och `ParkingDataService.Save()`. Om `Save()` kastar `IOException` eller `UnauthorizedAccessException` försöker `MoveVehicleView` flytta tillbaka fordonet till dess tidigare plats och visar felmeddelande. Även detta behöver testas med avsiktligt framprovocerade fel.
+**Sparning och återställning i UI:** Efter användarbekräftelse anropas `MoveVehicle()`, följt av `ParkingDataMapper.ToDocument()` och `ParkingDataService.Save()`. Om `Save()` kastar `IOException` eller `UnauthorizedAccessException` försöker `MoveVehicleView` flytta tillbaka fordonet till dess tidigare plats och visar felmeddelande. Återställningen har provats med ett avsiktligt framprovocerat skrivfel.
 
-**Verifiering:** Bil `ABC123` flyttades från 001 till 050 och stod kvar på 050 efter omstart. Försök att flytta bil till otillgänglig plats och MC till en plats upptagen av bil avvisades. Två MC har kunnat dela samma plats när konfigurationen tillåter det. Återställning av *båda* MC efter omstart återstår att verifiera separat.
+**Verifiering 2026-10-16:** Bil `ABC123` flyttades tidigare från 001 till 050 och stod kvar där efter omstart. En flytt 050 → 051 under kontrollerat `.tmp`-skrivfel avbröts och bilen fanns kvar på 050; plats 051 var fortsatt ledig. Efter att felinjektionen togs bort kunde flytten 050 → 051 sparas, och bilen återfanns på 051 efter omstart. Två MC på 003 har också återställts efter omstart. Försök att flytta till en plats utan kapacitet avvisades.
 
 ---
 
@@ -457,15 +459,38 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 - `Bicycle` = 1, `MC` = 2, `Car` = 4 och `Bus` = 16 storleksenheter.
 - En normal parkeringsplats motsvarar 4 storleksenheter.
 - En buss behöver fyra sammanhängande parkeringsplatser.
-- **Nyparkering av buss:** De fyra platserna ska ligga inom parkeringsplats 1–50.
-- **Förflyttning av buss:** En redan parkerad buss får flyttas till fyra sammanhängande lediga platser även efter plats 50.
+- **Bussområde:** Efter förtydligande med läraren används de första 50 platserna som reserverat område för bussar i stället för en separat takhöjdsmodell.
+- **Nyparkering av buss:** Fyra sammanhängande lediga platser ska finnas inom platsnummer 1–50.
+- **Förflyttning av buss:** Även en flytt ska kontrollera fyra sammanhängande platser. Om flytt utanför bussområdet ska tillåtas är inte fastställt i det förtydligande som redovisats och avgörs innan implementeringen.
 - Bussens identifierare och ursprungliga UTC-ankomsttid ska bevaras vid flytt.
 - Minst två interfaces och fullständig omläsning av konfigurationen ingår också i VG-arbetet.
 
 ### Följder för domän och lagring
 
-Nyparkering och flytt av buss kan inte använda exakt samma placeringsbegränsning. Därför ska dessa regler vara åtskilda i den framtida domänlogiken.
+Nyparkering och flytt av buss behöver gemensam kontroll av fyra sammanhängande lediga platser. Eventuella olika områdesbegränsningar för nyparkering och flytt beslutas först efter att lärarens förtydligande har preciserats; vi inför inte en oprövad undantagsregel.
 
 En buss får inte räknas som fyra oberoende fordon. En framtida utökning av JSON-modellen måste kunna representera kopplingen mellan en buss och dess fyra platser, men den exakta representationen är **inte beslutad**. G-versionens fastställda format gäller tills vidare.
 
-**Status:** Planerat för VG. Ingen buss-, cykel- eller flerplatslogik anges som implementerad.
+**Ytterligare VG-krav:** Om `parking-data.json` saknas vid uppstart av 2.1 ska datafilen skapas och fyllas med giltiga testfordon. Detta införs inte som nytt beteende i G-versionen.
+
+**Status:** Planerat för VG. Ingen buss-, cykel-, flerplats- eller testdatagenereringslogik anges som implementerad.
+
+## DD-032 – Sökvy utan ändring av garagets tillstånd
+
+**Datum:** 2026-10-16
+
+**Beslut:** `FindVehicleView` söker genom befintliga domänmetoder och visar fordonets identifierare, typ, parkeringsplats, ankomsttid och förfluten parkeringstid. Sökningen ändrar inte `ParkingGarage` eller parkeringsfilen.
+
+**Motivering:** Informationssökning ska vara en läsoperation. Samma skiftlägesokänsliga identifiering används som i andra fordonsflöden.
+
+**Verifiering:** Bil och MC har hittats via UI med korrekt plats och tider. Sökning efter `def123` hittade `DEF123` på plats 003. Ett okänt registreringsnummer gav ett kontrollerat felmeddelande och möjlighet till ett nytt försök.
+
+## DD-033 – Prisomläsning via Administration under pågående körning
+
+**Datum:** 2026-10-16
+
+**Beslut:** G-versionens `AdministrationView` läser endast om prisinställningarna från runtime-`config.json` via `ConfigurationService.LoadPricing()` och tillämpar dem på den **delade** `ParkingFeeCalculator`-instansen med `UpdatePricing()`. Övrig konfiguration och befintliga parkerade fordon ska inte byggas om vid denna åtgärd.
+
+**Motivering:** Lärarens G-krav avser prisomläsning utan omstart, inte omläsning av hela garaget. Genom att återanvända samma kalkylator får efterföljande utcheckningar aktuella priser utan att ändra domänobjekten.
+
+**Verifiering:** Ändring av bilens timpris från 20 till 30 CZK gav korrekt nytt belopp vid efterföljande beräkning. Ogiltigt negativt pris avvisades och föregående pris behölls. Standardpriset återställdes till 20 CZK. Hela-konfigurationen-reload är fortfarande ett VG-krav, inte en genomförd G-funktion.

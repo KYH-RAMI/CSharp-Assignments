@@ -924,3 +924,81 @@ Trots det är jag väldigt nöjd med det jag har åstadkommit hittills. Det kän
 4. Implementera **Administration** med omläsning och validering av prislistan för G-versionen.
 5. Fortsätta tester av felaktig JSON, konfigurationsgränser och terminalbeteende samt uppdatera övrig dokumentation.
 6. Granska Git-ändringarna innan commit; säkerställ att `bin/`, `obj/` och runtime-`parking-data.json` inte inkluderas av misstag.
+
+---
+
+## 2026-10-16 – Sluttester av G-versionen och förbättrad felhantering
+
+### Genomfört
+
+#### Find Vehicle och Administration
+
+- Färdigställt och manuellt testat `FindVehicleView` via huvudmenyn. Sökningen är skiftlägesokänslig och visar fordonstyp, identifierare, parkeringsplats, lokal ankomsttid och parkeringstid utan att förändra garagets innehåll.
+- Sökt efter befintlig bil samt `def123`, som hittades som `DEF123` på plats 003. En sökning efter en identifierare som inte finns visade ett felmeddelande och möjlighet att försöka igen.
+- Färdigställt `AdministrationView` med **Reload Pricing**. `ConfigurationService.LoadPricing()` läser priserna från runtime-`Config/config.json`, varefter samma `ParkingFeeCalculator` uppdateras genom `UpdatePricing()` utan programomstart.
+- För G-versionen läses endast **prislistan** om. Omläsning av hela konfigurationen hör till VG.
+
+#### Robustare återställning av parkeringsdata
+
+- Kompletterat `ParkingDataMapper.ToGarage()` med kontroll att sparade `SpotNumber` ligger inom den konfigurerade garagekapaciteten.
+- Förtydligat felmeddelanden när ett fordon inte kan återställas på sin sparade plats på grund av kapacitet eller otillåten fordonsblandning. Felmeddelandet identifierar fordonet och parkeringsplatsen.
+- Förtydligat felmeddelandet vid ogiltig JSON under programstart. Befintliga felaktiga parkeringsfiler ska inte automatiskt skrivas över.
+
+#### MessageService – samma marginal för panel och fortsättningstext
+
+- Upptäckte att den centrerade `ERROR`-panelen följdes av `Press any key to continue...` längst till vänster i terminalen.
+- Ändrade `MessageService.ShowPanel()` så att vänstermarginalen för texten beräknas med terminalbredden och en panelbredd på 62 tecken.
+- Kontrollerade resultatet visuellt. Felpanelen och fortsättningstexten ligger nu i linje med varandra. Ändringen påverkar gemensamma `MessageService`-meddelanden där `waitForKey: true` används.
+
+### Tester och resultat
+
+| Test | Observation | Resultat |
+|---|---|---|
+| Find Vehicle – Car och MC | Befintliga fordon hittas med rätt plats och tidsinformation, även med små bokstäver (`def123` → `DEF123`) | Godkänt |
+| Find Vehicle – saknat fordon | Felmeddelande och möjlighet till nytt försök visas | Godkänt |
+| Reload Pricing – giltig ändring | Car-priset ändrades från 20 till 30 CZK utan omstart | Godkänt |
+| Checkout med nytt pris | 20 h 20 min gav 21 påbörjade timmar × 30 CZK = 630 CZK | Godkänt |
+| Reload Pricing – ogiltigt värde | Car-pris −10 CZK avvisades; det tidigare giltiga priset 30 CZK behölls | Godkänt |
+| Återställda priser | Car-priset återställdes till 20 CZK; MC-pris 10 CZK och gratisgräns 10 minuter | Godkänt |
+| Två MC efter omstart | `DEF123` och `EDF123` fanns kvar tillsammans på plats 003 med sina ursprungliga ankomsttider | Godkänt |
+| Korrupt JSON | Syntaktiskt trasig `parking-data.json` stoppade uppstarten kontrollerat; originalfilen behölls | Godkänt |
+| Dubblett i JSON | `ABC123` och `abc123` i samma garagetillstånd avvisades | Godkänt |
+| Plats utanför konfigurationen | Plats 201 i ett garage konfigurerat för 200 platser avvisades med tydligt fel | Godkänt |
+| För många MC på en plats | Tre MC på plats 003 avvisades när kapaciteten var två | Godkänt |
+| Bil och MC på samma plats | Ogiltig kombination av Car och MC avvisades vid återställning | Godkänt |
+| Sparfel – Park Vehicle | Försök att parkera `ROLL123` gav sparfel; fordonet fanns därefter inte kvar i minnet | Godkänt |
+| Sparfel – Check Out | Försök att checka ut `ABC123` gav sparfel; bilen stod kvar på plats 050 | Godkänt |
+| Sparfel – Move Vehicle | Flytt av `ABC123` från 050 till 051 gav sparfel; bilen återställdes till 050 | Godkänt |
+| Normal sparning efter feltester | Testhindret togs bort; flytt av `ABC123` från 050 till 051 sparades och fanns kvar efter omstart | Godkänt |
+| Garage Overview – 1 000 platser | Intern viewport fungerade och status visade 998 lediga platser, två upptagna platser och tre fordon | Godkänt |
+| Garage Overview – navigering | Markerade plats 1000, kontrollerade att navigationen inte gick bortom sista platsen och navigerade tillbaka till början | Godkänt för genomförda steg |
+| Återgång till 100 platser | Runtime-konfigurationen ändrades till standardkapaciteten 100; fordonen kvar på 003 och 051 | Godkänt: 98 lediga, 2 upptagna, 3 fordon |
+| Dubblett via Park Vehicle | Ny registrering av `abc123` avvisades när `ABC123` redan var parkerad | Godkänt |
+| Centrerad fortsättningstext | `Press any key to continue...` ligger i linje med `ERROR`-panelen | Godkänt |
+
+**Så framkallades skrivfel:** Under testerna skapades tillfälligt en **katalog** med namnet `parking-data.json.tmp` i körmiljöns `Data`-katalog. När `ParkingDataService.Save()` försökte skriva temporärfilen misslyckades operationen. Efter testerna togs katalogen bort och en lyckad flytt/sparning genomfördes igen. Testet visar återställning vid detta specifika skrivfel; det bevisar inte atomisk transaktionssäkerhet vid strömavbrott eller samtliga filsystemfel.
+
+**Senaste verifierade garagetillstånd:** `DEF123` och `EDF123` på plats **003**, `ABC123` på plats **051**, garagekapacitet **100**. Efter återgång från testkapaciteten 1 000 visade `GARAGE STATUS` **FREE 98 / OCCUPIED 2 / VEHICLES 3**.
+
+### Problem och lösningar
+
+**1. Otillräckligt detaljerade fel vid felaktig JSON-återställning.** Tester med platsnummer utanför garagekapaciteten och otillåten beläggning gav inledningsvis allmänna felmeddelanden. Jag kompletterade `ParkingDataMapper` med tydligare validering och felkontext och körde om de negativa testerna.
+
+**2. Osäkerhet kring återställning vid sparfel.** Den normala JSON-sparningen hade fungerat, men det räckte inte för att veta vad som händer när filskrivningen misslyckas. Genom att avsiktligt blockera temporärfilen kunde jag testa att Park, Check Out och Move visar fel och kompenserar sina ändringar i minnet. Därefter verifierade jag att en normal sparning åter fungerar.
+
+**3. Felplacerad uppmaning i gränssnittet.** `ERROR`-panelen var centrerad, men fortsättningstexten började vid vänsterkanten. En beräknad marginal i `MessageService` löste problemet utan att behöva ändra varje enskild UI-vy.
+
+### Krav och dokumentation
+
+- Påbörjat slutlig avstämning mellan lärarens uppgiftsbeskrivning och projektets dokumentation. Flera avsnitt från 15 oktober beskrev fortfarande `Find Vehicle`, `Administration`, felinjektion och viewport-test som återstående arbete trots dagens verifieringar.
+- Gått igenom `requirements.md`, `project-plan.md`, `parking-data.md`, `design-decisions.md`, `configuration.md` och `class-diagram.md`; dokumenten uppdateras och levereras separat, en fil i taget.
+- Läraren har enligt mitt förtydligande godkänt att använda **de första 50 parkeringsplatserna som bussområde** i VG i stället för att modellera takhöjd. Bussar kräver fortfarande **fyra sammanhängande platser**. Den närmare regeln för flytt utanför området måste vara konsekvent i krav och implementation.
+- Uppmärksammat VG-kravet att skapa och fylla en saknad parkeringsdatafil med **testfordon**.
+- Bestämt att `reflektion.md` sammanställs **sist, efter att både G och VG är färdiga**, med loggbokens egna reflektioner som underlag.
+
+### Nästa steg
+
+1. Slutföra kravavstämning och synkronisering av `README.md`, `requirements.md` och `project-plan.md`.
+2. Vid behov testa återstående avbrytnings-/terminalgränsfall och programmets start i en annan körmiljö. Sådana tester ska inte anges som genomförda innan de faktiskt körts.
+3. Därefter börja med **Prague Parking 2.1 (VG)** som ett separat körbart projekt i **samma solution och Git-repository**: interfaces, Bicycle, Bus, storleksbaserad kapacitet, konfigurationsomläsning och testdatagenerering.
+4. Vänta med Git-commit tills kod och tillhörande dokumentation är genomgångna. Kontrollera `git status` så att `bin/`, `obj/` och runtime-data inte följer med.

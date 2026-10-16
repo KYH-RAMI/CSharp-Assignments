@@ -74,6 +74,15 @@ namespace PragueParkingV2.Application
 
             foreach (var spotData in document.ParkingSpots)
             {
+                if (spotData.SpotNumber < 1 ||
+                    spotData.SpotNumber > garage.ParkingSpots.Count)
+                {
+                    throw new InvalidDataException(
+                        $"Parking spot {spotData.SpotNumber} is outside " +
+                        $"the configured garage capacity " +
+                        $"(1-{garage.ParkingSpots.Count}).");
+                }
+
                 foreach (var vehicleData in spotData.Vehicles)
                 {
                     Vehicle vehicle = ToVehicle(vehicleData);
@@ -81,10 +90,21 @@ namespace PragueParkingV2.Application
                     int capacity = configuration.VehicleTypes![
                         vehicleData.VehicleType].VehiclesPerSpot;
 
-                    garage.ParkVehicleAtSpot(
-                        vehicle,
-                        spotData.SpotNumber,
-                        capacity);
+                    try
+                    {
+                        garage.ParkVehicleAtSpot(
+                            vehicle,
+                            spotData.SpotNumber,
+                            capacity);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        throw new InvalidDataException(
+                            $"Cannot restore vehicle '{vehicle.Identifier}' " +
+                            $"({vehicleData.VehicleType}) to parking spot " +
+                            $"{spotData.SpotNumber:D3}: {ex.Message}",
+                            ex);
+                    }
                 }
             }
 

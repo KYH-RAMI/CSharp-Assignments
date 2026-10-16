@@ -20,7 +20,9 @@ namespace PragueParkingV2.UI
         public static void Show(
             ParkingGarage parkingGarage,
             AppConfiguration configuration,
-            ParkingDataService parkingDataService)
+            ParkingDataService parkingDataService,
+            ParkingFeeCalculator feeCalculator,
+            ConfigurationService configurationService)
         {
             int selectedIndex = 0;
 
@@ -54,7 +56,8 @@ namespace PragueParkingV2.UI
                             CheckOutVehicleView.Show(
                                 parkingGarage,
                                 configuration,
-                                parkingDataService);
+                                parkingDataService,
+                                feeCalculator);
 
                             break;
                         
@@ -66,12 +69,28 @@ namespace PragueParkingV2.UI
                                 parkingDataService);
                             
                             break;
+                        
+                        case "Find Vehicle":
+
+                            FindVehicleView.Show(
+                                parkingGarage,
+                                configuration);
+
+                            break;
 
                         case "Garage Overview":
 
                             GarageOverView.DisplayGarageOverview(
                                 parkingGarage,
                                 configuration);
+
+                            break;
+                        
+                        case "Administration":
+
+                            AdministrationView.Show(
+                                configurationService,
+                                feeCalculator);
 
                             break;
 

@@ -11,7 +11,8 @@ namespace PragueParkingV2.UI
         public static void Show(
             ParkingGarage parkingGarage,
             AppConfiguration configuration,
-            ParkingDataService parkingDataService)
+            ParkingDataService parkingDataService,
+            ParkingFeeCalculator feeCalculator)
         {
             AppTheme.PrepareScreen();
             const int formWidth = 62;
@@ -63,14 +64,10 @@ namespace PragueParkingV2.UI
 
                 return;
             }
-              
 
-            var pricing = configuration.Pricing!;
+
             DateTime departureTime = DateTime.UtcNow;
-            var feeCalculator = new ParkingFeeCalculator(
-                pricing.CarHourlyPrice,
-                pricing.MotorcycleHourlyPrice,
-                pricing.FreeMinutes);
+
             var fee = feeCalculator.CalculateParkingFee(
                 vehicle,
                 departureTime);

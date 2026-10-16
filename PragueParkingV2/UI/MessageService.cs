@@ -57,8 +57,18 @@ namespace PragueParkingV2.UI
 
             if (waitForKey)
             {
+                const int formWidth = 62;
+
+                int leftMargin = Math.Max(
+                    0,
+                    (Console.WindowWidth - formWidth) / 2);
+
+                string padding = new string(' ', leftMargin);
+
+                AnsiConsole.WriteLine();
+
                 AnsiConsole.MarkupLine(
-                    $"\n[{AppTheme.Muted}]Press any key to continue...[/]");
+                    $"{padding}[{AppTheme.Muted}]Press any key to continue...[/]");
 
                 Console.ReadKey(intercept: true);
             }

@@ -48,6 +48,21 @@ namespace PragueParkingV2.Data.Configuration
             return configuration;
         }
 
+        public PricingConfiguration LoadPricing()
+        {
+            var path = GetConfigurationPath();
+
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException(
+                    "Configuration file was not found.",
+                    path);
+            }
+
+            var configuration = LoadConfiguration();
+
+            return configuration.Pricing!;
+        }
         private static AppConfiguration CreateDefaultConfiguration()
         {
             var configuration = new AppConfiguration

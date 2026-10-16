@@ -1,9 +1,9 @@
 # Parkeringsdata
 
-**Uppdaterad:** 2026-10-15  
+**Uppdaterad:** 2026-10-16  
 **Omfattning:** JSON-lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
 
-**Status 2026-10-15:** `ParkingDataService`, DTO:er och `ParkingDataMapper` är implementerade. JSON-inläsning och automatisk sparning används nu av **Park Vehicle**, **Check Out Vehicle** och **Move Vehicle**. Normalflöden har testats manuellt: parkering återställdes efter omstart den 14 oktober; den 15 oktober verifierades sparad utcheckning och flytt av bilen `ABC123` från plats 001 till 050, med bibehållen placering efter omstart. Två MC har dessutom visats på samma plats i garageöversikten och reglerna för MC/bil har testats vid flytt. **Återställning av två MC efter omstart, framprovocerade skrivfel och fullständig negativ JSON-validering återstår.**
+**Status 2026-10-16:** `ParkingDataService`, DTO:er och `ParkingDataMapper` hanterar JSON-inläsning, återställning och automatisk sparning vid **Park Vehicle**, **Check Out Vehicle** och **Move Vehicle**. Normalflödena har verifierats med omstart. Den 16 oktober verifierades även återställning av två MC på plats 003, avvisning av korrupt och logiskt ogiltig JSON samt rollback i minnet vid simulerat skrivfel i samtliga tre åtgärder. Normal sparning fungerade därefter igen: `ABC123` återfanns på plats 051 efter omstart. **Detta är manuella tester av avgränsade scenarier, inte en garanti för fullständig transaktions- eller kraschsäkerhet.**
 
 ## Beslutad struktur
 
@@ -33,7 +33,7 @@ Konfigurationsdata lagras inte här utan separat i `config.json`.
 
 Endast parkeringsplatser som innehåller fordon ska sparas i `parking-data.json`.
 
-I det färdiga återställningsflödet ska tomma parkeringsplatser återskapas utifrån antalet platser i `config.json`. Standardkonfigurationen innehåller 100 parkeringsplatser, men det faktiska antalet bestäms av den giltiga konfigurationen. Återställning genom `ParkingDataMapper.ToGarage()` är implementerad och testad med sparade bilar, även efter en genomförd flytt.
+Tomma parkeringsplatser återskapas utifrån antalet platser i `config.json`. Standardkonfigurationen innehåller **100 parkeringsplatser**, men det faktiska antalet bestäms av den giltiga konfigurationen. Återställning genom `ParkingDataMapper.ToGarage()` har verifierats med sparade bilar och två MC på samma plats efter omstart. Under testning har garaget växlats mellan 100, 200 och 1 000 platser utan att fordon på giltiga platsnummer har tappats bort.
 
 Prisregler och gratisgränser sparas inte i `parking-data.json` utan hämtas från `config.json`. `ParkingFeeResult` och `CheckoutResult` är tillfälliga beräknings- och resultatobjekt, inte permanent parkeringsdata.
 
@@ -42,8 +42,9 @@ Prisregler och gratisgränser sparas inte i `parking-data.json` utan hämtas fr�
 `GarageOverView` visar platser och fordon från `ParkingGarage`, inte direkt från `parking-data.json`. Den nya kompakta `Grid`-baserade kartan beräknar sitt utseende utifrån garagekapacitet och terminalens storlek, men ändrar inte hur parkeringsdata ska sparas.
 
 - Garagekapaciteten styrs av `config.json` och får inte härledas från antalet poster i `parking-data.json`, eftersom datafilen endast ska innehålla **upptagna** platser.
-- En garageöversikt med **200 platser har kontrollerats visuellt** i utvecklingsmiljön. Detta verifierar **inte** att 200 parkerade platser kan sparas och återställas efter omstart.
-- Vid återställning används `ParkingGarage.ParkVehicleAtSpot()`, som avvisar platser som saknas i det konfigurerade garaget och tillämpar `ParkingSpot`-reglerna. Negativa testfall med felaktiga platsnummer återstår.
+- Garageöversikten har manuellt testats med **100, 200 och 1 000 konfigurerade platser**, inklusive intern viewport och navigering till sista platsen. Detta visar **inte** att 1 000 upptagna platser har sparats och återställts.
+- Vid återställning validerar `ParkingDataMapper.ToGarage()` att ett sparat platsnummer ligger inom det konfigurerade garaget. Test med plats **201 i ett garage med 200 platser** avvisades med ett specifikt `InvalidDataException`-meddelande.
+- Därefter använder mappningen `ParkingGarage.ParkVehicleAtSpot()` och `ParkingSpot`-reglerna. Tester med **tre MC på en plats för två** och **Car + MC på samma plats** avvisades under uppstart.
 - Layout, färger och markering av vald plats tillhör UI-lagret och ska inte lägga till fält i G-versionens JSON-format.
 
 ## VehicleType
@@ -69,7 +70,7 @@ Det gör att den sparade tiden kan konverteras till den tidszon som anges i `con
 
 Vid återställning måste den ursprungliga UTC-tiden bevaras. Ett återställt fordon får **inte** få en ny ankomsttid genom att konstruktorn använder `DateTime.UtcNow`.
 
-`Car` och `MC` har konstruktorsöverlagringar som tar emot befintlig UTC-ankomsttid. `ParkingDataMapper.ToVehicle()` använder dessa, så att en omstart inte sätter om parkeringstiden.
+`Car` och `MC` har konstruktorsöverlagringar som tar emot befintlig UTC-ankomsttid. `ParkingDataMapper.ToVehicle()` använder dessa, så att en omstart inte sätter om parkeringstiden. Den 16 oktober återställdes `DEF123` och `EDF123` på plats 003 med tidigare sparade ankomsttider (visade lokalt som 15:50 respektive 16:11 den 15 oktober).
 
 ## Exempel på `parking-data.json`
 
@@ -129,7 +130,9 @@ Den implementerade ordningen vid normal uppstart är:
 
 ### Validering av sparad data
 
-`ValidateParkingData()` i `ParkingDataService` kontrollerar redan dokument-/plats-/fordonsobjekt, icke-tomma listor för sparade platser, positiva och unika `SpotNumber`, fordonsidentifierare, dubbletter med `StringComparer.OrdinalIgnoreCase`, fordonstyperna `Car`/`MC` samt `ArrivalTime.Kind == Utc` och icke-standarddatum. Samma interna kontroll anropas vid `Load()` och `Save()`.
+`ValidateParkingData()` i `ParkingDataService` kontrollerar dokument-/plats-/fordonsobjekt, icke-tomma listor för sparade platser, positiva och unika `SpotNumber`, fordonsidentifierare, dubbletter med `StringComparer.OrdinalIgnoreCase`, fordonstyperna `Car`/`MC` samt `ArrivalTime.Kind == Utc` och icke-standarddatum. Samma interna kontroll anropas vid `Load()` och `Save()`.
+
+Vid återställning validerar `ParkingDataMapper.ToGarage()` också **platsnummer mot aktuell garagekapacitet**. Fel som uppstår när `ParkingGarage.ParkVehicleAtSpot()` inte kan placera ett sparat fordon fångas som `InvalidOperationException` och omvandlas till `InvalidDataException` med fordonsidentifierare och platsnummer. `Program.cs` stoppar då uppstarten kontrollerat och visar ett begripligt felmeddelande.
 
 Följande ytterligare krav gäller innan sparad data accepteras i det färdiga garaget:
 
@@ -140,7 +143,7 @@ Följande ytterligare krav gäller innan sparad data accepteras i det färdiga g
 - `ArrivalTime` är en giltig UTC-tidpunkt.
 - Fordonen ryms på den angivna platsen enligt gällande kapacitets- och fordonsregler.
 
-Om en befintlig fil är felaktig eller innehåller oförenliga uppgifter ska uppstarten ge ett tydligt fel. Filen får inte tyst skrivas över och ett delvis återställt garage får inte accepteras som giltigt tillstånd.
+Om en befintlig fil är felaktig eller innehåller oförenliga uppgifter ska uppstarten ge ett tydligt fel. Filen får inte tyst skrivas över och ett delvis återställt garage får inte accepteras som giltigt tillstånd. Den 16 oktober verifierades detta för **trasig JSON-syntax, skiftlägesokänsliga dubbletter, platsnummer utanför intervallet, kapacitetsöverskridande samt otillåten Car/MC-blandning**. Den testade ogiltiga filen låg kvar efter nekad uppstart. Det bevisar inte att ett fristående `Save()` i andra körvägar alltid vägrar ersätta en korrupt befintlig fil.
 
 Om `parking-data.json` saknas vid första start ska garaget kunna starta tomt. Det är en annan situation än att en **befintlig** datafil är ogiltig.
 
@@ -154,7 +157,7 @@ Det sparade fordonet ska innehålla:
 - Dess `Identifier` och `VehicleType`.
 - Den ursprungliga `ArrivalTime` i UTC.
 
-Användaren får bekräftelse först när `Save()` returnerar utan rapporterat fel. Om skrivningen kastar `IOException` eller `UnauthorizedAccessException` försöker UI ångra incheckningen med `ParkingGarage.RemoveVehicle()`. Detta är **inte testat med framprovocerade skrivfel**, och fullständig transaktionssäkerhet kan därför inte utlovas.
+Användaren får bekräftelse först när `Save()` returnerar utan rapporterat fel. Om skrivningen kastar `IOException` eller `UnauthorizedAccessException` försöker UI ångra incheckningen med `ParkingGarage.RemoveVehicle()`. **Verifierat 2026-10-16:** En mapp med namnet `parking-data.json.tmp` blockerade temporärfilens sökväg och framkallade ett skrivfel. Parkeringen av testbilen `ROLL123` avbröts och fordonet kunde inte längre hittas i garaget. Testet visar att kompensationen i minnet fungerar i detta scenario; fullständig transaktionssäkerhet kan inte utlovas.
 
 ## Uppdatering vid utcheckning
 
@@ -162,7 +165,7 @@ Användaren får bekräftelse först när `Save()` returnerar utan rapporterat f
 
 Om parkeringsplatsen blir tom utelämnas den ur sparade `ParkingSpots`. Ett manuellt test visade att utcheckade `UKB48K` inte återkom efter omstart medan en annan parkerad bil fanns kvar.
 
-Vid `IOException` eller `UnauthorizedAccessException` under sparning försöker vyn lägga tillbaka **samma fordonsobjekt** på dess ursprungliga plats, så att `ArrivalTime` bevaras. Detta kompensationsflöde har **inte** testats genom att framkalla skrivfel och är inte en fullständig transaktionsgaranti.
+Vid `IOException` eller `UnauthorizedAccessException` under sparning försöker vyn lägga tillbaka **samma fordonsobjekt** på dess ursprungliga plats, så att `ArrivalTime` behålls i objektet. **Verifierat 2026-10-16:** När den blockerade temporärfilens sökväg orsakade skrivfel visades ett felmeddelande och `ABC123` återfanns fortfarande på plats 050. Ankomsttiden jämfördes inte separat under just rollback-testet. Kompensationen är ingen fullständig transaktionsgaranti.
 
 Prisberäkningen sker före borttagningen. `ParkingFeeResult` och `CheckoutResult` är tillfälliga runtime-resultat och sparas inte i `parking-data.json`.
 
@@ -172,9 +175,9 @@ Prisberäkningen sker före borttagningen. `ParkingFeeResult` och `CheckoutResul
 
 Domänmetoden letar upp fordonets ursprungsplats och destinationsplats, nekar flytt till samma plats och kontrollerar destinationens kapacitet och fordonstyp **innan fordonet tas bort**. Samma `Vehicle`-objekt flyttas, vilket bevarar `Identifier`, `VehicleType` och den ursprungliga `ArrivalTime`. Om den gamla platsen blir tom utelämnas den ur den sparade filen.
 
-Den 15 oktober flyttades bilen `ABC123` från plats **001 till 050**. Garageöversikten visade den nya beläggningen och efter fullständig programomstart kvarstod placeringen på plats 050. Även två MC på samma plats har testats visuellt, och flytt av MC till en bilupptagen plats nekades. **Det är ännu inte verifierat att två MC på samma plats återställs korrekt efter omstart.**
+Den 15 oktober flyttades bilen `ABC123` från plats **001 till 050**. Efter omstart kvarstod placeringen på plats 050. Den 16 oktober återställdes också två MC (`DEF123` och `EDF123`) korrekt på plats **003** efter omstart. Efter skrivfelstesterna kunde `ABC123` flyttas från **050 till 051**; vid nästa programstart låg den kvar på **051**, med ett konfigurerat garage på 100 platser.
 
-Vid `IOException` eller `UnauthorizedAccessException` under sparning försöker vyn flytta tillbaka fordonet till ursprungsplatsen. Domänmetoden har även ett återställningsförsök om parkering på destinationsplatsen skulle kasta ett undantag. **Ingen av dessa felvägar har felinjiceringstestats.** Det återstår att verifiera att tillståndet i minnet och datafilen alltid blir konsekvent vid misslyckad sparning.
+Vid `IOException` eller `UnauthorizedAccessException` under sparning försöker vyn flytta tillbaka fordonet till ursprungsplatsen. Domänmetoden har även ett återställningsförsök om parkering på destinationsplatsen skulle kasta ett undantag. **Verifierat 2026-10-16 för skrivfel i `Save()`:** En bekräftad flytt av `ABC123` från **050 till 051** kunde inte sparas eftersom temporärfilens sökväg blockerades. Programmet rapporterade återflytt och fordonet fanns kvar på **050**; plats **051** var ledig och beläggningsräknarna visade fortfarande tre fordon på två platser. Den separata domänåterställningen vid ett undantag under själva destinationsparkeringen är däremot inte felinjiceringstestad. Detta är ingen garanti för alla tänkbara fel.
 
 ## Ansvar och säker filhantering
 
@@ -195,29 +198,45 @@ Principer för implementation och fortsatt verifiering:
 - `Save()` skapar saknad datakatalog och validerar det inkommande dokumentet innan JSON serialiseras.
 - `JsonSerializerOptions { WriteIndented = true }` ger indenterad och människoläsbar JSON.
 - Innehållet skrivs först till `parking-data.json.tmp` i samma katalog. `File.Move()` används om huvudfilen saknas och `File.Replace()` om den finns.
-- `try/finally` försöker rensa en kvarvarande temporärfil.
+- `try/finally` försöker rensa en kvarvarande temporärfil. Att städningen alltid lyckas vid alla typer av filfel eller processavbrott är **inte** verifierat.
+- Vid det manuella skrivfelstestet skapades en **katalog** med namnet `parking-data.json.tmp` för att blockera `File.WriteAllText()`. Hindret togs därefter bort och normal sparning verifierades. Testet undersökte inte fullständig kraschsäkerhet eller alla fel i `File.Replace()`.
 
-### Manuell teststatus (uppdaterad 2026-10-15)
+### Manuell teststatus (uppdaterad 2026-10-16)
 
-- **Verifierat:** Giltig JSON läses till ett dokument med plats 1, `Car`, `ABC123` och korrekt UTC-ankomsttid.
-- **Verifierat:** Okänd typ (`Truck`) avvisas med `InvalidDataException` och fångas av programmets felhantering.
-- **Verifierat:** Serialiserad text är indenterad och behåller rätt identifierare, fordonstyp och UTC-tidsmarkering.
-- **Verifierat 2026-10-14 – incheckning:** Ny bil `UKB48K` parkerades på plats 002 genom UI och sparades. Programmet avslutades och startades igen; `UKB48K` återkom på samma plats med ursprunglig ankomsttid. Tidigare sparad bil `ABC123` återställdes på plats 001. Garaget visade `FREE 198`, `OCCUPIED 2`, `VEHICLES 2`.
-- **Verifierat 2026-10-15 – utcheckning:** `UKB48K` checkades ut via UI med beräknad avgift och borttagningen sparades. Efter omstart var plats 002 ledig och `ABC123` fanns kvar.
-- **Verifierat 2026-10-15 – flytt:** `ABC123` flyttades från plats 001 till 050. Ändringen visades i garageöversikten och plats 050 förblev upptagen efter omstart.
-- **Verifierat 2026-10-15 – MC-regler:** Två motorcyklar kunde dela samma plats, medan flytt av en MC till en bilupptagen plats nekades. Garageöversikten visade `FREE 198`, `OCCUPIED 2`, `VEHICLES 3` när en bil och två MC stod på sammanlagt två platser.
-- **Fortfarande ej verifierat:** Återställning av **båda MC efter omstart**, verkligt beteende vid framprovocerad `IOException`/`UnauthorizedAccessException`, om `.tmp` alltid städas och fullständig filersättningssäkerhet vid krasch eller trasig befintlig data.
+**Tidigare verifiering, 11–15 oktober:**
+
+- Giltig JSON läses och återställs med rätt fordonstyp, plats och UTC-ankomsttid. Okänd fordonstyp (`Truck`) avvisas.
+- Incheckning av `UKB48K`, utcheckning med sparad borttagning och flytt av `ABC123` från 001 till 050 verifierades genom omstart.
+- Två MC kunde dela en plats. Flytt till en plats med otillåten fordonstyp eller utan kapacitet avvisades.
+
+**Ytterligare manuella tester den 16 oktober:**
+
+| Testfall | Genomförd kontroll | Resultat |
+|---|---|---|
+| Två MC efter omstart | `DEF123` och `EDF123` återkom på plats 003 med tidigare ankomsttider; `ABC123` återkom på dåvarande plats 050. | Godkänt |
+| Korrupt JSON | Avsiktligt trasig JSON stoppade uppstarten med felkod 1; befintlig fil lämnades orörd. | Godkänt |
+| Dubblett i giltig JSON | `ABC123` och `abc123` avvisades som samma identifierare. | Godkänt |
+| Plats utanför garaget | Sparad plats 201 avvisades när `config.json` angav 200 platser. Specifikt felmeddelande infördes i mappern. | Godkänt |
+| Kapacitetsöverskridande | Tre MC på plats 003 avvisades när kapaciteten var två. | Godkänt |
+| Blandade fordonstyper | `Car` och `MC` på plats 003 avvisades vid återställning. | Godkänt |
+| Skrivfel – Park Vehicle | Temporärfilens sökväg blockerades; `ROLL123` registrerades inte permanent och kunde inte hittas i minnet efteråt. | Godkänt i testat scenario |
+| Skrivfel – Check Out Vehicle | Sparfel visades, utcheckning avbröts och `ABC123` fanns kvar på plats 050. | Godkänt i testat scenario |
+| Skrivfel – Move Vehicle | Flytt 050 → 051 kunde inte sparas; `ABC123` återfanns på 050 och plats 051 var ledig. | Godkänt i testat scenario |
+| Normal drift efter skrivfel | Tillfälligt skrivhinder togs bort; flytt 050 → 051 lyckades och 051 kvarstod efter omstart. | Godkänt |
+| Ändrat antal platser | 100, 200 och 1 000 platser testades; befintliga fordon på giltiga platser återställdes. | Godkänt i testade fall |
+
+Vid dessa negativa uppstartstester kontrollerades att den ogiltiga JSON-filen inte skrevs över. **Skrivfelstesterna visar återställning i minnet vid ett bestämt, tidigt filskrivningsfel**, men innebär inte att alla steg i filersättningen eller varje möjligt kraschscenario är verifierade.
 
 ### Kvarstående säkerhet och integration
 
-- Kontroll av att obligatoriska JSON-fält faktiskt förekommer, även om DTO:ernas standardvärden annars kan dölja utelämnade fält.
-- Kontroll av identifierarlängd, normalisering och garagekapacitet i relation till `config.json`.
-- Skydd mot att en redan befintlig korrupt/ogiltig fil skrivs över genom ett fristående `Save()`-anrop. Den normala uppstartssekvensen anropar redan `Load()` och stoppar vid upptäckta ogiltiga data.
-- Fullständig verifiering av `Save()` med befintlig respektive saknad fil, inklusive rensning av temporärfil och hantering av skrivfel.
-- Säker konsekvens mellan tillståndet i minnet och filen när lagring misslyckas.
-- Testa fler återställningsfall (särskilt **två MC på samma plats efter omstart**, ogiltiga platsnummer och kapacitetsöverskridande). Automatisk sparning efter **incheckning, utcheckning och förflyttning** är implementerad och normalt testad; återstående arbete gäller främst negativa testfall och robusthet.
+- Kontrollera JSON med **utelämnade obligatoriska fält** som DTO-standardvärden eventuellt döljer, samt identifierarlängd och vissa normaliseringsfall.
+- Pröva ogiltiga platsnummer, kapacitetsändringar och befintliga fordon tillsammans med andra kombinationer av `config.json` och datafilen där det är relevant.
+- Kontrollera skydd mot överskrivning av en redan korrupt fil även vid fristående anrop av `Save()` (uppstart med korrupt fil har redan testats).
+- Verifiera temporärfilens städning och filersättning i fler fel- och avbrottsscenarier, inklusive eventuellt fel under `File.Replace()` och processkrasch. Inga garantier om fullständig transaktionssäkerhet görs.
+- Verifiera konsekvens mellan disk och minne vid andra skrivfel än det testade hindret mot `parking-data.json.tmp`.
+- Testa körning på en annan dator och gör slutlig kravavstämning inför den gemensamma inlämningen av 2.0 och 2.1.
 
-**Status 2026-10-15:** Normalflödena för **bilincheckning, utcheckning och förflyttning med JSON-sparning** är manuellt verifierade, inklusive relevant omstartskontroll. Fullständig felhantering, kraschåterhämtning och återställning av två MC efter omstart återstår.
+**Status 2026-10-16:** De viktigaste normala persistensflödena, återställning av två MC efter omstart, flera ogiltiga JSON-scenarier och rollback vid ett framprovocerat skrivfel har verifierats manuellt. Ytterligare robusthets- och kompatibilitetstester återstår; systemet har inte genomgått fullständig automatisk eller kraschbaserad verifiering.
 
 ## Förberedelser inför Prague Parking 2.1 (VG)
 
@@ -229,16 +248,19 @@ Den nuvarande JSON-strukturen ska fungera som utgångspunkt även när `Bicycle`
 
 ### Bus
 
-En buss motsvarar 16 storleksenheter och behöver fyra sammanhängande parkeringsplatser, där en normal plats motsvarar 4 enheter.
+En buss motsvarar 16 storleksenheter och behöver **fyra sammanhängande parkeringsplatser**, där en normal plats motsvarar 4 enheter.
 
-- **Nyparkering:** Fyra sammanhängande platser inom platsnummer 1–50.
-- **Förflyttning:** En redan parkerad buss får flyttas till fyra sammanhängande platser även efter platsnummer 50.
+- **Lärarens förtydligande enligt utvecklaren:** De första **50 parkeringsplatserna reserveras som bussområde** i stället för att modellera takhöjd separat.
+- **Nyparkering:** Fyra sammanhängande lediga platser måste finnas inom detta område, exempelvis 001–004 eller 047–050.
+- **Förflyttning:** Bussens fyra platser måste fortfarande vara sammanhängande. Om flytt till platser efter 050 ska tillåtas behöver den regeln fastställas innan implementation; uppgiften och det hittills återgivna lärarbeskedet ger inte en entydig grund för undantaget.
 - Bussens identifierare och ursprungliga UTC-ankomsttid ska behållas vid flytt.
 - En buss ska behandlas som **ett fordon**, inte som fyra separata fordon.
 
 Eftersom en buss använder flera platser behövs en framtida utökning av domän- och lagringsmodellen som kan bevara sambandet mellan bussen och dess fyra upptagna platser. **Den exakta JSON-representationen för buss är inte beslutad.** Vi lägger därför inte till exempelvis `OccupiedSpotNumbers` i G-versionens filformat redan nu.
 
-VG-funktionaliteten implementeras efter att G-versionens lagring och övriga funktioner har färdigställts och verifierats.
+**VG-specifikt krav:** Om datafilen saknas ska Prague Parking 2.1 automatiskt skapa den och fylla den med giltiga testdata. Detta är ett separat krav och ändrar inte G-versionens nuvarande beteende, där en saknad fil ger ett tomt garage i minnet.
+
+VG-funktionaliteten implementeras i ett separat projekt i samma solution och GitHub-repository, med en fungerande G-version som utgångspunkt.
 
 ## Relaterad dokumentation
 

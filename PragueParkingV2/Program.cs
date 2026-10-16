@@ -39,7 +39,12 @@ try
     MessageService.ShowInfo(
         $"Time zone: {configuration.System!.TimeZone}");
 
-    MainMenu.Show(parkingGarage, configuration, parkingDataService);
+    MainMenu.Show(
+    parkingGarage,
+    configuration,
+    parkingDataService,
+    feeCalculator,
+    configurationService);
 }
 
 
@@ -54,7 +59,7 @@ catch (InvalidDataException ex)
 catch (JsonException)
 {
     MessageService.ShowError(
-        "The configuration file contains invalid JSON.");
+        "The configuration or parking data file contains invalid JSON.");
 
     Environment.ExitCode = 1;
     return;
