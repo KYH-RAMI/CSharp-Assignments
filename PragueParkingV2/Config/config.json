@@ -5,7 +5,7 @@
     "MotorcycleHourlyPrice": 10
   },
   "Garage": {
-    "NumberOfParkingSpots": 200
+    "NumberOfParkingSpots": 100
   },
   "System": {
     "TimeZone": "Europe/Prague"

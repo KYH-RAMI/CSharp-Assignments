@@ -1,9 +1,11 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-16  
-**Omfattning:** Arkitektur- och implementationsbeslut för Prague Parking 2.0 (G), med dokumenterade avgränsningar inför Prague Parking 2.1 (VG).
+**Uppdaterad:** 2026-10-20  
+**Omfattning:** Arkitektur- och implementationsbeslut för den färdigutvecklade Prague Parking 2.0 (G) och den pågående vidareutvecklingen Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
+
+**Versionsgräns 2026-10-20:** Prague Parking 2.0 har genomförda manuella G-tester och lämnas i huvudsak oförändrad. `PragueParkingV2_1` och `PragueParkingV2_1.Data` har skapats som separata VG-projekt i samma solution. V2.1 har nya domänklasser och delar av en ny kapacitetsmodell, men saknar ännu ett verifierat genomgående VG-flöde. Äldre beslut och G-testresultat nedan gäller fortfarande G-versionen om inget annat anges.
 
 ## DD-001 – Separation mellan UI, domän och dataåtkomst
 
@@ -18,6 +20,8 @@ JSON-hantering placeras i det separata Data-projektet. Dataåtkomst ska inte bla
 **Beslut:** `Vehicle` är abstrakt och används som basklass för `Car` och `MC`.
 
 **Motivering:** Gemensam identifierare och ankomsttid ska inte dupliceras mellan fordonstyper.
+
+**Tillägg 2026-10-20 (VG):** `Bicycle` och `Bus` är nu skapade som egna klasser som också ärver från `Vehicle`. Båda har konstruktörer för ny parkering och för återställning av befintlig UTC-ankomsttid. Detta innebär inte att deras fullständiga parkeringsflöden är implementerade.
 
 ## DD-003 – Generell fordonsidentifierare
 
@@ -459,7 +463,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 - `Bicycle` = 1, `MC` = 2, `Car` = 4 och `Bus` = 16 storleksenheter.
 - En normal parkeringsplats motsvarar 4 storleksenheter.
 - En buss behöver fyra sammanhängande parkeringsplatser.
-- **Bussområde:** Efter förtydligande med läraren används de första 50 platserna som reserverat område för bussar i stället för en separat takhöjdsmodell.
+- **Bussområde:** De första 50 platserna är området där nya bussar får parkeras, som förenkling av takhöjdskravet efter lärarens förtydligande. **Området är inte exklusivt för bussar:** även övriga fordon får använda platserna.
 - **Nyparkering av buss:** Fyra sammanhängande lediga platser ska finnas inom platsnummer 1–50.
 - **Förflyttning av buss:** Även en flytt ska kontrollera fyra sammanhängande platser. Om flytt utanför bussområdet ska tillåtas är inte fastställt i det förtydligande som redovisats och avgörs innan implementeringen.
 - Bussens identifierare och ursprungliga UTC-ankomsttid ska bevaras vid flytt.
@@ -473,7 +477,7 @@ En buss får inte räknas som fyra oberoende fordon. En framtida utökning av JS
 
 **Ytterligare VG-krav:** Om `parking-data.json` saknas vid uppstart av 2.1 ska datafilen skapas och fyllas med giltiga testfordon. Detta införs inte som nytt beteende i G-versionen.
 
-**Status:** Planerat för VG. Ingen buss-, cykel-, flerplats- eller testdatagenereringslogik anges som implementerad.
+**Status 2026-10-20:** `Bicycle` och `Bus` finns som domänklasser, och `ParkingDataMapper` känner igen typerna vid omvandling mellan domänobjekt och DTO:er. Storleksbaserade metodöverlagringar har införts, men de äldre kapacitetsanropen används fortfarande på vissa ställen. Cykelns kompletta UI-/persistensflöde, bussens fyra reserverade platser, fullständigt konfigurationsstöd och testdatagenerering är inte klara eller end-to-end-verifierade. G-versionens beteende och JSON-format ska behållas.
 
 ## DD-032 – Sökvy utan ändring av garagets tillstånd
 
@@ -494,3 +498,116 @@ En buss får inte räknas som fyra oberoende fordon. En framtida utökning av JS
 **Motivering:** Lärarens G-krav avser prisomläsning utan omstart, inte omläsning av hela garaget. Genom att återanvända samma kalkylator får efterföljande utcheckningar aktuella priser utan att ändra domänobjekten.
 
 **Verifiering:** Ändring av bilens timpris från 20 till 30 CZK gav korrekt nytt belopp vid efterföljande beräkning. Ogiltigt negativt pris avvisades och föregående pris behölls. Standardpriset återställdes till 20 CZK. Hela-konfigurationen-reload är fortfarande ett VG-krav, inte en genomförd G-funktion.
+
+---
+
+## DD-034 – Separata körbara versioner i samma solution
+
+**Datum:** 2026-10-20  
+**Status:** Genomfört på projektstrukturnivå; VG-funktionerna är inte färdigutvecklade.
+
+**Beslut:** Vidareutvecklingen görs i `PragueParkingV2_1` och `PragueParkingV2_1.Data` i samma solution som `PragueParkingV2` och `PragueParkingV2.Data`. G-versionen används som stabil referens och ändras inte för att lösa VG-krav.
+
+**Motivering:** Båda versionerna ska kunna byggas, startas och jämföras separat. Det minskar risken att nya fordonsregler förstör fungerande G-logik och möjliggör regressionstester mot dokumenterade G-flöden.
+
+**Genomfört:** De nya projekten använder .NET 10. Namnrymder har anpassats för V2.1, projektberoendet har lagts till och alla fyra projekt har byggts utan kompileringsfel. V2.1:s huvudmeny har startats, och titel/versionsinformation har anpassats. I G-versionen har standardantalet parkeringsplatser återställts till 100 efter tidigare tester med större garage.
+
+**Avgränsning:** En lyckad build är inte ett funktionstest av V2.1. De båda versionernas parkeringsdata ligger normalt i separata körkataloger eftersom lagringen utgår från `AppContext.BaseDirectory`.
+
+## DD-035 – IVehicle som första interface i V2.1
+
+**Datum:** 2026-10-20  
+**Status:** Delvis implementerat; kravet på minst två använda interfaces är inte uppfyllt ännu.
+
+**Beslut:** `IVehicle` definierar de gemensamma egenskaperna `Identifier` och `ArrivalTime`. Den abstrakta basklassen `Vehicle` implementerar interfacet, vilket också omfattar `Car`, `MC`, `Bicycle` och `Bus` via arv.
+
+**Motivering:** Kod som endast behöver ett fordons identitet och ankomsttid ska kunna arbeta mot ett gemensamt kontrakt. Den behöver då inte känna till vilken konkret fordonsklass som används.
+
+**Genomfört:** Nya kapacitetsmetoder använder `IVehicle` som parametertyp och i `Func<IVehicle, int>`. Den interna samlingen i `ParkingSpot` är fortfarande en `List<Vehicle>` som exponeras som `IReadOnlyList<Vehicle>`. All relevant kod arbetar alltså **inte** mot interfaces ännu.
+
+**Återstår:** Ett andra interface, exempelvis `IParkingSpot`, behöver utformas och användas men ska införas först när dess ansvar är tydligt. Det räcker inte att skapa två oanvända interfacefiler.
+
+## DD-036 – Storleksbaserad kapacitet och Func för storleksuppslagning
+
+**Datum:** 2026-10-20  
+**Status:** Pågående migrering i endast V2.1.
+
+**Beslut:** V2.1 ska använda storleksenheter i stället för G-versionens antal fordon per plats. Målreglerna är `Bicycle = 1`, `MC = 2`, `Car = 4` och `Bus = 16`; en vanlig parkeringsplats rymmer `4` enheter. Inställningarna ska hämtas från konfigurationen, inte skrivas som fasta kapacitetsvärden i `ParkingSpot`.
+
+**Motivering:** Den tidigare modellen `VehiclesPerSpot` kan hantera en bil eller två motorcyklar, men uttrycker inte en generell storlek och gör det svårare att hantera kombinationer av olika fordon. Genom att summera storleksenheter kan systemet avgöra hur mycket av en parkeringsplats som återstår.
+
+**Genomfört på kodnivå:**
+
+- `VehicleTypeConfiguration` har fått `Size` och `GarageConfiguration` har fått `SpotCapacity`.
+- `ParkingSpot.GetUsedCapacity(Func<IVehicle, int> getSize)` summerar storlekarna för redan parkerade fordon och avvisar ogiltiga storlekar.
+- Överlagrade `ParkingSpot.CanPark()` och `ParkingSpot.ParkVehicle()` tar emot platskapacitet och en funktion som kan slå upp varje fordons storlek.
+- `ParkingGarage` har motsvarande överlagringar för `FindAvailableSpot()`, `ParkVehicle()` och `ParkVehicleAtSpot()`.
+- `ParkVehicleView` använder en lambda för att hämta storlekarna från `configuration.VehicleTypes` i stället för att be `ParkingSpot` läsa JSON.
+
+Exempel på den funktionstyp som används:
+
+```csharp
+Func<IVehicle, int> getSize = vehicle =>
+    configuration.VehicleTypes![vehicle.GetType().Name].Size;
+```
+
+**Förklaring:** `Func<IVehicle, int>` beskriver en funktion som tar emot ett `IVehicle` och returnerar ett `int`. `ParkingSpot` anropar funktionen för att få storleken men känner inte till varifrån värdet kommer. Delegaten löser inte all konfigurationsvalidering: saknade fordonstyper och ogiltiga värden behöver fortfarande hanteras kontrollerat.
+
+**Metodöverlagring:** De nya metoderna har samma namn som de gamla men andra parameterlistor. I C# kan en metod **inte** överlagras enbart genom att returtypen ändras; om parameterlistorna skiljer sig får returtyperna däremot vara olika.
+
+**Återstår:** Migrera bland annat `ParkingDataMapper.ToGarage()`, flytt, utcheckning och garageöversikt från `VehiclesPerSpot` till storleksreglerna. När alla anrop använder den nya modellen kan tillfälliga överlagringar och äldre VG-beroenden tas bort. Befintlig G-kod ska inte ändras. Inget genomgående test av blandade storlekar har redovisats ännu.
+
+## DD-037 – Bussens fyra sammanhängande platser: algoritm under utvärdering
+
+**Datum:** 2026-10-20  
+**Status:** Föreslagen algoritm; varken reservationsmodell eller full implementation är beslutad.
+
+**Arbetshypotes för nyparkering:** En buss ska vara **ett fordon** med storleken 16 och behöver fyra **helt lediga, sammanhängande** parkeringsplatser. Sökningen sker bland platserna 1–50. Övriga fordon får också parkera inom detta område; deras beläggning kan därför göra en fyrplatsgrupp oanvändbar för buss.
+
+**Föreslaget sökflöde:**
+
+1. Kontrollera att bussens `Identifier` inte redan finns i garaget.
+2. Börja med startplats 1 och kontrollera platserna 1–4.
+3. Om alla fyra platser är helt lediga kan de reserveras som en sammanhängande grupp för **en** buss.
+4. Annars flyttas startplatsen ett steg framåt och nästa grupp om fyra kontrolleras.
+5. Den sista giltiga startplatsen inom 1–50 är 47, vilket motsvarar gruppen 47–50.
+6. Om ingen giltig grupp hittas ska parkeringen avvisas med ett begripligt meddelande.
+
+**Motivering:** En sekventiell sökning med en glidande startpunkt är lätt att följa och kan hitta fyra intilliggande platser även om tidigare platser är upptagna. Kontrollerna ska ske **innan** garaget ändras.
+
+**Öppna designfrågor:** Hur markeras tre ytterligare platser som upptagna när bussobjektet bara registreras en gång? Hur kopplas de fyra platserna ihop vid sökning, flytt, utcheckning och JSON-återställning? En misslyckad reservation eller flytt får inte lämna kvar någon delvis parkerad buss. Den exakta representationen i minnet och i JSON är **inte fastställd**.
+
+**Områdesregel:** Nyparkering begränsas till 1–50. Om bussflytt får ske utanför detta område behöver avgöras utifrån uppgiftskravet innan flyttlogiken utformas. Detta dokument fastställer inget sådant undantag.
+
+## DD-038 – VG-konfiguration, validering och omläsning under körning
+
+**Datum:** 2026-10-20  
+**Status:** Struktur och viss validering påbörjad; säker omläsning av hela konfigurationen saknas.
+
+**Beslut:** V2.1 ska definiera fordonsstorlekar per typ via `VehicleTypes` och en gemensam platskapacitet via `Garage.SpotCapacity`. Planerade VG-priser är 5 CZK per påbörjad timme för `Bicycle` och 80 CZK för `Bus`, utöver befintliga priser. G:s inställningar och `Reload Pricing` hålls åtskilda från V2.1:s framtida omläsning av hela konfigurationen.
+
+**Genomfört:** Storleksegenskapen `Size` används i den nya kapacitetslogiken. `ConfigurationService` har en `foreach`-kontroll av namn och positiv `Size` för konfigurerade fordonstyper. Övrig validering och skapande av fullständiga standardvärden är inte slutförda eller verifierade.
+
+**Princip för kommande omläsning:** Läs nya värden, kontrollera deras giltighet och kontrollera att redan parkerade fordon fortfarande får plats **innan** de nya inställningarna aktiveras. En ogiltig omläsning ska lämna både aktiv konfiguration och garagets tillstånd oförändrade. UI, avgifter och kapacitet ska därefter använda samma giltiga konfiguration.
+
+**Begränsning:** En post i `VehicleTypes` skapar inte automatiskt en ny C#-klass eller en fullständig meny-/persistensimplementation. Stöd för att lägga till en helt ny fordonstyp utan kodändring är därför ännu inte etablerat och ska utvärderas separat mot uppgiftskravet.
+
+## DD-039 – V2.1:s mappning och automatisk testdata vid saknad datafil
+
+**Datum:** 2026-10-20  
+**Status:** Fordonstypmappning utökad; kompletta VG-flöden och testdatagenerering återstår.
+
+**Beslut:** `ParkingDataMapper` ska även i V2.1 hålla omvandlingen mellan DTO:er och domänmodellen i applikationslagret. De separata G- och VG-projekten ska kunna använda sina egna giltiga parkeringsdata utan att G-versionens tidigare filformat ändras i förtid.
+
+**Genomfört:** `ToVehicle()` och `ToVehicleData()` har fått stöd för `Bicycle` och `Bus` som klassnamn/fordonstyper. Detta innebär inte att `ParkingDataService` redan godkänner dessa typer vid inläsning och sparning eller att en buss kan återställas över fyra platser.
+
+**Återstår:** `ToGarage()` behöver använda storleksbaserad kapacitet. DTO-validering, JSON-representation för bussens fyra reservationer, korrekt återställning och funktionstester behöver färdigställas. Om **V2.1:s datafil saknas** ska systemet skapa filen och fylla den med giltiga testfordon. En **befintlig felaktig** fil får inte automatiskt skrivas över. G-versionen behåller sitt nuvarande beteende vid saknad datafil.
+
+## DD-040 – Prioritera kurskraven före frivillig distribution
+
+**Datum:** 2026-10-20  
+**Status:** Aktuell projektavgränsning.
+
+**Beslut:** Frivillig extern driftsättning och betatestning ingår inte längre i den aktuella projektplanen för Prague Parking V2.1.
+
+**Motivering:** Utvecklingstiden prioriteras till kurskraven, testning av den nya parkeringslogiken, dokumentation och Git-hantering. **Kurskravet att verifiera körning på en annan dator kvarstår**, eftersom det inte är samma sak som frivillig driftsättning eller extern betatestning.

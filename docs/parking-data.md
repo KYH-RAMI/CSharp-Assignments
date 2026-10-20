@@ -1,9 +1,12 @@
 # Parkeringsdata
 
-**Uppdaterad:** 2026-10-16  
-**Omfattning:** JSON-lagring för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
+**Uppdaterad:** 2026-10-20  
+**Omfattning:** JSON-lagring för Prague Parking 2.0 (G) och pågående utveckling av Prague Parking 2.1 (VG).  
+**Versionsprincip:** G-versionens dokumenterade tester och filformat behålls. VG-specifik implementation och planerad funktionalitet redovisas separat.
 
-**Status 2026-10-16:** `ParkingDataService`, DTO:er och `ParkingDataMapper` hanterar JSON-inläsning, återställning och automatisk sparning vid **Park Vehicle**, **Check Out Vehicle** och **Move Vehicle**. Normalflödena har verifierats med omstart. Den 16 oktober verifierades även återställning av två MC på plats 003, avvisning av korrupt och logiskt ogiltig JSON samt rollback i minnet vid simulerat skrivfel i samtliga tre åtgärder. Normal sparning fungerade därefter igen: `ABC123` återfanns på plats 051 efter omstart. **Detta är manuella tester av avgränsade scenarier, inte en garanti för fullständig transaktions- eller kraschsäkerhet.**
+**G-status – senast verifierad 2026-10-16:** `ParkingDataService`, DTO:er och `ParkingDataMapper` hanterar JSON-inläsning, återställning och automatisk sparning vid **Park Vehicle**, **Check Out Vehicle** och **Move Vehicle**. Normalflödena har verifierats med omstart. Den 16 oktober verifierades även återställning av två MC på plats 003, avvisning av korrupt och logiskt ogiltig JSON samt rollback i minnet vid simulerat skrivfel i samtliga tre åtgärder. Normal sparning fungerade därefter igen: `ABC123` återfanns på plats 051 efter omstart. **Detta är manuella tester av avgränsade scenarier, inte en garanti för fullständig transaktions- eller kraschsäkerhet.**
+
+**VG-status 2026-10-20:** Separata projekt (`PragueParkingV2_1` och `PragueParkingV2_1.Data`) är skapade. `ParkingDataMapper` i V2.1 känner igen `Bicycle` och `Bus` som fordonsklasser och har stöd för att skapa/serialisera deras fordonsdataobjekt, men detta är **inte** en verifierad end-to-end-lösning för JSON-lagring. Storleksbaserade metoder har tillkommit i domänmodellen; återställningen i `ToGarage()` använder ännu den äldre kapacitetsmodellen och behöver migreras. Bussens fyra sammanhängande platser, persistens av reservationer och testdatagenerering är inte implementerade. Samtliga bekräftade V2.1-byggresultat avser kompilering, inte färdiga funktionstester.
 
 ## Beslutad struktur
 
@@ -21,7 +24,7 @@ flowchart TD
     D --> D3[ArrivalTime UTC]
 ```
 
-Diagrammet visar den fastställda strukturen för G-versionen. Vi inför inte extra obligatoriska fält eller en alternativ, platt struktur under implementationen av 2.0.
+Diagrammet visar den fastställda strukturen för G-versionen. G-formatet behålls oförändrat; en eventuell VG-utökning för bussens flera parkeringsplatser utformas separat när dess domänlogik är klar.
 
 ## Syfte
 
@@ -60,7 +63,9 @@ Exempel:
 
 `VehicleType` behöver därför inte vara en property i domänklassen `Vehicle`. Fordonstypen representeras där av den faktiska runtime-klassen.
 
-Vid inläsning ska okända eller ännu inte stödda fordonstyper avvisas kontrollerat. Detta gäller även framtida `Bicycle` och `Bus` tills dessa faktiskt har implementerats.
+**G (2.0):** `ParkingDataService` accepterar `Car` och `MC`; okända fordonstyper avvisas kontrollerat.
+
+**VG (2.1, pågående):** Klasserna `Bicycle` och `Bus` finns, och `ParkingDataMapper.ToVehicle()` / `ToVehicleData()` känner igen dessa typer. Det innebär inte att de kan läsas in och återställas från fil i hela programmet ännu: valideringen i V2.1:s `ParkingDataService` behöver utökas och bussens flerplatsreservation måste först utformas. Även stöd för nya typer i UI och övriga flöden återstår.
 
 ## ArrivalTime
 
@@ -71,6 +76,8 @@ Det gör att den sparade tiden kan konverteras till den tidszon som anges i `con
 Vid återställning måste den ursprungliga UTC-tiden bevaras. Ett återställt fordon får **inte** få en ny ankomsttid genom att konstruktorn använder `DateTime.UtcNow`.
 
 `Car` och `MC` har konstruktorsöverlagringar som tar emot befintlig UTC-ankomsttid. `ParkingDataMapper.ToVehicle()` använder dessa, så att en omstart inte sätter om parkeringstiden. Den 16 oktober återställdes `DEF123` och `EDF123` på plats 003 med tidigare sparade ankomsttider (visade lokalt som 15:50 respektive 16:11 den 15 oktober).
+
+**V2.1:** Även `Bicycle` och `Bus` har konstruktorer för befintlig UTC-ankomsttid. Att dessa används av mappern är implementerat, men korrekt sparning och återställning av de nya fordonstyperna har ännu inte integrationstestats.
 
 ## Exempel på `parking-data.json`
 
@@ -118,12 +125,12 @@ Ett tomt parkeringshus kan representeras av:
 
 ## Inläsning och återställning vid programstart
 
-Den implementerade ordningen vid normal uppstart är:
+Den implementerade ordningen vid normal uppstart i **G-versionen (2.0)** är:
 
 1. Läs och validera `config.json`.
 2. Läs och validera `parking-data.json` via `ParkingDataService.Load()`; om filen saknas används ett tomt dokument i minnet.
 3. Anropa `ParkingDataMapper.ToGarage(document, configuration)`, som skapar `ParkingGarage` enligt konfigurerad kapacitet.
-4. För varje sparad plats och fordon: skapa `Car` eller `MC` med ursprunglig UTC-tid, hämta `VehiclesPerSpot` och anropa `ParkVehicleAtSpot()` för **exakt** platsnummer.
+4. För varje sparad plats och fordon: skapa `Car` eller `MC` med ursprunglig UTC-tid, hämta `VehiclesPerSpot` och anropa `ParkVehicleAtSpot()` för **exakt** platsnummer. **Detta beskriver G-implementationen, inte den framtida V2.1-modellen.**
 5. Visa huvudmenyn först när hela återställningen har slutförts utan undantag.
 
 Återställning ska **inte** använda den ordinarie metoden som automatiskt väljer första lediga parkeringsplats. Den skulle kunna flytta fordon till andra platser vid omstart.
@@ -145,7 +152,7 @@ Följande ytterligare krav gäller innan sparad data accepteras i det färdiga g
 
 Om en befintlig fil är felaktig eller innehåller oförenliga uppgifter ska uppstarten ge ett tydligt fel. Filen får inte tyst skrivas över och ett delvis återställt garage får inte accepteras som giltigt tillstånd. Den 16 oktober verifierades detta för **trasig JSON-syntax, skiftlägesokänsliga dubbletter, platsnummer utanför intervallet, kapacitetsöverskridande samt otillåten Car/MC-blandning**. Den testade ogiltiga filen låg kvar efter nekad uppstart. Det bevisar inte att ett fristående `Save()` i andra körvägar alltid vägrar ersätta en korrupt befintlig fil.
 
-Om `parking-data.json` saknas vid första start ska garaget kunna starta tomt. Det är en annan situation än att en **befintlig** datafil är ogiltig.
+**G-beteende:** Om `parking-data.json` saknas vid första start kan garaget starta tomt. Detta är en annan situation än att en **befintlig** datafil är ogiltig. **V2.1 har ett annat krav:** skapa saknad fil och fylla den med giltiga testfordon; detta är ännu inte implementerat.
 
 ## Uppdatering vid parkering
 
@@ -181,7 +188,7 @@ Vid `IOException` eller `UnauthorizedAccessException` under sparning försöker 
 
 ## Ansvar och säker filhantering
 
-JSON-serialisering och filåtkomst hör hemma i det separata projektet `PragueParkingV2.Data`. `ParkingGarage` och `ParkingSpot` ska fortsatt ansvara för parkeringsregler, och UI ska endast presentera resultat och fel.
+JSON-serialisering och filåtkomst hör hemma i det separata Data-projektet (`PragueParkingV2.Data` för G respektive `PragueParkingV2_1.Data` för VG). `ParkingGarage` och `ParkingSpot` ska fortsatt ansvara för parkeringsregler, och UI ska presentera resultat och fel. `ParkingDataMapper` i respektive huvudprojekt översätter mellan DTO:er och domänobjekt.
 
 Principer för implementation och fortsatt verifiering:
 
@@ -236,35 +243,107 @@ Vid dessa negativa uppstartstester kontrollerades att den ogiltiga JSON-filen in
 - Verifiera konsekvens mellan disk och minne vid andra skrivfel än det testade hindret mot `parking-data.json.tmp`.
 - Testa körning på en annan dator och gör slutlig kravavstämning inför den gemensamma inlämningen av 2.0 och 2.1.
 
-**Status 2026-10-16:** De viktigaste normala persistensflödena, återställning av två MC efter omstart, flera ogiltiga JSON-scenarier och rollback vid ett framprovocerat skrivfel har verifierats manuellt. Ytterligare robusthets- och kompatibilitetstester återstår; systemet har inte genomgått fullständig automatisk eller kraschbaserad verifiering.
+**G-status 2026-10-16:** De viktigaste normala persistensflödena, återställning av två MC efter omstart, flera ogiltiga JSON-scenarier och rollback vid ett framprovocerat skrivfel har verifierats manuellt. Ytterligare robusthets- och kompatibilitetstester återstår; systemet har inte genomgått fullständig automatisk eller kraschbaserad verifiering.
 
-## Förberedelser inför Prague Parking 2.1 (VG)
+## Prague Parking 2.1 (VG) – Pågående arbete 2026-10-20
 
-Den nuvarande JSON-strukturen ska fungera som utgångspunkt även när `Bicycle` och `Bus` införs.
+Prague Parking 2.1 vidareutvecklas i separata projekt i samma solution. V2.0:s dokumenterade JSON-format och verifierade beteende ändras inte. V2.1 bygger vidare på samma grundläggande DTO-struktur, men reglerna för storlekskapacitet, nya fordonstyper och flerplatsparkering behöver färdigställas **innan** komplett återställning kan verifieras. Eftersom lagringsvägen utgår från `AppContext.BaseDirectory` använder G och VG normalt varsin `Data/parking-data.json` under respektive projekts körkatalog. En gemensam datakatalog ska inte antas eller införas under migreringen.
 
-### Bicycle
+### Genomfört på kodnivå
 
-`Bicycle` blir en egen fordonstyp. En cykel som saknar registreringsnummer behöver en stabil, unik `Identifier` som kan sparas och återställas på samma sätt som för övriga fordon.
+| Komponent | Bekräftad förändring | Aktuell status |
+|---|---|---|
+| `Bicycle` och `Bus` | Fordonsklasser med konstruktor för ny och återställd UTC-ankomsttid | Implementerade klasser; flöden ej verifierade |
+| `IVehicle` | Gemensamt gränssnitt med bland annat `Identifier` och `ArrivalTime` | Implementerat |
+| `ParkingDataMapper.ToVehicle()` | Känner igen `Car`, `MC`, `Bicycle` och `Bus` | Implementerad typmappning; full återställning ej färdig |
+| `ParkingDataMapper.ToVehicleData()` | Kan ange `VehicleType` för de fyra fordonsklasserna | Implementerad typmappning; ej end-to-end-testad för nya typer |
+| `ParkingSpot` och `ParkingGarage` | Nya metodöverlagringar använder `spotCapacity` och `Func<IVehicle, int> getSize` | Kompilerar; migrering av anrop pågår |
+| `ParkingGarage.ParkVehicleAtSpot()` | Ny överlagring för placering på ett angivet platsnummer med storlekskapacitet | Implementerad på kodnivå; mappern använder ännu inte denna överlagring |
 
-### Bus
+De nya överlagringarna finns tillfälligt parallellt med de äldre `VehiclesPerSpot`-metoderna. Detta är **en övergångslösning**, inte två avsedda kapacitetsmodeller i den färdiga V2.1-versionen.
 
-En buss motsvarar 16 storleksenheter och behöver **fyra sammanhängande parkeringsplatser**, där en normal plats motsvarar 4 enheter.
+### Skillnaden mellan G:s och VG:s kapacitet
 
-- **Lärarens förtydligande enligt utvecklaren:** De första **50 parkeringsplatserna reserveras som bussområde** i stället för att modellera takhöjd separat.
-- **Nyparkering:** Fyra sammanhängande lediga platser måste finnas inom detta område, exempelvis 001–004 eller 047–050.
-- **Förflyttning:** Bussens fyra platser måste fortfarande vara sammanhängande. Om flytt till platser efter 050 ska tillåtas behöver den regeln fastställas innan implementation; uppgiften och det hittills återgivna lärarbeskedet ger inte en entydig grund för undantaget.
-- Bussens identifierare och ursprungliga UTC-ankomsttid ska behållas vid flytt.
-- En buss ska behandlas som **ett fordon**, inte som fyra separata fordon.
+| Fordon | G (2.0) | VG (2.1) – avsedd storlek |
+|---|---|---:|
+| `Bicycle` | Stöds inte | 1 enhet |
+| `MC` | Högst 2 MC per plats; får inte blandas med Car | 2 enheter |
+| `Car` | Högst 1 bil per plats | 4 enheter |
+| `Bus` | Stöds inte | 16 enheter, fördelade på fyra platser |
 
-Eftersom en buss använder flera platser behövs en framtida utökning av domän- och lagringsmodellen som kan bevara sambandet mellan bussen och dess fyra upptagna platser. **Den exakta JSON-representationen för buss är inte beslutad.** Vi lägger därför inte till exempelvis `OccupiedSpotNumbers` i G-versionens filformat redan nu.
+En vanlig plats har i V2.1 **4 kapacitetsenheter**. Syftet är att sammanlagd storlek ska styra beläggningen, i stället för antalet fordon av en viss typ. De avsedda storlekarna hämtas ur `VehicleTypes` i `config.json`; platskapaciteten hämtas ur `Garage.SpotCapacity`. V2.1:s `GetUsedCapacity(getSize)` summerar storleken på redan parkerade fordon. `Func<IVehicle, int>` används för att skicka in uppslaget av fordonsstorlek utan att `ParkingSpot` behöver läsa JSON.
 
-**VG-specifikt krav:** Om datafilen saknas ska Prague Parking 2.1 automatiskt skapa den och fylla den med giltiga testdata. Detta är ett separat krav och ändrar inte G-versionens nuvarande beteende, där en saknad fil ger ett tomt garage i minnet.
+**Begränsning:** Kapacitetsmodellen för en enskild plats kan inte direkt hantera `Bus` med storlek 16 när en plats rymmer 4. Buss kräver särskild samordning i `ParkingGarage` och får inte behandlas som om den vore ett vanligt enplatsfordon.
 
-VG-funktionaliteten implementeras i ett separat projekt i samma solution och GitHub-repository, med en fungerande G-version som utgångspunkt.
+### Återställning via `ParkingDataMapper.ToGarage()` – nästa migreringsmoment
+
+I den senast genomgångna V2.1-koden används fortfarande det äldre anropet i återställningen:
+
+```csharp
+int capacity = configuration.VehicleTypes![vehicleData.VehicleType].VehiclesPerSpot;
+parkingGarage.ParkVehicleAtSpot(vehicle, spotData.SpotNumber, capacity);
+```
+
+Det ska ersättas med V2.1:s storleksbaserade överlagring. Avsedd princip för **vanliga enplatsfordon**, efter genomförd ändring, är:
+
+```csharp
+int spotCapacity = configuration.Garage!.SpotCapacity;
+
+Func<IVehicle, int> getSize = vehicle =>
+    configuration.VehicleTypes![vehicle.GetType().Name].Size;
+
+// Anrop vid återställning av ett vanligt fordon:
+garage.ParkVehicleAtSpot(vehicle, spotData.SpotNumber, spotCapacity, getSize);
+```
+
+Kodexemplet är **ett planerat migreringssteg**, inte en uppgift om att `ToGarage()` redan har ändrats. Före färdig drift behövs även tydlig hantering av saknade/okända konfigurationstyper och motsvarande validering i Data-projektet. `Bus` ska inte skickas genom enplatsåterställningen innan dess separata flerplatsmodell är färdig.
+
+### `Bicycle` – ännu inte komplett lagringsflöde
+
+En cykel behöver en unik och stabil `Identifier` även utan registreringsnummer. Fordonsklassen och typmappningen finns, men V2.1:s JSON-validering samt registrering, återställning, utcheckning och omstartstester för `Bicycle` återstår. Vid en framtida genomförd implementation ska identifieraren och UTC-ankomsttiden behållas vid sparning och återställning på samma sätt som för `Car` och `MC`.
+
+### `Bus` – fyra sammanhängande parkeringsplatser
+
+En buss har storlek 16 och kräver **fyra sammanhängande, helt lediga platser**. De första 50 platserna utgör det område där **nyparkering av buss** ska kunna ske. **Området är inte exklusivt reserverat för bussar** – andra fordon kan också parkera där. För ett område med platsnummer 1–50 är den sista möjliga startplatsen **47** (platserna 47–50).
+
+Den föreslagna sökstrategin är att kontrollera fönstren **1–4, 2–5, 3–6, ... 47–50** tills fyra sammanhängande lediga platser hittas. Dubblettkontroll av bussens identifierare ska ske före reservation. Om ingen giltig grupp finns ska parkeringen nekas utan att garaget ändras.
+
+**Föreslagen princip, ännu inte implementerad:** Varje buss ska behandlas som **ett logiskt fordon** med en identifierare och en ankomsttid, samtidigt som fyra platser är reserverade för den. Uppgiften kräver därmed att följande hanteras konsekvent:
+
+- Vid incheckning: reservera alla fyra platserna eller ingen av dem.
+- Vid sökning och garageöversikt: visa en buss som ett fordon men visa dess faktiska beläggning.
+- Vid flytt: bevara bussens identifierare och UTC-ankomsttid samt flytta reservationen utan partiellt tillstånd.
+- Vid utcheckning: frigöra samtliga fyra platser och debitera **en** bussavgift.
+- Vid JSON-sparning och omstart: återställa sambandet mellan bussen och samtliga reserverade platser utan att skapa fyra separata bussfordon eller fyra avgifter.
+
+**Öppen designfråga:** Exakt hur en buss och dess fyra platser representeras i V2.1:s domänmodell och JSON är inte fastställt. Det kan exempelvis krävas en huvudplacering samt separata platsreservationer, men inget sådant JSON-format är beslutat. Därför ges **inget påhittat färdigt Bus-JSON-exempel** här. Tillåtna destinationer vid flytt till platsnummer över 50 behöver dessutom avgöras enligt den slutliga kravtolkningen innan funktionen färdigställs.
+
+### Saknad datafil – särskilt VG-krav
+
+V2.0:s `ParkingDataService.Load()` returnerar ett tomt datadokument i minnet när filen saknas; filen skapas senare vid sparning. **V2.1 ska i stället skapa en saknad `parking-data.json` och fylla den med giltiga testfordon.** Detta VG-krav är inte implementerat eller testat ännu.
+
+En framtida implementation måste skilja på två fall:
+
+1. **Filen saknas:** Generera giltiga testdata som följer aktuell konfiguration, skapa filen och verifiera att den går att läsa in.
+2. **Filen finns men är ogiltig:** Avvisa den kontrollerat. Ersätt inte användarens befintliga data med testfordon.
+
+Exakt antal testfordon och deras placering är inte beslutade; testdata får inte förutsättas kunna placeras om konfigurationen gör dem ogiltiga.
+
+### Tester som återstår för V2.1
+
+- Bygga och starta V2.1 efter migreringen och kontrollera att befintliga Car/MC-data går att återställa korrekt med `Size`/`SpotCapacity`.
+- Testa delning och blandning utifrån storleksenheter, fullt utnyttjad plats, otillåtna storlekar och dubblettidentifierare.
+- Spara, starta om och återställa `Bicycle` samt validera ogiltiga eller okända `VehicleType`-värden.
+- Parkera en buss på fyra sammanhängande lediga platser, prova luckor med upptagna platser samt nekad parkering när ingen giltig grupp finns.
+- Verifiera att en buss söks, flyttas, checkas ut, debiteras och återställs som **ett** fordon med fyra reservationer; testa avbrutna eller misslyckade sparningar utan kvarvarande delreservationer.
+- Kontrollera saknad datafil, korrekt skapande av giltiga testdata, omstart samt att en befintlig korrupt fil inte skrivs över.
+- Upprepa lämpliga G-regressionstester i V2.1. G-versionens testresultat den 11–16 oktober är **inte** tester av de nya VG-funktionerna.
 
 ## Relaterad dokumentation
 
-- `configuration.md` – inställningar, priser, tidszon och kapacitetsregler.
-- `class-diagram.md` – domänmodell och klassernas relationer.
-- `design-decisions.md` – särskilt DD-008–DD-011, DD-023, DD-025 och DD-026.
-- `requirements.md` – krav och status för G respektive VG.
+- [`configuration.md`](configuration.md) – inställningar, priser, tidszon och kapacitetsregler.
+- [`class-diagram.md`](class-diagram.md) – domänmodell, klasser, interfaces och relationer.
+- [`design-decisions.md`](design-decisions.md) – dokumenterade arkitekturval och ännu öppna designfrågor.
+- [`requirements.md`](requirements.md) – krav och status för G respektive VG.
+- [`project-plan.md`](project-plan.md) – milstolpar och återstående utvecklingsarbete.
+- [`README.md`](../Documentation/README.md) och [`LOGGBOK.md`](../Documentation/LOGGBOK.md) – projektöversikt respektive utvecklingshistorik.

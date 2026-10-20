@@ -1002,3 +1002,84 @@ Trots det är jag väldigt nöjd med det jag har åstadkommit hittills. Det kän
 2. Vid behov testa återstående avbrytnings-/terminalgränsfall och programmets start i en annan körmiljö. Sådana tester ska inte anges som genomförda innan de faktiskt körts.
 3. Därefter börja med **Prague Parking 2.1 (VG)** som ett separat körbart projekt i **samma solution och Git-repository**: interfaces, Bicycle, Bus, storleksbaserad kapacitet, konfigurationsomläsning och testdatagenerering.
 4. Vänta med Git-commit tills kod och tillhörande dokumentation är genomgångna. Kontrollera `git status` så att `bin/`, `obj/` och runtime-data inte följer med.
+
+---
+
+## 2026-10-20 – Prague Parking V2.1: uppstart, interfaces och storleksbaserad kapacitet
+
+### Genomfört
+
+#### Separat VG-version i samma solution
+
+- Skapat `PragueParkingV2_1` (Console App) och `PragueParkingV2_1.Data` (Class Library) i samma solution som den färdiga G-versionen. Båda projekten använder .NET 10.
+- Kopierat relevant källkod från V2.0 till de nya projekten utan att kopiera gamla projektfiler eller byggmappar.
+- Installerat `Spectre.Console` 0.57.2 och verifierat projektreferensen från `PragueParkingV2_1` till det nya databiblioteket.
+- Bytt namnrymder från `PragueParkingV2` till `PragueParkingV2_1` i VG-projekten. Visual Studio rapporterade 48 ersättningar i huvudprojektet och 6 i databiblioteket.
+- Byggt hela solutionen utan kompileringsfel (4 projekt lyckades). Startat VG-kopian och kontrollerat att huvudmenyn visas. Denna kontroll gjordes innan dagens fortsatta ändringar av parkeringslogiken.
+- Uppdaterat versionsnamnet till **V2.1** i `Program.cs`, `MainMenu` och `Administration`, så att det går att skilja programversionerna åt.
+- Återställt standardantalet parkeringsplatser till **100** i konfigurationen. Även G-versionens projektkonfiguration ändrades tillbaka från testvärdet 200 till 100.
+
+#### Fordon, interfaces och konfiguration
+
+- Skapat `IVehicle` med `Identifier` och `ArrivalTime`; den abstrakta basklassen `Vehicle` implementerar nu interfacet.
+- Skapat `Bicycle` och `Bus`, med två konstruktorer vardera: en för ny registrering och en för återställning med tidigare UTC-ankomsttid.
+- Påbörjat övergången från `VehiclesPerSpot` till storleksbaserad kapacitet. `VehicleTypeConfiguration` har fått `Size` och `GarageConfiguration` har fått `SpotCapacity`.
+- Uppdaterat `config.json` för fyra fordonstyper: Bicycle (1), MC (2), Car (4) och Bus (16) storleksenheter, med 4 enheter per parkeringsruta. Konfigurationen omfattar också planerade VG-priser och bussområdet 1–50.
+- Uppdaterat `ConfigurationService` med en `foreach` som validerar att konfigurerade fordonstyper har namn och en positiv storlek. Arbetet med standardkonfiguration, övrig validering och omladdning under drift är ännu inte slutfört.
+
+#### Parkeringslogik och JSON-mappning
+
+- Lagt till `GetUsedCapacity()` i `ParkingSpot` för att summera storlekarna hos parkerade fordon.
+- Lagt till överlagrade versioner av `CanPark()` och `ParkVehicle()` som använder `spotCapacity` och en `Func<IVehicle, int>` för att hämta storleken från konfigurationen.
+- Lagt till överlagrade `FindAvailableSpot()`, `ParkVehicle()` och `ParkVehicleAtSpot()` i `ParkingGarage` med den nya kapacitetsmodellen.
+- Ändrat `ParkVehicleView` så att rutkapaciteten hämtas från `Garage.SpotCapacity` och fordonsstorleken från `VehicleTypes[...].Size` genom en lambda/delegat.
+- Utökat `ParkingDataMapper.ToVehicle()` och `ToVehicleData()` så att `Bicycle` och `Bus` kan översättas mellan fordonsobjekt och JSON-datamodell.
+- Låtit de äldre metodvarianterna finnas kvar tillfälligt medan anropen migreras. Den gamla `VehiclesPerSpot`-logiken används fortfarande på andra ställen och ska inte tas bort genom en blind sök-och-ersätt-operation.
+
+### Kontroller och aktuell status
+
+- Visual Studio har rapporterat lyckade byggen efter de genomförda delstegen. De nya metoderna har alltså kompilerat, men det är **inte** samma sak som att hela VG-flödet är funktionstestat.
+- Det finns ännu inget verifierat end-to-end-test av blandade fordonsstorlekar, bussparkering, flytt/utcheckning av buss eller återställning av VG-data efter omstart.
+- `ParkingDataMapper.ToGarage()`, kvarvarande `VehiclesPerSpot`-anrop, JSON-validering, prisberäkning/UI och reservationer för buss behöver fortfarande anpassas och testas.
+- Ingen ny Git-commit eller push har gjorts för dagens VG-arbete. `PragueParkingV2.slnx` och G-versionens `Config/config.json` är ändrade; de två VG-projektmapparna är ännu inte incheckade i Git enligt dagens `git status --short`.
+
+### Pågående problemlösning – bussparkering
+
+Den svåraste delen hittills är att hitta en hållbar lösning för bussen. Jag försökte tänka igenom problemet steg för steg innan jag börjar skriva kod. Min nuvarande strategi för nyparkering är:
+
+1. En buss anländer.
+2. Kontrollera att bussen inte redan är registrerad.
+3. Börja undersöka parkeringsplats 1.
+4. Kontrollera om platserna 1, 2, 3 och 4 är helt lediga.
+5. Om alla fyra är lediga: reservera platserna, registrera bussen som **ett** fordon och avsluta sökningen.
+6. Annars flyttas startpunkten till plats 2 och platserna 2, 3, 4 och 5 kontrolleras.
+7. Fortsätt tills fyra sammanhängande lediga platser hittas, men sök inte utanför bussområdet **1–50**.
+8. Om ingen giltig grupp hittas: meddela att bussen inte kan parkeras.
+
+Det återstår att bestämma hur de fyra platserna ska markeras som upptagna utan att samma buss sparas som fyra olika fordon. Sökning, JSON-lagring, flytt, utcheckning och frigöring av samtliga platser måste fungera tillsammans. Flyttreglerna behöver också kontrolleras mot uppgiftsbeskrivningen innan designen låses. **Detta är en planerad algoritm, inte en färdig eller testad implementation.**
+
+### Problem under dagen – Visual Studio 2026
+
+- Visual Studio kraschade efter att jag hade laddat ner flera teman. Jag vet inte säkert om temana orsakade kraschen, men efter återställningen saknades många av mina tidigare inställningar och tillägg. Jag fick felsöka och konfigurera om mycket manuellt.
+- Kodformateringen har fortsatt att krångla. Jag vill ha kompakta properties som `string Identifier { get; }`, men tydligt uppdelade metodblock. Inställningarna för `Wrapping` gav inte den automatiska formatering jag förväntade mig.
+- Jag undersökte också tangentbordsinställningarna och upptäckte att `Edit.FormatDocument` var kopplat till `Ctrl+E, D` i profilen **Visual C# 2005**, inte till `Ctrl+K, Ctrl+D` som jag hade försökt använda.
+- Jag väljer tills vidare att inte installera fler teman. Jag vill prioritera att utvecklingsmiljön är stabil och lägga tiden på programmeringen.
+
+### Mina personliga reflektioner
+
+Idag har jag lärt mig mer om Func. Vi gick igenom delegate lite under lektion 14–15, 
+men idag fick jag se hur det faktiskt kan användas i ett riktigt projekt. 
+Med Func<IVehicle, int> kan jag skicka en funktion som tar emot ett fordon och returnerar dess storlek, 
+utan att ParkingSpot behöver känna till JSON-konfigurationen. Jag har inte riktigt fått grepp om allt ännu, 
+så det är något jag behöver fördjupa mig i.
+
+### Nästa steg
+
+1. Fortsätta med `ParkingDataMapper.ToGarage()` och anpassa återställning till `SpotCapacity` och konfigurerade fordonsstorlekar.
+2. Migrera kvarvarande `VehiclesPerSpot`-beroenden i **endast V2.1**, och därefter ta bort överflödiga gamla metodvarianter.
+3. Slutföra standardkonfiguration, priser och validering för de fyra fordonstyperna samt anpassa återstående UI- och checkout-flöden.
+4. Designa och implementera bussreservationer med fyra sammanhängande platser, följt av flytt, utcheckning och JSON-persistens.
+5. Verifiera varje färdigt VG-flöde med funktionstester och omstarter. Dokumentera endast faktiskt genomförda tester som godkända.
+6. Uppdatera den centrala dokumentationen en fil i taget, granska Git-ändringarna och skapa en korrekt commit innan arbetet fortsätter för långt.
+
+**Avgränsning:** Tidigare idéer om frivillig Windows-betadistribution, Docker/Synology NAS, Cloudflare och Discord-feedback prioriteras inte längre. Projektet fokuserar nu på kurskrav och nödvändiga tester. Tidigare loggboksanteckningar om idéerna behålls som historik.

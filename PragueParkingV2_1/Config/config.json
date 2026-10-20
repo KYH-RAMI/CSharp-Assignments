@@ -1,0 +1,31 @@
+﻿{
+  "Pricing": {
+    "FreeMinutes": 10,
+    "CarHourlyPrice": 20,
+    "MotorcycleHourlyPrice": 10,
+    "BicycleHourlyPrice": 5,
+    "BusHourlyPrice": 80
+  },
+  "Garage": {
+    "NumberOfParkingSpots": 100,
+    "SpotCapacity": 4,
+    "BusMaxParkingSpot": 50
+  },
+  "System": {
+    "TimeZone": "Europe/Prague"
+  },
+  "VehicleTypes": {
+    "Car": {
+      "Size": 4
+    },
+    "MC": {
+      "Size": 2
+    },
+    "Bicycle": {
+      "Size": 1
+    },
+    "Bus": {
+      "Size": 16
+    }
+  }
+}

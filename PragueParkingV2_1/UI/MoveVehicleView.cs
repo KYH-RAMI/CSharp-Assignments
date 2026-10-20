@@ -1,0 +1,321 @@
+﻿using PragueParkingV2_1.Data.Configuration;
+using PragueParkingV2_1.Data.Persistence;
+using PragueParkingV2_1.Domain;
+using Spectre.Console;
+using PragueParkingV2_1.Application;
+
+namespace PragueParkingV2_1.UI
+{
+    internal static class MoveVehicleView
+    {
+        public static void Show(
+            ParkingGarage parkingGarage,
+            AppConfiguration configuration,
+            ParkingDataService parkingDataService)
+        {
+            AppTheme.PrepareScreen();
+            const int formWidth = 62;
+
+            int leftMargin = Math.Max(
+                0,
+                (Console.WindowWidth - formWidth) / 2);
+
+            string padding = new string(' ', leftMargin);
+
+            string content =
+                $"[{AppTheme.Muted}]" +
+                $"Enter the vehicle registration number.\n" +
+                $"Leave empty and press Enter to go back." +
+                $"[/]";
+
+            var panel = AppTheme.CreatePanel(
+                new Markup(content),
+                title: "MOVE VEHICLE",
+                width: 62);
+
+            AppTheme.WriteCenteredPanel(panel);
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.WriteLine();
+
+            Console.SetCursorPosition(
+                leftMargin,
+                Console.CursorTop);
+
+            string identifier = AnsiConsole.Prompt(
+                new TextPrompt<string>(
+                    $"{padding}[{AppTheme.Gold}]Registration ID:[/] ")
+                .AllowEmpty());
+            
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                return;
+            }
+            identifier = identifier.Trim();
+
+            var vehicle = parkingGarage.FindVehicle(identifier);
+
+            if (vehicle is null)
+            {
+                MessageService.ShowError(
+                    $"Vehicle '{identifier}' was not found.");
+
+                return;
+            }
+            var sourceSpot = parkingGarage.ParkingSpots.FirstOrDefault(
+                spot => spot.ParkedVehicles.Contains(vehicle));
+            if (sourceSpot is null)
+            {
+                MessageService.ShowError(
+                    $"Parking spot for '{identifier}' was not found.");
+
+                return;
+            }
+            AnsiConsole.WriteLine();
+            string currentspot =
+                $"\n[bold {AppTheme.GoldLight}]VEHICLE FOUND[/]\n\n" +
+                $"[{AppTheme.Muted}]" +
+                $"Registration: {Markup.Escape(identifier)}\n" +
+                $"Current Spot: {sourceSpot.SpotNumber:D3}\n" +
+                $"[/]";
+
+            var spotpanel = AppTheme.CreatePanel(
+               new Markup(currentspot),
+               title: "STATUS OF VEHICLE",
+               width: 62);
+
+            AppTheme.WriteCenteredPanel(spotpanel);
+
+            AnsiConsole.WriteLine();
+            AnsiConsole.WriteLine();
+
+            string newspot =
+                $"[{AppTheme.Muted}]" +
+                $"Enter the new SPOT number to move vehicle to.\n" +
+                $"Leave empty and press Enter to go back." +
+                $"[/]";
+
+            var newspotpanel = AppTheme.CreatePanel(
+                new Markup(newspot),
+                title: "MOVE VEHICLE",
+                width: 62);
+            AnsiConsole.WriteLine();
+            AppTheme.WriteCenteredPanel(newspotpanel);
+            AnsiConsole.WriteLine();
+            AnsiConsole.WriteLine();
+            string vehicleType = vehicle switch
+            {
+                Car => "Car",
+                MC => "MC",
+
+                _ => throw new InvalidOperationException(
+                    "Unsupported vehicle type.")
+            };
+
+            int capacity =
+                configuration.VehicleTypes![vehicleType]
+                    .VehiclesPerSpot;
+
+            int targetSpotNumber;
+
+            // Sparar positionen där Spot-inmatningen börjar.
+            int spotAreaTop = Console.CursorTop;
+
+            // Innehåller det senaste felmeddelandet.
+            string? errorMessage = null;
+
+            while (true)
+            {
+                // Gå tillbaka till början av inmatningsområdet.
+                Console.SetCursorPosition(0, spotAreaTop);
+
+                // Rensa endast området nedanför markören.
+                Console.Write("\x1b[0J");
+
+                // Visa det senaste felet, om något finns.
+                if (errorMessage is not null)
+                {
+                    MessageService.ShowError(errorMessage);
+                    AnsiConsole.WriteLine();
+                }
+                Console.SetCursorPosition(
+                    leftMargin,
+                    Console.CursorTop);
+
+                string spot = AnsiConsole.Prompt(
+                    new TextPrompt<string>(
+                        $"{padding}[{AppTheme.Gold}]Spot:[/] ")
+                    .AllowEmpty());
+
+                // Avbryt flytten.
+                if (string.IsNullOrWhiteSpace(spot))
+                {
+                    return;
+                }
+
+                // Kontrollera att användaren angav ett heltal.
+                if (!int.TryParse(spot, out targetSpotNumber))
+                {
+                     errorMessage =
+                        "Please enter a valid parking spot number.";
+
+                    continue;
+                }
+
+                // Kontrollera att platsen finns.
+                if (targetSpotNumber < 1 ||
+                    targetSpotNumber > parkingGarage.ParkingSpots.Count)
+                {
+                    errorMessage =
+                        $"Parking spot must be between 1 and {parkingGarage.ParkingSpots.Count}.";
+                  
+                    continue;
+                }
+
+                // Kontrollera att fordonet inte redan står där.
+                if (targetSpotNumber == sourceSpot.SpotNumber)
+                {
+                    errorMessage =
+                        $"Vehicle '{identifier}' is already parked at spot {targetSpotNumber:D3}.";
+                 
+                    continue;
+                }
+                // Kontrollera att destinationsplatsen kan ta emot fordonet.
+                var targetSpot = parkingGarage.ParkingSpots.FirstOrDefault(
+                    spot => spot.SpotNumber == targetSpotNumber);
+
+                if (targetSpot is null ||
+                    !targetSpot.CanPark(vehicle, capacity))
+                {
+                    errorMessage =
+                        $"Parking spot {targetSpotNumber:D3} is not available for this vehicle.";
+
+                    continue;
+                }
+
+                break;
+
+
+            }
+            Console.SetCursorPosition(0, spotAreaTop);
+            Console.Write("\x1b[0J");
+
+            string summary =
+                $"[{AppTheme.Muted}]" +
+                $"Registration: {Markup.Escape(identifier)}\n" +
+                $"Current Spot: {sourceSpot.SpotNumber:D3}\n" +
+                $"Target Spot: {targetSpotNumber:D3}" +
+                $"[/]";
+            
+            var confirmationPanel = AppTheme.CreatePanel(
+                new Markup(summary),
+                title: "MOVE CONFIRMATION",
+                width: 62);
+            
+            AppTheme.WriteCenteredPanel(confirmationPanel);
+            AnsiConsole.WriteLine();
+
+            Console.SetCursorPosition(
+                leftMargin,
+                Console.CursorTop);
+            
+            bool confirmed = AnsiConsole.Confirm(
+                $"{padding}[{AppTheme.Gold}]Confirm move?[/]",
+                defaultValue: false);
+
+            if (!confirmed)
+            {
+                return;
+            }
+           
+
+            try
+            {
+                parkingGarage.MoveVehicle(
+                    identifier,
+                    targetSpotNumber,
+                    capacity);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageService.ShowError(
+                    ex.Message,
+                    waitForKey: true);
+
+                return;
+            }
+
+            try
+            {
+                var document =
+                    ParkingDataMapper.ToDocument(parkingGarage);
+
+                parkingDataService.Save(document);
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException)
+            {
+                // Återställ fordonets ursprungliga placering.
+                try
+                {
+                    parkingGarage.MoveVehicle(
+                        identifier,
+                        sourceSpot.SpotNumber,
+                        capacity);
+                }
+                catch (Exception rollbackEx)
+                {
+                    MessageService.ShowError(
+                        $"Failed to save parking data: {ex.Message}\n" +
+                        $"Could not restore the original parking spot: {rollbackEx.Message}",
+                        waitForKey: true);
+
+                    return;
+                }
+
+                MessageService.ShowError(
+                    $"Failed to save parking data: {ex.Message}\n" +
+                    "The vehicle has been returned to its original spot.",
+                    waitForKey: true);
+
+                return;
+            }
+
+            AppTheme.PrepareScreen();
+
+            string successContent =
+                $"Vehicle moved successfully!\n\n" +
+                $"Vehicle Type: {vehicleType}\n" +
+                $"Registration: {Markup.Escape(identifier)}\n" +
+                $"Previous Spot: {sourceSpot.SpotNumber:D3}\n" +
+                $"New Spot: {targetSpotNumber:D3}";
+
+            var successPanel = AppTheme.CreatePanel(
+                new Markup(successContent),
+                title: "MOVE COMPLETED",
+                width: 62,
+                borderColor: AppTheme.SuccessBorderColor);
+
+            AppTheme.WriteCenteredPanel(successPanel);
+
+            AnsiConsole.WriteLine();
+
+            Console.SetCursorPosition(
+                leftMargin,
+                Console.CursorTop);
+
+            AnsiConsole.MarkupLine(
+                $"[{AppTheme.Muted}]Press any key to continue...[/]");
+
+            Thread.Sleep(3000);
+
+            while (Console.KeyAvailable)
+            {
+                Console.ReadKey(intercept: true);
+            }
+
+            Console.ReadKey(intercept: true);
+
+        }
+    }
+}

@@ -1,9 +1,13 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-16  
-**Omfattning:** Konfiguration för Prague Parking 2.0 (G), med avgränsningar inför Prague Parking 2.1 (VG).
+**Uppdaterad:** 2026-10-20  
+**Omfattning:** Gemensam dokumentation för Prague Parking 2.0 (G) och Prague Parking 2.1 (VG). Konfiguration och kördata hålls åtskilda mellan versionernas projekt.
 
-## Konfigurationsstruktur
+**Aktuellt läge:** G-versionens `VehiclesPerSpot`, JSON-validering och menybaserade **Reload Pricing** är implementerade och manuellt testade. V2.1 är skapad i samma solution och migreringen till storleksbaserad kapacitet har **påbörjats**. `Size`, `SpotCapacity` och flera överlagrade parkeringsmetoder finns på kodnivå, men gamla anrop återstår. Fullständig konfigurationsomläsning, stöd för alla nya prisregler och genomgående VG-tester är **inte verifierade**.
+
+> **Läsanvisning:** Fram till avsnittet **”Prague Parking 2.1 (VG) – Ny konfigurationsmodell”** dokumenteras den **befintliga G-versionen** och dess tester. G-konfigurationens JSON-exempel ska inte användas för att ersätta V2.1:s konfiguration.
+
+## Prague Parking 2.0 (G) – Konfigurationsstruktur
 
 ```mermaid
 flowchart TD
@@ -31,7 +35,7 @@ flowchart TD
 
 Diagrammet beskriver **standardkonfigurationen för G-versionen**. `NumberOfParkingSpots = 100` är det faktiska standardvärdet, men inte ett fast antal platser i programkoden: administratören kan ändra det via konfigurationen. Fordonstyperna `Bicycle` och `Bus` ingår ännu inte.
 
-## Exempel på `config.json`
+## G – Exempel på `config.json`
 
 ```json
 {
@@ -326,50 +330,132 @@ den nuvarande G-modellen.
 > Den generella storleksmodellen med storleksenheter för Bicycle, MC, Car
 > och Bus införs först i Prague Parking 2.1 (VG).
 
-## Avgränsning inför Prague Parking 2.1 (VG)
+## Prague Parking 2.1 (VG) – Ny konfigurationsmodell
 
-I VG-versionen ska konfigurationen kunna utökas med fler fordonstyper,
-priser och kapacitetsregler, utan att G-versionens nuvarande
-konfigurationsformat ändras i förtid.
+**Status 2026-10-20: Under utveckling.** V2.1 har egna projekt (`PragueParkingV2_1` och `PragueParkingV2_1.Data`) och utgår från G-versionen utan att dess konfiguration skrivs om. V2.1 ska styra parkeringskapaciteten med **storleksenheter** i stället för antalet fordon per plats.
 
-Den planerade storleksmodellen är:
+### Skillnaden mellan G och VG
 
-```text
-Bicycle = 1 storleksenhet
-MC      = 2 storleksenheter
-Car     = 4 storleksenheter
-Bus     = 16 storleksenheter
+| Inställning | V2.0 (G) | V2.1 (VG) |
+|---|---|---|
+| Vanlig parkeringsplats | Antal fordon begränsas per typ | `Garage.SpotCapacity = 4` storleksenheter |
+| Bil | `VehiclesPerSpot = 1` | `VehicleTypes.Car.Size = 4` |
+| Motorcykel | `VehiclesPerSpot = 2` | `VehicleTypes.MC.Size = 2` |
+| Cykel | Stöds inte | `VehicleTypes.Bicycle.Size = 1` |
+| Buss | Stöds inte | `VehicleTypes.Bus.Size = 16`, kräver fyra platser |
+| Garageantal | `NumberOfParkingSpots = 100` | `NumberOfParkingSpots = 100` som utgångsvärde |
+| Prisomläsning | Endast priser via **Reload Pricing** | Hela konfigurationen ska kunna läsas om – **återstår** |
 
-Normal parkeringsplats = 4 storleksenheter
+**Viktigt:** Den nya storleksmodellen gör det möjligt att kontrollera kombinationer av fordonsstorlekar genom att summera deras kapacitetsenheter. Det betyder inte att allt stöd för blandad parkering, cyklar eller bussar redan är färdigt i UI, persistens och flyttflöden.
+
+### Målsatt exempel på `PragueParkingV2_1/Config/config.json`
+
+```json
+{
+  "Pricing": {
+    "FreeMinutes": 10,
+    "CarHourlyPrice": 20,
+    "MotorcycleHourlyPrice": 10,
+    "BicycleHourlyPrice": 5,
+    "BusHourlyPrice": 80
+  },
+  "Garage": {
+    "NumberOfParkingSpots": 100,
+    "SpotCapacity": 4,
+    "BusMaxParkingSpot": 50
+  },
+  "System": {
+    "TimeZone": "Europe/Prague"
+  },
+  "VehicleTypes": {
+    "Car": { "Size": 4 },
+    "MC": { "Size": 2 },
+    "Bicycle": { "Size": 1 },
+    "Bus": { "Size": 16 }
+  }
+}
 ```
 
-De planerade timpriserna för de nya fordonstyperna är 5 CZK för `Bicycle`
-och 80 CZK för `Bus`, enligt VG-kraven. Dessa värden ingår **inte** i
-ovanstående `config.json` för G-versionen.
+Detta är **målstrukturen för V2.1**, inte ett bevis på att samtliga värden redan kan användas i alla flöden. `Size` och `SpotCapacity` har införts i V2.1:s konfigurationsmodell och används i den nya kapacitetslogiken. De extra priserna, `BusMaxParkingSpot`, standardkonfigurationen som skapas om runtime-filen saknas och fullständig validering måste slutkontrolleras mot den faktiska koden innan exemplet betraktas som verifierat.
 
-En buss behöver **fyra sammanhängande parkeringsplatser** (4 × 4 = 16
-storleksenheter) och ska behandlas som **ett fordon**, inte fyra separata.
-Enligt användarens avstämning med läraren får **de första 50 platserna
-reserveras som bussområde i stället för att införa en separat takhöjdsmodell**.
-Vid nyparkering ska de fyra sammanhängande platserna därför ligga inom
-001–050. Ingen särskild takhöjdsegenskap behövs i G- eller VG-modellen.
+`BusMaxParkingSpot` uttrycker den **avsedda gränsen 50** för bussens nyparkering. Detta fält är ett förslag till konfigurerbar regel tills dess användning och validering är bekräftad i implementationen. En buss får vid nyparkering bara använda en grupp om fyra *helt lediga, sammanhängande* platser som ryms inom 1–50; sista möjliga startplatsen är därför 47. **Övriga fordon får också parkera på platserna 1–50** – området är inte exklusivt reserverat för bussar. Regeln för bussflytt utanför området är inte slutligt fastställd.
 
-**Öppen avgränsning:** En tidigare projekttolkning tillät flytt av en redan
-parkerad buss till fyra sammanhängande platser efter nummer 50. Detta är
-inte bekräftat i den återgivna läraravstämningen; därför ska inte denna
-flyttregel beskrivas som fastställd innan den har klargjorts. Placering och
-flytt måste i båda fallen respektera kravet på fyra sammanhängande platser.
+### Så används fordonsstorlekarna i koden
 
-VG-versionen ska också kunna läsa om **hela konfigurationen** under körning.
-En omläsning måste valideras mot det aktuella garagetillståndet innan nya
-regler aktiveras, så att redan parkerade fordon inte hamnar i ett ogiltigt
-tillstånd. Då ska också det som visas i UI återspegla den nya konfigurationen.
+I V2.1 har `VehicleTypeConfiguration` fått egenskapen `Size` och `GarageConfiguration` fått `SpotCapacity`. `ParkingSpot` kan räkna hur mycket kapacitet som redan används via:
 
-**Separat VG-krav om testdata:** Om `parking-data.json` saknas i 2.1 ska
-programmet automatiskt skapa datafilen **och fylla den med giltiga testdata**.
-Det ska inte blandas ihop med G-versionens beteende vid saknad datafil, där
-ett tomt garage kan byggas upp i minnet.
+```csharp
+public int GetUsedCapacity(Func<IVehicle, int> getSize)
+```
 
-Dessa VG-funktioner är **planerade, inte implementerade**. De dokumenteras
-här för att den befintliga arkitekturen ska kunna vidareutvecklas utan
-onödiga format- eller strukturbyten.
+V2.1:s `ParkVehicleView` skickar in den konfigurerade platskapaciteten och en funktion som slår upp storleken:
+
+```csharp
+int spotCapacity = configuration.Garage!.SpotCapacity;
+
+Func<IVehicle, int> getSize = vehicle =>
+    configuration.VehicleTypes![vehicle.GetType().Name].Size;
+
+ParkingSpot assignedSpot = parkingGarage.ParkVehicle(
+    vehicle,
+    spotCapacity,
+    getSize);
+```
+
+`Func<IVehicle, int>` är en **delegattyp**: funktionen tar emot ett `IVehicle` och returnerar en `int`. `ParkingSpot` anropar delegaten utan att känna till JSON-filens struktur eller `ConfigurationService`. Den mottagna funktionen hämtar storleken via den redan inlästa konfigurationsmodellen – **den läser inte JSON-filen vid varje anrop**.
+
+Metoderna `CanPark()`, `ParkVehicle()`, `FindAvailableSpot()` och `ParkVehicleAtSpot()` har överlagringar under migreringen. Överlagring betyder att metoderna har samma namn men **olika parameterlistor**; det räcker inte att enbart ändra returtypen. Den gamla `VehiclesPerSpot`-varianten finns tillfälligt kvar i V2.1 för anrop som ännu inte flyttats över. G-versionens kod ska inte ändras i denna migrering.
+
+**Bussens storlek 16 överskrider en vanlig platskapacitet på 4.** Därför kan bussen inte parkeras korrekt via den vanliga enplatsmetoden: den behöver särskild garagelogik som samordnar fyra sammanhängande lediga platser och registrerar **en buss**, med en konsekvent hantering av sökning, flytt, borttagning och JSON.
+
+### Konfigurationsvalidering – nuvarande och återstående arbete
+
+**Genomfört i V2.1 på kodnivå:** `ConfigurationService.ValidateConfiguration()` har ändrats för att gå igenom posterna i `VehicleTypes` med `foreach`. Kontrollen avser bland annat att det finns fordonstyper, att typen har ett giltigt namn och att varje `Size` är större än noll. Därmed är den tidigare hårdkodade Car/MC-kontrollen delvis ersatt av en generell storlekskontroll.
+
+**Återstår att implementera eller verifiera:**
+
+- Att `Garage.SpotCapacity` är positiv och används konsekvent i samtliga flöden.
+- Att alla fordonstyper som ska gå att parkera faktiskt finns i konfigurationen och har giltiga storlekar; saknad nyckel i `VehicleTypes` får inte resultera i ett obehandlat uppslagsfel.
+- Att cykel- och busspriser finns i både konfigurationsmodellen, standardkonfigurationen och prisberäkningen samt valideras.
+- Att en eventuell inställning för bussområdet motsvarar ett giltigt intervall inom garaget och tillåter fyra sammanhängande platser.
+- Att `ConfigurationService.CreateDefaultConfiguration()` skapar **V2.1-värden** och inte återgår till G-versionens gamla `VehiclesPerSpot`-standard vid saknad runtime-fil.
+- Att återställning från `parking-data.json`, flytt, utcheckning och `GarageOverView` använder den nya kapacitetsmodellen innan gamla V2.1-överlagringar tas bort.
+
+Att skriva en ny post i `VehicleTypes` gör **inte automatiskt** att C# kan skapa en godtycklig ny fordonsklass. Skapande av fordonsobjekt, menyval, priser, datavalidering och återställning måste stödja typen. Möjligheten att lägga till helt nya fordonstyper enbart via JSON är därför ännu inte etablerad.
+
+### Fullständig omläsning under körning – VG-krav som återstår
+
+I G fungerar **Administration → Reload Pricing** och ändrar endast aktiva priser. **V2.1 ska däremot kunna läsa om hela konfigurationen** utan omstart.
+
+Planerat säkert flöde:
+
+1. Läs in en ny konfiguration separat, utan att direkt ersätta den aktiva.
+2. Validera filens värden, priser, storlekar, platsantal och övriga regler.
+3. Kontrollera de nya reglerna mot **redan parkerade fordon**, inklusive varje upptagen plats och en eventuell buss fyra sammanhängande reservationer.
+4. Om allt är giltigt: aktivera förändringarna samordnat så att domänmodell, priser och UI använder samma konfiguration.
+5. Vid fel: behåll föregående giltiga inställningar och garagets nuvarande tillstånd och visa ett begripligt felmeddelande.
+
+**Detta är en målbeskrivning, inte en implementerad eller testad funktion.** Om `NumberOfParkingSpots` sänks under numret för en redan upptagen plats får ändringen exempelvis inte genomföras. Den nya prislistan får inte heller aktiveras delvis om övriga inställningar är ogiltiga.
+
+### Runtime-filer och versionsgräns
+
+- **V2.0:** `PragueParkingV2/Config/config.json` som projektfil; vid körning används G-projektets kopia under `AppContext.BaseDirectory/Config/`.
+- **V2.1:** `PragueParkingV2_1/Config/config.json` som projektfil; vid körning används V2.1-projektets motsvarande kopia under dess **egna** `AppContext.BaseDirectory/Config/`.
+- Båda versionerna kan därför ha olika aktiva inställningar. Ändringar i en projektfil behöver inte vara identiska med en redan befintlig runtime-kopia under `bin/Debug/net10.0/Config/`.
+- `parking-data.json` är en **separat fil** med parkerade fordon. För V2.1 återstår VG-kravet att skapa och fylla en saknad datafil med giltiga testfordon; detta är **inte** en uppgift för `config.json`.
+
+### Status och planerade verifieringar
+
+| Kontroll | Status 2026-10-20 |
+|---|---|
+| G: Prisomläsning 20 → 30 CZK och avvisning av −10 CZK | **Manuellt verifierad 2026-10-16** |
+| G: Garage med 100, 200 och 1 000 platser | **Manuellt verifierat 2026-10-16** |
+| VG: Nya storleksegenskaper och överlagrade metoder | **Kod skapad, byggning lyckad** |
+| VG: `ParkVehicleView` använder `SpotCapacity` och `Func` | **Kodändring genomförd; fullständigt flödestest återstår** |
+| VG: `ParkingDataMapper.ToGarage()` med nya storleksregler | **Migrering återstår** |
+| VG: Fullständig validering, nya priser och standardvärden | **Delvis genomfört eller ännu ej verifierat** |
+| VG: Bussens fyra platser, flytt och JSON-återställning | **Ej implementerat** |
+| VG: Omläsning av hela konfigurationen utan omstart | **Ej implementerat** |
+| VG: Start med saknad datafil och automatiska testfordon | **Ej implementerat** |
+
+Se även [`requirements.md`](requirements.md), [`design-decisions.md`](design-decisions.md), [`parking-data.md`](parking-data.md) och [`project-plan.md`](project-plan.md) för kravstatus, arkitektur, lagring respektive utvecklingsordning.
