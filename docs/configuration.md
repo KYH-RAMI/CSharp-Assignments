@@ -1,11 +1,13 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-20  
+**Uppdaterad:** 2026-10-21  
 **Omfattning:** Gemensam dokumentation för Prague Parking 2.0 (G) och Prague Parking 2.1 (VG). Konfiguration och kördata hålls åtskilda mellan versionernas projekt.
 
 **Aktuellt läge:** G-versionens `VehiclesPerSpot`, JSON-validering och menybaserade **Reload Pricing** är implementerade och manuellt testade. V2.1 är skapad i samma solution och migreringen till storleksbaserad kapacitet har **påbörjats**. `Size`, `SpotCapacity` och flera överlagrade parkeringsmetoder finns på kodnivå, men gamla anrop återstår. Fullständig konfigurationsomläsning, stöd för alla nya prisregler och genomgående VG-tester är **inte verifierade**.
 
 > **Läsanvisning:** Fram till avsnittet **”Prague Parking 2.1 (VG) – Ny konfigurationsmodell”** dokumenteras den **befintliga G-versionen** och dess tester. G-konfigurationens JSON-exempel ska inte användas för att ersätta V2.1:s konfiguration.
+
+**Aktuellt läge 2026-10-21:** V2.1 använder nu en **separat `config.template.json` som mall**. `ConfigurationService` kopierar mallen till aktiv runtime-`config.json` vid saknad fil, men bevarar/validerar befintliga inställningar. Konfigurationsklasser och validering är kompletterade för Bicycle, Bus, `SpotCapacity` och `BusMaxParkingSpot`. V2.1 har startat med den nya mallen. **Fullständig omläsning under körning och färdig prisberäkning för Bicycle/Bus återstår.** Anteckningar med status 2026-10-20 nedan beskriver tidigare läge.
 
 ## Prague Parking 2.0 (G) – Konfigurationsstruktur
 
@@ -459,3 +461,30 @@ Planerat säkert flöde:
 | VG: Start med saknad datafil och automatiska testfordon | **Ej implementerat** |
 
 Se även [`requirements.md`](requirements.md), [`design-decisions.md`](design-decisions.md), [`parking-data.md`](parking-data.md) och [`project-plan.md`](project-plan.md) för kravstatus, arkitektur, lagring respektive utvecklingsordning.
+
+---
+
+## V2.1 – verifierad mallhantering och aktuell struktur 2026-10-21
+
+### Filer och ansvar
+
+| Sökväg | Funktion |
+|---|---|
+| `PragueParkingV2_1/Config/config.template.json` | Versionshanterad standardmall i projektet |
+| `PragueParkingV2_1/bin/Debug/net10.0/Config/config.template.json` | Mall kopierad av byggsystemet (`None Update`, `PreserveNewest`) |
+| `PragueParkingV2_1/bin/Debug/net10.0/Config/config.json` | Aktiv, administrerbar runtime-konfiguration |
+
+`ConfigurationService.GetConfigurationPath()` använder `AppContext.BaseDirectory/Config/config.json`. `GetTemplatePath()` använder motsvarande `config.template.json`. När den aktiva filen saknas kontrolleras mallen och kopieras med `File.Copy(templatePath, path)` **utan overwrite**. Sedan läses JSON in till `AppConfiguration` och valideras. En befintlig ogiltig konfiguration ska fortfarande orsaka ett tydligt uppstartsfel; den ersätts inte automatiskt med standardvärden.
+
+En äldre runtime-`config.json` från G-liknande struktur orsakade `Vehicle type 'Car' must have a size greater than zero`. Den säkerhetskopierades som `config.backup-before-v2.1.json`; den uppdaterade mallen kunde sedan användas. PowerShell bekräftade att mallen fanns i körkatalogen, och programmet startade efteråt.
+
+### Mallens värden
+
+- `Pricing`: `FreeMinutes = 10`, `CarHourlyPrice = 20`, `MotorcycleHourlyPrice = 10`, `BicycleHourlyPrice = 5`, `BusHourlyPrice = 80`.
+- `Garage`: `NumberOfParkingSpots = 100`, `SpotCapacity = 4`, `BusMaxParkingSpot = 50`.
+- `System.TimeZone = Europe/Prague`.
+- `VehicleTypes`: `Car.Size = 4`, `MC.Size = 2`, `Bicycle.Size = 1`, `Bus.Size = 16`.
+
+**Validering på kodnivå:** Required sections, antal platser 1–1 000, positiv `SpotCapacity`, `BusMaxParkingSpot` minst 4 och högst `NumberOfParkingSpots`, icke-negativa priser, tidszon, fyra obligatoriska fordonstyper och positiv `Size` per typ.
+
+**Avgränsning:** Det är fortfarande inte möjligt att få en helt ny fordonsklass i programmet enbart genom en ny JSON-nyckel. `ParkingFeeCalculator` och UI måste också stödja fordonstypen. Full reload utan omstart och kontroll mot redan parkerade fordon är inte implementerad. Storlek för bussens fyra platser kontrolleras för närvarande i `ParkingGarage` som `busSize == spotCapacity * 4`.

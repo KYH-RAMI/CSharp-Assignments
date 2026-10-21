@@ -9,9 +9,11 @@ Applikationen använder Spectre.Console för ett interaktivt konsolgränssnitt m
 **Framework:** .NET 10  
 **Language:** C#  
 **Status:** V2.0 (G) färdig och testad; V2.1 (VG) under utveckling  
-**Last Updated:** 2026-10-20
+**Last Updated:** 2026-10-21
 
 > **Aktuellt läge 2026-10-20:** **Prague Parking V2.0 (G)** är färdig, manuellt testad och dokumenterad. Testhistoriken längre ned avser den versionen och behålls som referens. **Prague Parking V2.1 (VG)** har skapats som två nya projekt i samma solution och har startat med kopierad, separat kod. Namnrymderna har uppdaterats, `IVehicle`, `Bicycle` och `Bus` har tillkommit och migreringen från `VehiclesPerSpot` till storleksbaserad kapacitet pågår. Flera delsteg har kompilerat utan fel, men **hela V2.1:s nya parkeringsflöden, JSON-återställning och busslogik är ännu inte verifierade**. Den gemensamma inlämningen är därför inte färdig.
+> **Aktuellt läge 2026-10-21 – V2.1 (VG):** Projektet körs på den separata Git-branchen `feature/prague-parking-v2.1`. Storleksbaserad parkering har införts för Car/MC/Bicycle i nyparkering, flytt, JSON-återställning och utcheckningens rollback. Bil `UKB48K` flyttades 001 → 003 och hittades där efter omstart; flytt till upptagen 002 nekades. Första Bicycle kunde registreras. `IParkingSpot` har implementerats och bussens fyra-platser-logik (`ParkBus`, `ParkBusAtSpot`, reservation och frigöring) har byggts, men **inte funktionstestats genom ett helt bussflöde**. Garage Overview kraschar med Bicycle och kräver ombyggnad. Cykel-/bussavgifter, full konfigurationsomläsning, bussflytt och testdata vid saknad datafil återstår. Äldre 2026-10-20-status nedan är historik, inte dagens utvecklingsläge.
+
 ---
 
 ## Project Overview
@@ -617,3 +619,17 @@ Ingen färdig GitHub-länk eller publicerad release anges här eftersom detta in
 This project is being developed as the second individual assignment in the C# programming course at KYH.
 
 The assignment focuses on object-oriented programming, application architecture, data persistence, and console-based user interfaces using C# and .NET 10.
+
+---
+
+## Utvecklingsuppdatering 2026-10-21 – Prague Parking 2.1
+
+**Tekniskt genomfört:** `IParkingSpot`/`ParkingSpot`; `ReservedByBus`, `ReserveForBus`, `ReleaseBusReservation`, `ParkBusAtPrimarySpot`; `ParkingGarage.FindAvailableBusSpots`, `FindAvailableBusSpotsAt`, `ParkBus` och `ParkBusAtSpot`. `RemoveVehicle` frigör på kodnivå alla fyra bussreservationer. `ParkingDataMapper.ToGarage` väljer `ParkBusAtSpot` för Bus; `ParkingDataService` godkänner nu Bicycle och Bus; `CheckOutVehicleView` har särskild återställning för Bus vid sparfel.
+
+**Konfigurationsändring:** V2.1:s standardinställningar ligger i `PragueParkingV2_1/Config/config.template.json`; endast denna fil kopieras till runtime. `ConfigurationService` kopierar den till aktiv `Config/config.json` **endast när den aktiva filen saknas**, läser/validerar sedan den aktiva filen och lämnar en befintlig fil orörd. `config.json` är alltså runtime-/administrationsfilen, inte en mall som skrivs över vid varje build.
+
+**Manuellt verifierat:** V2.1 startar efter mallhantering; bil `UKB48K` kunde inte flyttas till full plats 002, kunde flyttas från 001 till 003 och återställdes på 003 efter omstart; en cykelregistrering lyckades. **Inte verifierat:** fyra cyklar på samma plats, Bicycle efter omstart, full bussparkering/utcheckning/flytt/JSON-omstart eller robust felinjektion i V2.1. Garage Overview har ett observerat körfel för Bicycle och är inte klar för VG.
+
+**Git:** Tidigare commit `273d2c73` verifierades på fjärrbranchen `feature/prague-parking-v2.1`. Ändringarna från den 21 oktober ska granskas och committas separat; ingen ny push av dessa ändringar är verifierad.
+
+Se `LOGGBOK.md` för detaljerad arbetsdag och `docs/requirements.md` för spårbar kravstatus. G-versionen och dess historiska testresultat är separata.

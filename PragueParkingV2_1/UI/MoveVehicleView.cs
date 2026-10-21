@@ -103,18 +103,11 @@ namespace PragueParkingV2_1.UI
             AppTheme.WriteCenteredPanel(newspotpanel);
             AnsiConsole.WriteLine();
             AnsiConsole.WriteLine();
-            string vehicleType = vehicle switch
-            {
-                Car => "Car",
-                MC => "MC",
 
-                _ => throw new InvalidOperationException(
-                    "Unsupported vehicle type.")
-            };
+            int spotCapacity = configuration.Garage!.SpotCapacity;
 
-            int capacity =
-                configuration.VehicleTypes![vehicleType]
-                    .VehiclesPerSpot;
+            Func<IVehicle, int> getSize = v =>
+            configuration.VehicleTypes![v.GetType().Name].Size;
 
             int targetSpotNumber;
 
@@ -185,7 +178,7 @@ namespace PragueParkingV2_1.UI
                     spot => spot.SpotNumber == targetSpotNumber);
 
                 if (targetSpot is null ||
-                    !targetSpot.CanPark(vehicle, capacity))
+                    !targetSpot.CanPark(vehicle, spotCapacity, getSize))
                 {
                     errorMessage =
                         $"Parking spot {targetSpotNumber:D3} is not available for this vehicle.";
@@ -234,7 +227,8 @@ namespace PragueParkingV2_1.UI
                 parkingGarage.MoveVehicle(
                     identifier,
                     targetSpotNumber,
-                    capacity);
+                      spotCapacity,
+                      getSize);
             }
             catch (InvalidOperationException ex)
             {
@@ -261,7 +255,8 @@ namespace PragueParkingV2_1.UI
                     parkingGarage.MoveVehicle(
                         identifier,
                         sourceSpot.SpotNumber,
-                        capacity);
+                          spotCapacity,
+                          getSize);
                 }
                 catch (Exception rollbackEx)
                 {
@@ -285,7 +280,7 @@ namespace PragueParkingV2_1.UI
 
             string successContent =
                 $"Vehicle moved successfully!\n\n" +
-                $"Vehicle Type: {vehicleType}\n" +
+                $"Vehicle Type: {vehicle.GetType().Name}\n" +
                 $"Registration: {Markup.Escape(identifier)}\n" +
                 $"Previous Spot: {sourceSpot.SpotNumber:D3}\n" +
                 $"New Spot: {targetSpotNumber:D3}";

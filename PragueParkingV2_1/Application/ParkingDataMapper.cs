@@ -76,6 +76,11 @@ namespace PragueParkingV2_1.Application
             var garage = new ParkingGarage(
                 configuration.Garage!.NumberOfParkingSpots);
 
+            int spotCapacity = configuration.Garage.SpotCapacity;
+
+            Func<IVehicle, int> getSize = vehicle =>
+                configuration.VehicleTypes![vehicle.GetType().Name].Size;
+
             foreach (var spotData in document.ParkingSpots)
             {
                 if (spotData.SpotNumber < 1 ||
@@ -91,15 +96,26 @@ namespace PragueParkingV2_1.Application
                 {
                     Vehicle vehicle = ToVehicle(vehicleData);
 
-                    int capacity = configuration.VehicleTypes![
-                        vehicleData.VehicleType].VehiclesPerSpot;
 
                     try
                     {
-                        garage.ParkVehicleAtSpot(
-                            vehicle,
-                            spotData.SpotNumber,
-                            capacity);
+                        if (vehicle is Bus bus)
+                        {
+                            garage.ParkBusAtSpot(
+                                bus,
+                                spotData.SpotNumber,
+                                spotCapacity,
+                                getSize(bus),
+                                configuration.Garage.BusMaxParkingSpot);
+                        }
+                        else
+                        {
+                            garage.ParkVehicleAtSpot(
+                                vehicle,
+                                spotData.SpotNumber,
+                                spotCapacity,
+                                getSize);
+                        }
                     }
                     catch (InvalidOperationException ex)
                     {

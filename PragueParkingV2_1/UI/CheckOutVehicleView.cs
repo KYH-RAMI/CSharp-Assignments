@@ -123,16 +123,11 @@ namespace PragueParkingV2_1.UI
 
                 return;
             }
-            string vehicleType = vehicle switch
-            {
-                Car => "Car",
-                MC => "MC",
 
-                _ => throw new InvalidOperationException(
-                    "Unsupported vehicle type.")
-            };
-            int capacity =
-                configuration.VehicleTypes![vehicleType].VehiclesPerSpot;
+            int spotCapacity = configuration.Garage!.SpotCapacity;
+
+            Func<IVehicle, int> getSize = vehicle =>
+                configuration.VehicleTypes![vehicle.GetType().Name].Size;
 
             var checkoutService = new CheckoutService(
                 parkingGarage,
@@ -151,10 +146,23 @@ namespace PragueParkingV2_1.UI
             catch (Exception ex) when (
                 ex is IOException or UnauthorizedAccessException)
             {
-                parkingGarage.ParkVehicleAtSpot(
-                    vehicle,
-                    originalSpot.SpotNumber,
-                    capacity);
+                if (vehicle is Bus bus)
+                {
+                    parkingGarage.ParkBusAtSpot(
+                        bus,
+                        originalSpot.SpotNumber,
+                        spotCapacity,
+                        getSize(bus),
+                        configuration.Garage!.BusMaxParkingSpot);
+                }
+                else
+                {
+                    parkingGarage.ParkVehicleAtSpot(
+                        vehicle,
+                        originalSpot.SpotNumber,
+                        spotCapacity,
+                        getSize);
+                }
 
                 AppTheme.PrepareScreen();
 

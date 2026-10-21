@@ -84,7 +84,7 @@ namespace PragueParkingV2_1.Data.Persistence
                 }
             }
 
-            
+
         }
         private static void ValidateParkingData(ParkingDataDocument parkingData)
         {
@@ -157,7 +157,9 @@ namespace PragueParkingV2_1.Data.Persistence
                             "Vehicle type is missing.");
                     }
                     if (vehicle.VehicleType != "Car" &&
-                        vehicle.VehicleType != "MC")
+                        vehicle.VehicleType != "MC" &&
+                        vehicle.VehicleType != "Bicycle" &&
+                        vehicle.VehicleType != "Bus")
                     {
                         throw new InvalidDataException(
                             $"Unsupported vehicle type: {vehicle.VehicleType}");
@@ -180,7 +182,7 @@ namespace PragueParkingV2_1.Data.Persistence
                 }
 
             }
-    }
+        }
 
 
 

@@ -1,6 +1,6 @@
 # Prague Parking V2 – Projektplan
 
-**Uppdaterad:** 2026-10-20
+**Uppdaterad:** 2026-10-21
 
 **Projekt:** Prague Parking V2  
 **Utvecklare:** Rami Issa  
@@ -8,6 +8,8 @@
 **Teknik:** C# / .NET 10 / Spectre.Console
 
 **Arbetsordning:** Prague Parking 2.0 (G) är färdigutvecklad och manuellt testad. Prague Parking 2.1 (VG) utvecklas nu i separata projekt i samma solution. G-versionens kod och dokumenterade testresultat bevaras som utgångspunkt för regressionstester.
+
+**Lägesuppdatering 2026-10-21:** Feature-branchen `feature/prague-parking-v2.1` innehöll föregående commit `273d2c73` på GitHub; dagens arbete återstår att versionshantera. V2.1 har verifierad bilflytt med JSON-omstart, första lyckade Bicycle-registreringen och en fungerande konfigurationsmall. Bussens sökning/reservation/lagring och borttagning finns nu som kompilerande kod, men end-to-end för buss återstår. Garage Overview har ett känt körfel för Bicycle. Den tidigare milstolpsstatusen 2026-10-20 nedan är historik.
 
 ---
 
@@ -424,14 +426,28 @@ Att en klass eller vy har kodats eller kompilerat innebär inte att den är inte
 
 Utvecklingsarbetet dokumenteras löpande i den befintliga centrala strukturen:
 
-- [`LOGGBOK.md`](../Documentation/LOGGBOK.md) – datum, genomfört arbete, tester, problem och **personliga reflektioner i jag-form**.
+- [`LOGGBOK.md`](../LOGGBOK.md) – datum, genomfört arbete, tester, problem och **personliga reflektioner i jag-form**.
 - [`requirements.md`](requirements.md) – spårbara G-/VG-krav, tolkning och faktisk status.
 - [`design-decisions.md`](design-decisions.md) – motiverade arkitektur- och modellbeslut.
 - [`class-diagram.md`](class-diagram.md) – domänmodell, interfaces och klassrelationer.
 - [`configuration.md`](configuration.md) – konfigurationsformat, kapacitet och omläsningsregler.
 - [`parking-data.md`](parking-data.md) – G:s JSON-format samt VG:s planerade utökningar och felhantering.
-- [`README.md`](../Documentation/README.md) – gemensam projektöversikt och instruktioner för att köra respektive version.
+- [`README.md`](../README.md) – gemensam projektöversikt och instruktioner för att köra respektive version.
 
-De sex ämnesdokumenten ligger kvar i `docs/`. `README.md` och `LOGGBOK.md` ligger i `Documentation/`. Dokumenten ska beskriva **samma utvecklingsläge** utan att tidigare G-testresultat blandas ihop med V2.1:s pågående arbete.
+De sex ämnesdokumenten ligger kvar i `docs/`. `README.md` och `LOGGBOK.md` ligger i repositoryts rot. Dokumenten ska beskriva **samma utvecklingsläge** utan att tidigare G-testresultat blandas ihop med V2.1:s pågående arbete.
 
 Det aktuella arbetssättet är att granska och uppdatera **en dokumentationsfil i taget**, redovisa vad som ändrats och först därefter granska Git-ändringarna i Visual Studio. Historiska händelser och tidigare idéer i loggboken får finnas kvar som historik, men de ska inte finnas kvar som aktiva projektmål om de inte längre planeras.
+
+---
+
+## Milstolpe 9 – statusuppdatering 2026-10-21
+
+**Verifierat manuellt:** V2.1 startar med ny `config.template.json` som kopieras till aktiv `config.json` när den saknas. `UKB48K` kunde inte flyttas till upptagen plats 002 men flyttades 001 → 003 och hittades där efter omstart. Första Bicycle-registreringen lyckades.
+
+**Implementerat men ännu inte genomgående testat:** `IParkingSpot`, storleksbaserade metoder i UI/Domain/Mapper, Bus reservation på fyra sammanhängande platser, `ParkBus`, `ParkBusAtSpot`, bussfrigöring i `RemoveVehicle`, Bus/Bicycle i JSON-validering och särskild checkout-rollback för Bus.
+
+**Känt fel:** `GarageOverView` använder kvarvarande `VehiclesPerSpot` och `GetVehicleType` saknar Bicycle; användaren observerade ett oväntat fel vid öppning av översikten efter cykelparkering. Vyn ska omarbetas **efter** att bussens domänmodell har integrerats så att UI-anpassningen görs en gång.
+
+**Prioriterad fortsättning:** (1) prisberäkning för Bicycle/Bus; (2) bussflytt, utcheckning och robust rollback; (3) tester av bussens fyra platser och JSON efter omstart; (4) ombyggd Garage Overview med korrekt count/status; (5) cykelblandning och alla regressionsfall; (6) fullständig config reload och automatisk testdata när datafil saknas; (7) Git commit/push samt test på annan dator.
+
+**Ej klart:** VG-inlämning, full config reload, komplett prisflöde, automatisk testdata och bussarnas fullständiga UI-/persistenstester. G-testhistoriken avser **fortfarande V2.0**.

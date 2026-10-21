@@ -29,6 +29,224 @@ namespace PragueParkingV2_1.Domain
             }
         }
 
+        // Buss algorithm för reservera 4 parkeringsrutor
+        public IReadOnlyList<ParkingSpot>? FindAvailableBusSpots(
+            int busMaxParkingSpot,
+            int requiredSpots)
+        {
+            if (busMaxParkingSpot < 1 ||
+                busMaxParkingSpot > _parkingSpots.Count)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(busMaxParkingSpot));
+            }
+
+            if (requiredSpots <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requiredSpots));
+            }
+
+            for (int startIndex = 0;
+                 startIndex <= busMaxParkingSpot - requiredSpots;
+                 startIndex++)
+            {
+                var availableSpots = new List<ParkingSpot>();
+
+                for (int offset = 0; offset < requiredSpots; offset++)
+                {
+                    var spot = _parkingSpots[startIndex + offset];
+
+                    if (spot.ParkedVehicles.Count > 0 ||
+                        spot.ReservedByBus is not null)
+                    {
+                        break;
+                    }
+
+                    availableSpots.Add(spot);
+                }
+
+                if (availableSpots.Count == requiredSpots)
+                {
+                    return availableSpots;
+                }
+            }
+
+            return null;
+        }
+        public IReadOnlyList<ParkingSpot>? FindAvailableBusSpotsAt(
+            int startSpotNumber,
+            int busMaxParkingSpot,
+            int requiredSpots)
+        {
+            if (busMaxParkingSpot < 1 ||
+                busMaxParkingSpot > _parkingSpots.Count)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(busMaxParkingSpot));
+            }
+
+            if (requiredSpots <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(requiredSpots));
+            }
+
+            if (startSpotNumber < 1 ||
+                startSpotNumber > busMaxParkingSpot - requiredSpots + 1)
+            {
+                return null;
+            }
+
+            var availableSpots = new List<ParkingSpot>();
+
+            for (int offset = 0; offset < requiredSpots; offset++)
+            {
+                var spot = _parkingSpots[startSpotNumber - 1 + offset];
+
+                if (spot.ParkedVehicles.Count > 0 ||
+                    spot.ReservedByBus is not null)
+                {
+                    return null;
+                }
+
+                availableSpots.Add(spot);
+            }
+
+            return availableSpots;
+        }
+        public ParkingSpot ParkBus(
+            Bus bus,
+            int spotCapacity,
+            int busSize,
+            int busMaxParkingSpot)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
+
+            const int requiredSpots = 4;
+
+            if (spotCapacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(spotCapacity));
+            }
+
+            if (busSize != spotCapacity * requiredSpots)
+            {
+                throw new InvalidOperationException(
+                    "Bus size must equal four parking spot capacities.");
+            }
+
+            if (FindVehicle(bus.Identifier) is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{bus.Identifier}' is already parked.");
+            }
+
+            var spots = FindAvailableBusSpots(
+                busMaxParkingSpot,
+                requiredSpots);
+
+            if (spots is null)
+            {
+                throw new InvalidOperationException(
+                    "No four consecutive parking spots are available.");
+            }
+
+            var reservedSpots = new List<ParkingSpot>();
+
+            try
+            {
+                foreach (var spot in spots)
+                {
+                    spot.ReserveForBus(bus);
+                    reservedSpots.Add(spot);
+                }
+
+                spots[0].ParkBusAtPrimarySpot(bus);
+
+                return spots[0];
+            }
+            catch
+            {
+                spots[0].RemoveVehicle(bus.Identifier);
+
+                foreach (var spot in reservedSpots)
+                {
+                    spot.ReleaseBusReservation(bus);
+                }
+
+                throw;
+            }
+        }
+        public ParkingSpot ParkBusAtSpot(
+            Bus bus,
+            int startSpotNumber,
+            int spotCapacity,
+            int busSize,
+            int busMaxParkingSpot)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
+
+            const int requiredSpots = 4;
+
+            if (spotCapacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(spotCapacity));
+            }
+
+            if (busSize != spotCapacity * requiredSpots)
+            {
+                throw new InvalidOperationException(
+                    "Bus size must equal four parking spot capacities.");
+            }
+
+            if (FindVehicle(bus.Identifier) is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Vehicle '{bus.Identifier}' is already parked.");
+            }
+
+            var spots = FindAvailableBusSpotsAt(
+                startSpotNumber,
+                busMaxParkingSpot,
+                requiredSpots);
+
+            if (spots is null)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot restore bus '{bus.Identifier}' " +
+                    $"at parking spot {startSpotNumber:D3}.");
+            }
+
+            var reservedSpots = new List<ParkingSpot>();
+
+            try
+            {
+                foreach (var spot in spots)
+                {
+                    spot.ReserveForBus(bus);
+                    reservedSpots.Add(spot);
+                }
+
+                spots[0].ParkBusAtPrimarySpot(bus);
+
+                return spots[0];
+            }
+            catch
+            {
+                spots[0].RemoveVehicle(bus.Identifier);
+
+                foreach (var spot in reservedSpots)
+                {
+                    spot.ReleaseBusReservation(bus);
+                }
+
+                throw;
+            }
+        }
+
         public ParkingSpot? FindAvailableSpot(
             Vehicle vehicle,
             int maxVehiclesPerSpot)
@@ -73,8 +291,8 @@ namespace PragueParkingV2_1.Domain
             return parkingSpot;
         }
         public ParkingSpot ParkVehicle(
-            Vehicle vehicle, 
-            int spotCapacity, 
+            Vehicle vehicle,
+            int spotCapacity,
             Func<IVehicle, int> getSize)
         {
             ArgumentNullException.ThrowIfNull(vehicle);
@@ -193,19 +411,54 @@ namespace PragueParkingV2_1.Domain
         {
             foreach (var spot in _parkingSpots)
             {
-                var vehicle = spot.RemoveVehicle(identifier);
-                if (vehicle is not null)
+                Vehicle? vehicle = spot.FindVehicle(identifier);
+
+                if (vehicle is null)
                 {
-                    return vehicle;
+                    continue;
                 }
+
+                if (vehicle is Bus bus)
+                {
+                    var reservedSpots = _parkingSpots
+                        .Where(s => ReferenceEquals(s.ReservedByBus, bus))
+                        .ToList();
+
+                    if (reservedSpots.Count != 4 ||
+                        !reservedSpots.Contains(spot))
+                    {
+                        throw new InvalidOperationException(
+                            $"Bus '{identifier}' does not have four valid reservations.");
+                    }
+
+                    Vehicle? removedBus = spot.RemoveVehicle(identifier);
+
+                    if (!ReferenceEquals(removedBus, bus))
+                    {
+                        throw new InvalidOperationException(
+                            $"Bus '{identifier}' could not be removed.");
+                    }
+
+                    foreach (var reservedSpot in reservedSpots)
+                    {
+                        reservedSpot.ReleaseBusReservation(bus);
+                    }
+
+                    return bus;
+                }
+
+                return spot.RemoveVehicle(identifier);
             }
+
             return null;
         }
         public void MoveVehicle(
             string identifier,
             int targetSpotNumber,
-            int maxVehiclesPerSpot)
+            int spotCapacity,
+            Func<IVehicle, int> getSize)
         {
+            ArgumentNullException.ThrowIfNull(getSize);
             var vehicle = FindVehicle(identifier);
 
             if (vehicle is null)
@@ -234,7 +487,7 @@ namespace PragueParkingV2_1.Domain
                 throw new InvalidOperationException(
                     $"Vehicle '{identifier}' is already parked at spot {targetSpotNumber}.");
             }
-            if (!targetSpot.CanPark(vehicle, maxVehiclesPerSpot))
+            if (!targetSpot.CanPark(vehicle, spotCapacity, getSize))
             {
                 throw new InvalidOperationException(
                     $"Vehicle cannot be parked at spot {targetSpotNumber}.");
@@ -251,13 +504,15 @@ namespace PragueParkingV2_1.Domain
             {
                 targetSpot.ParkVehicle(
                     removedVehicle,
-                    maxVehiclesPerSpot);
+                    spotCapacity,
+                    getSize);
             }
             catch
             {
                 sourceSpot.ParkVehicle(
                     removedVehicle,
-                    maxVehiclesPerSpot);
+                    spotCapacity,
+                    getSize);
 
                 throw;
             }

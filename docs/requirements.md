@@ -1,6 +1,6 @@
 # Prague Parking V2 – Kravanalys
 
-**Uppdaterad:** 2026-10-20
+**Uppdaterad:** 2026-10-21
 
 > Kraven nedan är en projektspecifik nedbrytning av uppgiftens krav till mindre,
 > spårbara delkrav. ID-numren (G-xx och VG-xx) kommer alltså inte från den
@@ -81,6 +81,9 @@
 
 # VG – Prague Parking 2.1
 
+**Aktuell avstämning 2026-10-21:** Flytt och JSON-återställning för en bil har manuellt testats (UKB48K: 001→003, kvar på 003 efter omstart). En Bicycle har registrerats. Ett andra interface (`IParkingSpot`) används som kontrakt av `ParkingSpot`, och metoder för fyra reserverade bussplatser är implementerade men inte körtestade. Garage Overview kraschar när en Bicycle finns parkerad och är inte VG-klar. Nedanstående anteckningar med datum 2026-10-20 är historiska statusnoteringar; matrisraderna och bilagan nedan beskriver dagens läge.
+
+
 **Lägesbild 2026-10-20:** Två separata V2.1-projekt (`PragueParkingV2_1` och `PragueParkingV2_1.Data`) har lagts till i samma solution, kompilerats och huvudmenyn har startats. Namnrymder och programtitlar har uppdaterats. `IVehicle` har införts; `Vehicle` implementerar gränssnittet. Klasserna `Bicycle` och `Bus` finns med två konstruktorer vardera. Konfigurationsmodellen har börjat övergå från `VehiclesPerSpot` till `Size` och `SpotCapacity`. Nya, **överlagrade** metoder har lagts till i `ParkingSpot` och `ParkingGarage` för storleksberäkning, bland annat med `Func<IVehicle, int>`. `ParkVehicleView` har kopplats till den nya storleksbaserade metoden för Car/MC, och `ParkingDataMapper` har utökats med omvandling för Bicycle/Bus. **Äldre anrop och lagrings-/valideringslogik återstår att migrera.** Nya VG-funktioner har inte verifierats genom fullständiga kör- och omstartstester.
 
 **Kvarvarande integrationsrisk:** Den gamla egenskapen `VehiclesPerSpot` används fortfarande på flera ställen, bland annat vid `ParkingDataMapper.ToGarage()`, flytt, utcheckning och garageöversikt. Standardkonfigurationen i `ConfigurationService` har inte verifierats som fullständigt uppdaterad till den nya JSON-modellen. En grön build räcker därför inte som bevis på fungerande V2.1.
@@ -88,18 +91,18 @@
 | ID | Krav | Tolkning | Berör | Status |
 |---|---|---|---|---|
 | VG-01 | Prague Parking 2.1 ska utvecklas vidare från en fungerande 2.0-version | Separata körbara projekt `PragueParkingV2_1` och `PragueParkingV2_1.Data` har skapats i samma solution. Båda har byggts och V2.1:s huvudmeny har startats. VG-funktionerna är ännu inte färdiga. | Architecture | Verifierad |
-| VG-02 | Minst två interfaces ska användas | `IVehicle` finns och implementeras av abstrakta `Vehicle`. `ParkingSpot`/`ParkingGarage` använder det delvis. Ett andra interface, exempelvis `IParkingSpot`, saknas ännu; utvärdera därefter hur kod arbetar mot gränssnitten. | Architecture / Domain | Pågår |
-| VG-03 | Bicycle ska stödjas | `Bicycle`-klassen har skapats med konstruktörer för nyregistrering och återställning. Mappern kan skapa och serialisera Bicycle, men menyalternativ, giltig persistens och end-to-end-tester saknas. | Domain / UI / Persistence | Pågår |
-| VG-04 | Bus ska stödjas | `Bus`-klassen har skapats med motsvarande konstruktorer och typmappning. Logik för flera sammanhängande platser, flytt, utcheckning och lagring återstår. | Domain / Persistence | Pågår |
-| VG-05 | Parkeringskapacitet ska baseras på storleksenheter | Mål: Bicycle = 1, MC = 2, Car = 4, Bus = 16; normal plats = 4 enheter. `Size`/`SpotCapacity` finns i den påbörjade konfigurationsmodellen och nya `GetUsedCapacity()`/`CanPark()` har lagts till. Gamla anrop är ännu inte färdigmigrerade. | Domain / Configuration | Pågår |
-| VG-06 | Bus kräver fyra sammanhängande parkeringsplatser | Buss ska vara **ett fordon** och reservera fyra intilliggande lediga platser bland 001–050. Andra fordon får också parkera där. Algoritmen och representation av reservationerna är under design; någon fungerande reservation har inte implementerats. Flyttreglerna ska stämmas av mot uppgiften innan implementation. | Domain / Persistence | Ej påbörjad |
-| VG-07 | Bicycle kostar 5 CZK per påbörjad timme | Priset har lagts in i den föreslagna V2.1-konfigurationen; stöd i prisberäkning, validering och utcheckning är ännu inte verifierat. | Domain / Configuration | Pågår |
-| VG-08 | Bus kostar 80 CZK per påbörjad timme | Priset har lagts in i den föreslagna V2.1-konfigurationen; stöd i prisberäkning, validering och utcheckning är ännu inte verifierat. | Domain / Configuration | Pågår |
-| VG-09 | Fordonstyper och storlekar ska kunna konfigureras | `VehicleTypes` har storleksegenskapen `Size` och storleksvalidering med `foreach` har lagts till. `GetUsedCapacity()` använder en delegerad storleksuppslagning. Gamla `VehiclesPerSpot`-beroenden, konfigurationsstandardvärden och stöd för helt nya typer utan kodändring är inte färdigmigrerade. | Configuration / Domain | Pågår |
+| VG-02 | Minst två interfaces ska användas | `IVehicle` och `IParkingSpot` finns; `Vehicle` implementerar `IVehicle` och `ParkingSpot` implementerar `IParkingSpot`. Båda kompilerar. Granska om programmet använder `IParkingSpot` via interface-typer i tillräcklig omfattning. | Architecture / Domain | Pågår |
+| VG-03 | Bicycle ska stödjas | Bicycle-klass, menyval, kapacitetsberäkning, mapper och JSON-validering finns. Första cykeln registrerades framgångsrikt 2026-10-21. Fyra cyklar på samma plats, omstart och översikten är inte verifierade; Garage Overview kraschar med Bicycle. | Domain / UI / Persistence | Pågår |
+| VG-04 | Bus ska stödjas | Bus-klass, `ParkBus`, `ParkBusAtSpot`, sök-/reservationsmetoder, frigöring och mapper/JSON-typstöd är implementerade och kompilerade. Helt körflöde för Bus, avgifter, flytt och rollback har inte testats. | Domain / Persistence | Pågår |
+| VG-05 | Parkeringskapacitet ska baseras på storleksenheter | Kapacitet 4 per plats med storlekar Bicycle/MC/Car/Bus = 1/2/4/16. Nya `CanPark`, `ParkVehicle`, `MoveVehicle`, `ParkingDataMapper.ToGarage` och Checkout-rollback använder storlek. Garage Overview använder ännu `VehiclesPerSpot`, och äldre överlagringar finns kvar. | Domain / Configuration | Pågår |
+| VG-06 | Bus kräver fyra sammanhängande parkeringsplatser | Buss är ett fordon lagrat på huvudplatsen; fyra sammanhängande lediga platser inom 001–050 får samma `ReservedByBus`-referens. Sökning, parkering, borttagning och återställning på angiven plats har kodats, men inte funktionstestats. Särskild bussflytt återstår. | Domain / Persistence | Implementerad |
+| VG-07 | Bicycle kostar 5 CZK per påbörjad timme | 5 CZK finns i V2.1-mallen, modellen och icke-negativ prisvalidering. `ParkingFeeCalculator` och full utcheckning för Bicycle är ännu inte verifierade/kompletterade. | Domain / Configuration | Pågår |
+| VG-08 | Bus kostar 80 CZK per påbörjad timme | 80 CZK finns i V2.1-mallen, modellen och icke-negativ prisvalidering. `ParkingFeeCalculator` och full utcheckning för Bus är ännu inte verifierade/kompletterade. | Domain / Configuration | Pågår |
+| VG-09 | Fordonstyper och storlekar ska kunna konfigureras | V2.1 använder JSON-mall med `Size`, `SpotCapacity` och `BusMaxParkingSpot` och validerar alla fyra förväntade typer. Runtime-mallens kopiering och start är verifierade. Godtyckligt nya fordonsklasser via enbart JSON stöds ännu inte. | Configuration / Domain | Pågår |
 | VG-10 | Hela konfigurationen ska kunna läsas om under körning | Ett synligt menyval ska ladda om **hela** konfigurationen utan omstart. G-versionens `Reload Pricing` uppfyller inte detta. | Configuration / UI | Ej påbörjad |
-| VG-11 | Ändrad konfiguration ska valideras innan den aktiveras | Vid reload får inte antalet platser krympas över befintliga parkeringar, använda fordonstyper tas bort eller reserverade platser bli ogiltiga. Giltigt tillstånd ska behållas vid fel. Grundläggande fältvalidering har påbörjats; säker driftomladdning saknas. | Configuration / Domain | Pågår |
-| VG-12 | UI ska återspegla den nya konfigurationen | Efter lyckad fullständig omladdning ska översikt, kapacitetsregler, fordonstyper och priser använda de aktuella värdena. Äldre vyer använder ännu `VehiclesPerSpot`. | UI / Domain | Ej påbörjad |
-| VG-13 | En reflektion på cirka 2–3 sidor ska lämnas in | Separat personlig reflektion sammanställs sist ur `LOGGBOK.md`. Loggboken innehåller redan användarens reflektioner om `Func`, metodöverlagring, bussalgoritmen och dagens Visual Studio-problem. | Documentation | Pågår |
+| VG-11 | Ändrad konfiguration ska valideras innan den aktiveras | Grundvalidering av positiva storlekar/kapacitet, bussområde, priser, tidszon och fyra obligatoriska typer finns. Säker fullständig konfigurationsomläsning mot befintlig beläggning och reservationsgränser återstår. | Configuration / Domain | Pågår |
+| VG-12 | UI ska återspegla den nya konfigurationen | V2.1-menyn stödjer Bicycle och använder konfigurerade storlekar, men Garage Overview använder gamla `VehiclesPerSpot` och kraschar med en parkerad Bicycle. Bussmeny, ny avgiftspresentation och live reload återstår. | UI / Domain | Pågår |
+| VG-13 | En reflektion på cirka 2–3 sidor ska lämnas in | Personlig reflektion planeras sist. Dagbok 2026-10-21 dokumenterar JSON-mall, VS/Git, lambda/kapacitet, bussobjektreferenser samt fungerande och fallerande tester. | Documentation | Pågår |
 | VG-14 | Automatiskt skapande och ifyllning av parkeringsdata för test | Om V2.1:s parkeringsdatafil saknas ska programmet skapa och fylla den med giltiga testfordon. En befintlig korrupt fil ska inte skrivas över. Funktionen är ännu inte implementerad. | Persistence / Domain | Ej påbörjad |
 
 ---
@@ -156,11 +159,23 @@
 - Mindre eller storleksändrade terminaler, återstående navigeringsgränsfall och separat körning på **annan dator**.
 - Slutligt kontrollera repositorystruktur, Git-status, dokumentationslänkar, README-instruktioner och inlämningsformalia. Inga Git-commits eller publik repository-status antas vara klara.
 
-# Nästa verifieringspunkter för V2.1
+# Nästa verifieringspunkter för V2.1 (uppdaterad 2026-10-21)
 
-- Slutför migreringen av `ParkingDataMapper.ToGarage()`, flytt, utcheckning och garageöversikt till `Size` och `SpotCapacity`; avlägsna därefter gamla överlagringar och `VehiclesPerSpot` ur V2.1.
-- Kontrollera att `ConfigurationService.CreateDefaultConfiguration()` skapar en **fullständig och giltig** V2.1-konfiguration, även när runtime-`config.json` saknas. Säkerställ att C#-modellen, valideringen och JSON-nycklarna stämmer överens.
-- Implementera det andra interfacet med faktisk användning i programmet.
-- Designa och testa bussreservationer: fyra sammanhängande platser, en logisk buss, beständig lagring, säker flytt/utcheckning och korrekt återställning vid fel.
-- Verifiera prisberäkning, blandad fordonsbeläggning, ominläsning av hela konfigurationen och automatisk testdatagenerering med kör- och omstartstester.
-- Granska Git Changes i Visual Studio innan commit: håll G- och V2.1-ändringar åtskilda och undvik `bin/`, `obj/` samt runtime-data.
+- Komplettera prisberäkning för Bicycle och Bus samt utcheckning/rollback och flytt för bussens fyra platsreservationer.
+- Körtesta Bus: ledig följd inom 001–050, blockerade platser, dubblettregistrering, borttagning, sparning och återställning på samma huvudplats efter omstart; framkalla även kontrollerade sparfel.
+- Testa fyra cyklar på en plats, MC+Bicycle-kombinationer, fulla platser och återställning efter omstart.
+- Bygg om `GarageOverView` för storleksbaserad kapacitet samt Bus/Bicycle; åtgärda den observerade kraschen.
+- Inför/validera fullständig config reload, därefter automatisk skapning av testdata vid saknad `parking-data.json`.
+- Avlägsna återstående gamla `VehiclesPerSpot`-anrop och överlagringar först när motsvarande V2.1-flöden är verifierade. Testa även på annan dator inför inlämning.
+
+## Utfall 2026-10-21 – distinktion mellan implementerat och verifierat
+
+| Område | Utfall |
+|---|---|
+| V2.1, Car Move/JSON | **Manuellt verifierat**: full 002 nekades; 001 → 003 lyckades; 003 kvarstod efter omstart |
+| V2.1, Bicycle-registrering | **Manuellt verifierat** för första cykeln; flera cyklar och omstart ej testat |
+| V2.1, Garage Overview med Bicycle | **Känt körfel**, ej åtgärdat |
+| V2.1, config.template.json | **Bygg- och starttest utfört**: mall kopierades, aktiv fil skapades vid saknad |
+| V2.1, Bus metoder och JSON-väg | **Kompilerar**, men bussens end-to-end-funktioner är ännu ej verifierade |
+| V2.1, full reload, testdata och ny prissättning | Återstår |
+

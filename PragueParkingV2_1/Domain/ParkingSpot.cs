@@ -1,6 +1,6 @@
 ﻿namespace PragueParkingV2_1.Domain
 {
-    internal class ParkingSpot
+    internal class ParkingSpot : IParkingSpot
     {
         public int SpotNumber
         {
@@ -10,7 +10,61 @@
         private readonly List<Vehicle> _parkedVehicles = new();
 
         public IReadOnlyList<Vehicle> ParkedVehicles => _parkedVehicles;
+        public Bus? ReservedByBus
+        {
+            get;
+            private set;
+        }
+        public void ReserveForBus(Bus bus)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
 
+            if (ReservedByBus is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {SpotNumber:D3} is already reserved by a bus.");
+            }
+
+            if (_parkedVehicles.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {SpotNumber:D3} is occupied.");
+            }
+
+            ReservedByBus = bus;
+        }
+        public void ReleaseBusReservation(Bus bus)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
+
+            if (!ReferenceEquals(ReservedByBus, bus))
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {SpotNumber:D3} is not reserved by this bus.");
+            }
+
+            ReservedByBus = null;
+        }
+
+        //Kontroll av att rätt buss reserverat P-platsen
+        public void ParkBusAtPrimarySpot(Bus bus)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
+
+            if (!ReferenceEquals(ReservedByBus, bus))
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {SpotNumber:D3} is not reserved by this bus.");
+            }
+
+            if (_parkedVehicles.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Parking spot {SpotNumber:D3} is already occupied.");
+            }
+
+            _parkedVehicles.Add(bus);
+        }
         public ParkingSpot(int spotNumber)
         {
             if (spotNumber <= 0)
@@ -46,7 +100,14 @@
         public bool CanPark(IVehicle vehicle, int maxVehiclesPerSpot)
         {
             ArgumentNullException.ThrowIfNull(vehicle);
-
+            if (ReservedByBus is not null)
+            {
+                return false;
+            }
+            if (vehicle is Bus)
+            {
+                return false;
+            }
             if (maxVehiclesPerSpot <= 0)
             {
                 throw new ArgumentOutOfRangeException(
@@ -73,7 +134,14 @@
         {
             ArgumentNullException.ThrowIfNull(vehicle);
             ArgumentNullException.ThrowIfNull(getSize);
-
+            if (ReservedByBus is not null)
+            {
+                return false;
+            }
+            if (vehicle is Bus)
+            {
+                return false;
+            }
             if (spotCapacity <= 0)
             {
                 throw new ArgumentOutOfRangeException(

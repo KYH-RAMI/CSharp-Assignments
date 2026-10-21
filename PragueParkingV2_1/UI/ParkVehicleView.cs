@@ -12,6 +12,7 @@ namespace PragueParkingV2_1.UI
         {
             "Car",
             "MC",
+            "Bicycle",
             "Back"
         };
 
@@ -72,6 +73,7 @@ namespace PragueParkingV2_1.UI
                     {
                         "Car" => new Car(identifier),
                         "MC" => new MC(identifier),
+                        "Bicycle" => new Bicycle(identifier),
 
                         _ => throw new ArgumentException(
                             "Unsupported vehicle type.")
@@ -79,8 +81,8 @@ namespace PragueParkingV2_1.UI
 
                     int spotCapacity = configuration.Garage!.SpotCapacity;
 
-                    Func<IVehicle, int> getSize = vehicle =>
-                        configuration.VehicleTypes![vehicle.GetType().Name].Size;
+                    Func<IVehicle, int> getSize = v =>
+                    configuration.VehicleTypes![v.GetType().Name].Size;
 
                     TimeZoneInfo timeZone =
                         TimeZoneInfo.FindSystemTimeZoneById(
@@ -90,7 +92,7 @@ namespace PragueParkingV2_1.UI
                         TimeZoneInfo.ConvertTimeFromUtc(
                             vehicle.ArrivalTime,
                             timeZone);
-                    
+
                     ParkingSpot assignedSpot =
                         parkingGarage.ParkVehicle(
                             vehicle,

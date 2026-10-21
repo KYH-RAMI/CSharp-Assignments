@@ -15,6 +15,13 @@ namespace PragueParkingV2_1.Data.Configuration
                 "Config",
                 "config.json");
         }
+        private static string GetTemplatePath()
+        {
+            return Path.Combine(
+                AppContext.BaseDirectory,
+                "Config",
+                "config.template.json");
+        }
         public AppConfiguration LoadConfiguration()
         {
             var path = GetConfigurationPath();
@@ -25,11 +32,26 @@ namespace PragueParkingV2_1.Data.Configuration
 
             if (!File.Exists(path))
             {
-                var defaultConfiguration = CreateDefaultConfiguration();
+                var templatePath = GetTemplatePath();
 
-                ValidateConfiguration(defaultConfiguration);
+                if (!File.Exists(templatePath))
+                {
+                    throw new FileNotFoundException(
+                        "Configuration template was not found.",
+                        templatePath);
+                }
 
-                return defaultConfiguration;
+                var directory = Path.GetDirectoryName(path);
+
+                if (directory is null)
+                {
+                    throw new InvalidOperationException(
+                        "Configuration directory could not be determined.");
+                }
+
+                Directory.CreateDirectory(directory);
+
+                File.Copy(templatePath, path);
             }
 
             var json = File.ReadAllText(path);
@@ -63,74 +85,8 @@ namespace PragueParkingV2_1.Data.Configuration
 
             return configuration.Pricing!;
         }
-        private static AppConfiguration CreateDefaultConfiguration()
-        {
-            var configuration = new AppConfiguration
-            {
-                Pricing = new PricingConfiguration
-                {
-                    FreeMinutes = 10,
-                    CarHourlyPrice = 20,
-                    MotorcycleHourlyPrice = 10
-                },
 
-                Garage = new GarageConfiguration
-                {
-                    NumberOfParkingSpots = 100
-                },
 
-                System = new SystemConfiguration
-                {
-                    TimeZone = "Europe/Prague"
-                },
-
-                VehicleTypes = new Dictionary<string, VehicleTypeConfiguration>
-                {
-                    ["Car"] = new VehicleTypeConfiguration
-                    {
-                        Size = 4
-                    },
-
-                    ["MC"] = new VehicleTypeConfiguration
-                    {
-                        Size = 2
-                    },
-
-                    ["Bicycle"] = new VehicleTypeConfiguration
-                    {
-                        Size = 1
-                    },
-
-                    ["Bus"] = new VehicleTypeConfiguration
-                    {
-                        Size = 16
-                    }
-                }
-            };
-
-            var path = GetConfigurationPath();
-
-            var directory = Path.GetDirectoryName(path);
-
-            if (directory is null)
-            {
-                throw new InvalidOperationException(
-                    "Configuration directory could not be determined.");
-            }
-
-            Directory.CreateDirectory(directory);
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-
-            var json = JsonSerializer.Serialize(configuration, options);
-
-            File.WriteAllText(path, json);
-
-            return configuration;
-        }
         private static void ValidateConfiguration(AppConfiguration configuration)
         {
             if (configuration.Pricing is null)
@@ -167,6 +123,11 @@ namespace PragueParkingV2_1.Data.Configuration
                 throw new InvalidDataException(
                     "NumberOfParkingSpots cannot exceed 1,000.");
             }
+            if (configuration.Garage.SpotCapacity <= 0)
+            {
+                throw new InvalidDataException(
+                    "SpotCapacity must be greater than zero.");
+            }
 
             if (configuration.Pricing.FreeMinutes < 0)
             {
@@ -184,6 +145,17 @@ namespace PragueParkingV2_1.Data.Configuration
             {
                 throw new InvalidDataException(
                     "MotorcycleHourlyPrice cannot be negative.");
+            }
+            if (configuration.Pricing.BicycleHourlyPrice < 0)
+            {
+                throw new InvalidDataException(
+                    "BicycleHourlyPrice cannot be negative.");
+            }
+
+            if (configuration.Pricing.BusHourlyPrice < 0)
+            {
+                throw new InvalidDataException(
+                    "BusHourlyPrice cannot be negative.");
             }
 
             if (string.IsNullOrWhiteSpace(configuration.System.TimeZone))
@@ -228,6 +200,22 @@ namespace PragueParkingV2_1.Data.Configuration
                 {
                     throw new InvalidDataException(
                         $"Vehicle type '{vehicleType}' must have a size greater than zero.");
+                }
+            }
+            string[] requiredVehicleTypes =
+            {
+                "Car",
+                "MC",
+                "Bicycle",
+                "Bus"
+            };
+
+            foreach (string vehicleType in requiredVehicleTypes)
+            {
+                if (!configuration.VehicleTypes.ContainsKey(vehicleType))
+                {
+                    throw new InvalidDataException(
+                        $"Required vehicle type '{vehicleType}' is missing.");
                 }
             }
         }

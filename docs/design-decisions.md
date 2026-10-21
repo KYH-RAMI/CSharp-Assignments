@@ -1,11 +1,13 @@
 # Prague Parking V2 – Designbeslut
 
-**Uppdaterad:** 2026-10-20  
+**Uppdaterad:** 2026-10-21  
 **Omfattning:** Arkitektur- och implementationsbeslut för den färdigutvecklade Prague Parking 2.0 (G) och den pågående vidareutvecklingen Prague Parking 2.1 (VG).
 
 Besluten nedan beskriver både genomförda arkitekturval och planerade lösningar. Där implementation eller tester återstår anges det uttryckligen. Beslut om ett framtida arbetssätt innebär inte att funktionen redan finns i programmet.
 
 **Versionsgräns 2026-10-20:** Prague Parking 2.0 har genomförda manuella G-tester och lämnas i huvudsak oförändrad. `PragueParkingV2_1` och `PragueParkingV2_1.Data` har skapats som separata VG-projekt i samma solution. V2.1 har nya domänklasser och delar av en ny kapacitetsmodell, men saknar ännu ett verifierat genomgående VG-flöde. Äldre beslut och G-testresultat nedan gäller fortfarande G-versionen om inget annat anges.
+
+**Aktuell versionsgräns 2026-10-21:** V2.1 har efter 20 oktober fått `IParkingSpot`, JSON-konfigurationsmall, uppdaterade storleksbaserade UI-/mapper-anrop och en implementerad modell för fyra bussreservationer. Bilflytt med återställning efter omstart och första Bicycle-registreringen är manuellt verifierade. Bussens hela flöde, avgiftsberäkning och Garage Overview är inte klara; den senare har ett observerat körfel för Bicycle. Äldre beslutsnoteringar nedan är tidsbundna.
 
 ## DD-001 – Separation mellan UI, domän och dataåtkomst
 
@@ -611,3 +613,37 @@ Func<IVehicle, int> getSize = vehicle =>
 **Beslut:** Frivillig extern driftsättning och betatestning ingår inte längre i den aktuella projektplanen för Prague Parking V2.1.
 
 **Motivering:** Utvecklingstiden prioriteras till kurskraven, testning av den nya parkeringslogiken, dokumentation och Git-hantering. **Kurskravet att verifiera körning på en annan dator kvarstår**, eftersom det inte är samma sak som frivillig driftsättning eller extern betatestning.
+
+---
+
+## DD-041 – Skilja på V2.1-konfigurationsmall och aktiv konfiguration
+
+**Datum:** 2026-10-21. **Status:** Implementerad; starttest utfört.
+
+**Beslut:** Versionshantera `PragueParkingV2_1/Config/config.template.json` och kopiera mallen till output (`PreserveNewest`). `ConfigurationService` skapar aktiv runtime-`Config/config.json` genom `File.Copy()` **endast om den saknas**. En befintlig fil läses/valideras men skrivs inte över. Den gamla runtime-filen med `VehiclesPerSpot` säkerhetskopierades separat före test.
+
+**Motivering:** Användarens konfiguration ska överleva nya builds, och giltiga standardvärden ska inte hårdkodas parallellt i `CreateDefaultConfiguration()`.
+
+## DD-042 – IParkingSpot som andra interface
+
+**Datum:** 2026-10-21. **Status:** Kompilerar; faktisk interfacebaserad användning behöver fortsätta följas upp.
+
+**Beslut:** `ParkingSpot : IParkingSpot` exponerar avtal för `SpotNumber`, `ParkedVehicles`, `GetUsedCapacity`, `CanPark`, `ParkVehicle`, `FindVehicle` och `RemoveVehicle`. Gamla `VehiclesPerSpot`-överlagringar ingår inte i det nya interfacet. Bussens reservationsmetoder hanteras för tillfället av konkreta `ParkingSpot` och koordineras av `ParkingGarage`.
+
+## DD-043 – En Bus på huvudplatsen, fyra objektreferenser
+
+**Datum:** 2026-10-21. **Status:** Implementerat på kodnivå; genomgående test återstår.
+
+**Beslut:** Bussen läggs **en gång** i `ParkedVehicles` på gruppens första plats. Varje plats i en fyra platser lång, sammanhängande grupp får `ReservedByBus` pekande på **samma Bus-instans**. Platserna 001–050 är tillåtna för buss, men inte exklusiva för buss.
+
+**Genomförda metoder:** `ReserveForBus`, `ReleaseBusReservation`, `ParkBusAtPrimarySpot`, `FindAvailableBusSpots`, `FindAvailableBusSpotsAt`, `ParkBus`, `ParkBusAtSpot`. `ParkingGarage.RemoveVehicle` kontrollerar fyra reservationer före frigöring. Den vanliga `CanPark` avvisar Bus och bussreserverade platser.
+
+**JSON-princip:** Endast huvudplatsens `VehicleData` sparas. `ParkingDataMapper.ToGarage()` skiljer på Bus och andra fordon och återställer samma grupp genom `ParkBusAtSpot()`.
+
+**Återstår:** Körtester, säker bussflytt, prisberäkning, fullständig utcheckning/rollback, gränsfall, garageöversikt och återställning under fel. Nuvarande kompilerad metodkod får inte beskrivas som verifierad full funktionalitet.
+
+## DD-044 – Samlad ombyggnad av Garage Overview efter bussintegrationen
+
+**Datum:** 2026-10-21. **Status:** Beslut, ej genomfört.
+
+**Motivering:** Vyn omfattar cirka 500 kodrader och använder fortfarande G:s `VehiclesPerSpot`. `GetVehicleType` saknar Bicycle och vyn gav ett oväntat fel efter cykelregistrering. Därför skjuts ombyggnaden upp tills bussens fyra reservationer är stabila, så att färgstatus, detaljpanel och summering av platser/fordon kan uppdateras tillsammans.

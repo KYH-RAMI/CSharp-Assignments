@@ -1067,11 +1067,13 @@ Det återstår att bestämma hur de fyra platserna ska markeras som upptagna uta
 
 ### Mina personliga reflektioner
 
-Idag har jag lärt mig mer om Func. Vi gick igenom delegate lite under lektion 14–15, 
-men idag fick jag se hur det faktiskt kan användas i ett riktigt projekt. 
-Med Func<IVehicle, int> kan jag skicka en funktion som tar emot ett fordon och returnerar dess storlek, 
-utan att ParkingSpot behöver känna till JSON-konfigurationen. Jag har inte riktigt fått grepp om allt ännu, 
-så det är något jag behöver fördjupa mig i.
+Idag har jag lärt mig mer om `Func`. Vi gick igenom `delegate` lite under lektion 14–15, men här fick jag se hur man faktiskt kan använda en delegat i ett projekt. Med `Func<IVehicle, int>` kan jag skicka in en funktion som tar emot ett fordon och returnerar dess storlek, utan att `ParkingSpot` behöver veta något om själva JSON-filen. Jag vill förstå detta bättre när vi fortsätter.
+
+Jag upptäckte också att **inte bara konstruktorer, utan även vanliga metoder kan överlagras**. Det var nytt för mig att se samma metodnamn användas med olika parameterlistor. Jag funderade även på returtyper som `bool` och `int`. Där behöver jag hålla isär begreppen: det är **antalet, typerna eller ordningen på parametrarna** som skiljer överlagringar åt. Det går inte att överlagra en metod *enbart* genom att byta returtyp, men returtyperna behöver inte vara lika om parameterlistorna skiljer sig.
+
+Bussproblemet är det jag tycker är svårast just nu. Jag kan förstå hur vi letar efter fyra sammanhängande platser, men det är inte lika självklart hur vi ska koppla ihop reservationerna med ett enda bussobjekt och samtidigt få flytt, utcheckning och sparning att fungera. Jag får sova lite på saken och fortsätta resonera innan jag bestämmer hur lösningen ska se ut i kod.
+
+Det har också varit frustrerande att behöva lägga så mycket tid på Visual Studio i stället för själva uppgiften. Efter kraschen och återställningen fick jag konfigurera om flera saker, och formateringen fungerar fortfarande inte riktigt som jag vill. Jag vill inte fastna i det igen, utan hellre fokusera på att förstå och färdigställa VG-funktionerna.
 
 ### Nästa steg
 
@@ -1083,3 +1085,50 @@ så det är något jag behöver fördjupa mig i.
 6. Uppdatera den centrala dokumentationen en fil i taget, granska Git-ändringarna och skapa en korrekt commit innan arbetet fortsätter för långt.
 
 **Avgränsning:** Tidigare idéer om frivillig Windows-betadistribution, Docker/Synology NAS, Cloudflare och Discord-feedback prioriteras inte längre. Projektet fokuserar nu på kurskrav och nödvändiga tester. Tidigare loggboksanteckningar om idéerna behålls som historik.
+
+---
+
+## 2026-10-21 – V2.1: konfigurationsmall, fordonsflytt, Bicycle och bussreservationer
+
+### Vad jag gjorde
+
+- Jag fortsatte utvecklingen på `feature/prague-parking-v2.1` utan att skriva om den färdigtestade G-versionen. GitHub visade att den tidigare lokala commiten `273d2c73` redan fanns på utvecklingsbranchen, trots att Visual Studio först hade rapporterat ett fel vid push. De **nya ändringarna från i dag är ännu inte redovisade som committade**.
+- Jag flyttade V2.1:s JSON-återställning (`ParkingDataMapper.ToGarage()`), utcheckningens rollback och fordonsflytten (`MoveVehicleView` samt `ParkingGarage.MoveVehicle`) till kapacitetsmodellen med `SpotCapacity`, `Size` och `Func<IVehicle, int>`. Jag byggde lösningen efter ändringarna utan kompileringsfel.
+- Jag upptäckte ett startfel: `Vehicle type 'Car' must have a size greater than zero`. Orsaken var att runtime-`Config/config.json` fortfarande innehöll G-versionens `VehiclesPerSpot`, medan projektets V2.1-konfiguration hade `Size`. Jag verifierade skillnaden i PowerShell.
+- Jag ändrade `ConfigurationService` så att en saknad aktiv `Config/config.json` skapas genom kopiering från `Config/config.template.json`. Befintlig aktiv fil lämnas orörd och valideras. Jag tog bort den tidigare hårdkodade `CreateDefaultConfiguration()` för att undvika dubbla källor för standardvärden.
+- Jag kompletterade konfigurationsmodellen och valideringen med `SpotCapacity`, `BusMaxParkingSpot`, `BicycleHourlyPrice`, `BusHourlyPrice`, krav på fyra fordonstyper, positiva fordonsstorlekar och tillåtna garagegränser. Standardmallen anger 100 platser, kapacitet 4, bussgräns 50, storlekar Bicycle/MC/Car/Bus = 1/2/4/16 samt priser 5/10/20/80 CZK.
+- Jag döpte om projektets V2.1-konfiguration till `config.template.json` och konfigurerade kopiering av **enbart mallen** i `PragueParkingV2_1.csproj` med `CopyToOutputDirectory=PreserveNewest`. PowerShell bekräftade `Test-Path .../Config/config.template.json` med `True`. Jag döpte om den gamla runtime-konfigurationen till `config.backup-before-v2.1.json`, utan att röra `parking-data.json`. Programmet startade därefter utan konfigurationsfel.
+- Jag lade till `Bicycle` i `ParkVehicleView` och `ParkingDataService.ValidateParkingData()`; `ParkingDataMapper` hade redan stöd för serialisering och återställning av Bicycle. Registrering av den första cykeln lyckades, men test med fyra cyklar tillsammans och kontroll efter omstart återstår.
+- Jag skapade `IParkingSpot` och lät `ParkingSpot` implementera interfacet. Jag lade till `ReservedByBus`, `ReserveForBus()`, `ReleaseBusReservation()` och `ParkBusAtPrimarySpot()` samt kontroller som blockerar vanlig parkering på bussreserverade platser och förhindrar att Bus använder vanlig enplatsparkering.
+- Jag implementerade i `ParkingGarage` sökning efter första gruppen sammanhängande lediga bussplatser (`FindAvailableBusSpots`) och kontroll av en **bestämd huvudplats** (`FindAvailableBusSpotsAt`), samt `ParkBus()` och `ParkBusAtSpot()` med reservationer och kompensation om registreringen misslyckas.
+- Jag ändrade `ParkingGarage.RemoveVehicle()` så att borttagning av en buss kontrollerar och frigör dess fyra reservationer. `ParkingDataMapper.ToGarage()` anropar nu `ParkBusAtSpot()` för Bus, och `ParkingDataService` accepterar Bus som fordonstyp. I `CheckOutVehicleView` har jag lagt till särskild rollback som återställer bussens ursprungliga grupp om sparning misslyckas. Koden bygger, men **bussens hela flöde är ännu inte funktionstestat**.
+
+### Manuella tester – faktiskt utförda i V2.1
+
+| Test | Utfall | Status |
+|---|---|---|
+| Byggning efter successiva kodändringar | Visual Studio visade grön build | Godkänt som kompilering, inte komplett funktionstest |
+| V2.1-start efter ny konfigurationsmall | Programmet startade efter att gammal runtime-konfiguration säkerhetskopierats | Godkänt |
+| Flytta `UKB48K` från 001 till redan upptagen 002 | Flytten nekades med begripligt felmeddelande | Godkänt |
+| Flytta `UKB48K` från 001 till ledig 003 | Flytten lyckades | Godkänt |
+| Omstart och `Find Vehicle` för `UKB48K` | Bilen hittades på plats **003** efter omstart | Godkänt: placering i JSON och återställning |
+| Registrera första Bicycle | Programmet visade lyckad registrering | Godkänt för nyregistreringen; inte fler-cykel-/omstartstest |
+| Öppna Garage Overview med en Bicycle parkerad | Programmet gav ett oväntat fel och avslutades | **Fel reproducerat; ej åtgärdat** |
+| Buss: fyra reserverade platser, borttagning och rollback | Metoderna kompilerar, men inga körtester redovisade | Ej verifierat |
+
+### Problem, felsökning och lärdomar
+
+- Startfelet berodde inte på själva `Size`-värdet i projektfilen utan på skillnaden mellan **projektmall** och **runtime-konfiguration**. Jag lärde mig att kontrollera den faktiska fil som programmet läser under `AppContext.BaseDirectory`.
+- Jag råkade först placera en ny `RemoveVehicle()` i `ParkingSpot.cs` i stället för `ParkingGarage.cs`, vilket gav fel på `_parkingSpots`. Efter att jag skiljde på klassernas ansvar rättade jag placeringen och lösningen byggde igen.
+- Jag resonerade själv kring att lagra bussen en gång på huvudplatsen och låta de övriga tre platserna referera till **samma bussobjekt**. Det undviker fyra kopior av samma registreringsnummer och ger en tydlig modell för borttagning och återställning.
+- Garage Overview använder fortfarande G-versionens `VehiclesPerSpot` och en `GetVehicleType()` som inte hanterar `Bicycle`. Jag valde att vänta med större ombyggnad av den cirka 500 rader långa vyn tills bussens domänmodell är färdig, så att UI-anpassningen kan göras samlat. Tills dess är Garage Overview **inte säker att öppna** med nya fordonstyper.
+- Jag skiljer nu tydligare på **grön byggning**, **manuellt verifierat flöde** och **ännu inte testad funktionalitet**. Jag ska inte beskriva bussparkeringen som färdig bara för att metoderna kompilerar.
+
+### Nästa steg
+
+1. Granska och utöka `ParkingFeeCalculator` samt relaterade resultat-/utcheckningsflöden för Bicycle (5 CZK/h) och Bus (80 CZK/h).
+2. Granska `MoveVehicle` så att buss inte kan flyttas med den vanliga enplatsmetoden; besluta hur särskild bussflytt ska fungera inom intervallet 001–050 och implementera säker rollback.
+3. Funktionstesta bussparkering, dubblettskydd, fyra på varandra följande platser, borttagning, JSON-omstart och sparfel/rollback. Kontrollera att bussen lagras **en gång** och att reservationerna återskapas.
+4. Färdigställa `GarageOverView` för storleksbaserad beläggning, Bicycle, blandad beläggning och bussens fyra reserverade platser; åtgärda den observerade kraschen.
+5. Testa fyra cyklar på samma plats, cykel efter omstart, kombinationerna MC+Bicycle och full plats; implementera fullständig config reload och automatisk testdata vid saknad `parking-data.json`.
+6. Granska kvarvarande äldre `VehiclesPerSpot`-anrop i V2.1, uppdatera dokumentation och kör G-regressionstest i relevant omfattning. Senare: Git commit/push på feature-branchen och test på annan dator.
