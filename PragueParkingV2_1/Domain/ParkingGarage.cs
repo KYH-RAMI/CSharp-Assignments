@@ -74,6 +74,49 @@ namespace PragueParkingV2_1.Domain
 
             return null;
         }
+        public bool CanMoveBusToSpot(
+            Bus bus,
+            int targetStartSpotNumber,
+            int busMaxParkingSpot)
+        {
+            ArgumentNullException.ThrowIfNull(bus);
+
+            const int requiredSpots = 4;
+
+            if (busMaxParkingSpot < requiredSpots ||
+                busMaxParkingSpot > _parkingSpots.Count)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(busMaxParkingSpot));
+            }
+
+            if (targetStartSpotNumber < 1 ||
+                targetStartSpotNumber > busMaxParkingSpot - requiredSpots + 1)
+            {
+                return false;
+            }
+
+            for (int offset = 0; offset < requiredSpots; offset++)
+            {
+                ParkingSpot spot =
+                    _parkingSpots[targetStartSpotNumber - 1 + offset];
+
+                bool occupiedByAnotherVehicle =
+                    spot.ParkedVehicles.Any(
+                        vehicle => !ReferenceEquals(vehicle, bus));
+
+                bool reservedByAnotherBus =
+                    spot.ReservedByBus is not null &&
+                    !ReferenceEquals(spot.ReservedByBus, bus);
+
+                if (occupiedByAnotherVehicle || reservedByAnotherBus)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
         public IReadOnlyList<ParkingSpot>? FindAvailableBusSpotsAt(
             int startSpotNumber,
             int busMaxParkingSpot,
@@ -424,11 +467,19 @@ namespace PragueParkingV2_1.Domain
                         .Where(s => ReferenceEquals(s.ReservedByBus, bus))
                         .ToList();
 
-                    if (reservedSpots.Count != 4 ||
-                        !reservedSpots.Contains(spot))
+                    if (reservedSpots.Count != 4)
                     {
                         throw new InvalidOperationException(
-                            $"Bus '{identifier}' does not have four valid reservations.");
+                            $"Bus '{identifier}' must have exactly four reservations.");
+                    }
+
+                    for (int i = 0; i < reservedSpots.Count; i++)
+                    {
+                        if (reservedSpots[i].SpotNumber != spot.SpotNumber + i)
+                        {
+                            throw new InvalidOperationException(
+                                $"Bus '{identifier}' does not have four consecutive parking spots.");
+                        }
                     }
 
                     Vehicle? removedBus = spot.RemoveVehicle(identifier);
@@ -452,6 +503,8 @@ namespace PragueParkingV2_1.Domain
 
             return null;
         }
+
+        // Befintlig metod för Car, MC och Bicycle
         public void MoveVehicle(
             string identifier,
             int targetSpotNumber,
@@ -465,6 +518,11 @@ namespace PragueParkingV2_1.Domain
             {
                 throw new InvalidOperationException(
                     $"Vehicle '{identifier}' was not found.");
+            }
+            if (vehicle is Bus)
+            {
+                throw new InvalidOperationException(
+                    "Buses must be moved using MoveBus().");
             }
             var sourceSpot = _parkingSpots.Find(
                 spot => spot.ParkedVehicles.Contains(vehicle));
@@ -518,6 +576,96 @@ namespace PragueParkingV2_1.Domain
             }
 
 
+        }
+        // NY METOD – Flyttar en buss mellan fyra parkeringsplatser
+        public ParkingSpot MoveBus(
+            string identifier,
+            int targetStartSpotNumber,
+            int spotCapacity,
+            int busSize,
+            int busMaxParkingSpot)
+        {
+            if (FindVehicle(identifier) is not Bus bus)
+            {
+                throw new InvalidOperationException(
+                    $"Bus '{identifier}' was not found.");
+            }
+
+            const int requiredSpots = 4;
+
+            if (spotCapacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(spotCapacity));
+            }
+
+            if (busSize != spotCapacity * requiredSpots)
+            {
+                throw new InvalidOperationException(
+                    "Bus size must equal four parking spot capacities.");
+            }
+
+            var sourceSpot = _parkingSpots.FirstOrDefault(
+                spot => spot.ParkedVehicles.Any(
+                    vehicle => ReferenceEquals(vehicle, bus)));
+
+            if (sourceSpot is null)
+            {
+                throw new InvalidOperationException(
+                    $"Original parking spot for bus '{identifier}' was not found.");
+            }
+
+            if (targetStartSpotNumber == sourceSpot.SpotNumber)
+            {
+                throw new InvalidOperationException(
+                    "The bus is already parked at this location.");
+            }
+
+            if (!CanMoveBusToSpot(
+                bus,
+                targetStartSpotNumber,
+                busMaxParkingSpot))
+            {
+                throw new InvalidOperationException(
+                    "The selected parking spots are not available for the bus.");
+            }
+
+            int originalSpotNumber = sourceSpot.SpotNumber;
+
+            RemoveVehicle(identifier);
+
+            try
+            {
+                return ParkBusAtSpot(
+                    bus,
+                    targetStartSpotNumber,
+                    spotCapacity,
+                    busSize,
+                    busMaxParkingSpot);
+            }
+            catch (Exception moveException)
+            {
+                try
+                {
+                    ParkBusAtSpot(
+                        bus,
+                        originalSpotNumber,
+                        spotCapacity,
+                        busSize,
+                        busMaxParkingSpot);
+                }
+                catch (Exception rollbackException)
+                {
+                    throw new InvalidOperationException(
+                        "Bus move failed and the original parking spots " +
+                        "could not be restored.",
+                        new AggregateException(
+                            moveException,
+                            rollbackException));
+                }
+
+                throw;
+            }
         }
 
 

@@ -265,46 +265,45 @@ namespace PragueParkingV2_1.UI
             bool isSelected,
             AppConfiguration configuration)
         {
-            string backgroundColor = GetSpotColor(spot, configuration);
+            string backgroundColor = isSelected
+                ? AppTheme.SelectedSpotBackground
+                : GetSpotColor(spot, configuration);
+
             string foregroundColor = isSelected
-                ? AppTheme.Gold
+                ? AppTheme.SelectedSpotText
                 : AppTheme.StatusText;
 
-            // The final space is deliberately outside the colored area.
             return new Markup(
                 $"[bold {foregroundColor} on {backgroundColor}] " +
                 $"{spot.SpotNumber:D3} [/] ");
         }
 
         private static string GetSpotColor(
-            ParkingSpot parkingSpot,
-            AppConfiguration configuration)
+    ParkingSpot parkingSpot,
+    AppConfiguration configuration)
         {
-            int vehicleCount =
-                parkingSpot.ParkedVehicles.Count;
-
-
-            if (vehicleCount == 0)
-            {
-                return AppTheme.StatusFree;
-            }
-
-
-            string vehicleType =
-                GetVehicleType(
-                    parkingSpot.ParkedVehicles[0]);
-
-
-            int capacity =
-                configuration.VehicleTypes![vehicleType]
-                    .VehiclesPerSpot;
-
-
-            if (vehicleCount >= capacity)
+            // Bus reservations always occupy the entire parking spot.
+            if (parkingSpot.ReservedByBus is not null)
             {
                 return AppTheme.StatusFull;
             }
 
+            int spotCapacity = configuration.Garage!.SpotCapacity;
+
+            Func<IVehicle, int> getSize = vehicle =>
+                configuration.VehicleTypes![vehicle.GetType().Name].Size;
+
+            int usedCapacity = parkingSpot.GetUsedCapacity(getSize);
+
+            if (usedCapacity == 0)
+            {
+                return AppTheme.StatusFree;
+            }
+
+            if (usedCapacity >= spotCapacity)
+            {
+                return AppTheme.StatusFull;
+            }
 
             return AppTheme.StatusPartial;
         }
@@ -322,33 +321,60 @@ namespace PragueParkingV2_1.UI
 
             int vehicleCount = selectedSpot.ParkedVehicles.Count;
 
-            if (vehicleCount == 0)
+            if (selectedSpot.ReservedByBus is Bus bus &&
+                vehicleCount == 0)
             {
-                detailLines.Add(
-                    $"Status: [{AppTheme.StatusFree}]FREE[/]");
+                int capacity = configuration.Garage!.SpotCapacity;
 
-                detailLines.Add("Occupancy: 0");
+                detailLines.Add(
+                    $"Status: [{AppTheme.StatusFull}]BUS RESERVED[/]");
+
+                detailLines.Add(
+                    $"Occupancy: {capacity} / {capacity}");
+
                 detailLines.Add("");
 
                 detailLines.Add(
-                    $"[bold {AppTheme.GoldLight}]AVAILABLE CAPACITY[/]");
+                    $"[bold {AppTheme.GoldLight}]BUS RESERVATION[/]");
 
                 detailLines.Add(
-                    $"Car: {configuration.VehicleTypes!["Car"].VehiclesPerSpot}");
+                    $"Registration: {Markup.Escape(bus.Identifier)}");
+            }
+
+            else if (vehicleCount == 0)
+            {
+                int spotCapacity = configuration.Garage!.SpotCapacity;
 
                 detailLines.Add(
-                    $"MC:  {configuration.VehicleTypes!["MC"].VehiclesPerSpot}");
+                    $"Status: [{AppTheme.StatusFree}]FREE[/]");
+
+                detailLines.Add(
+                    $"Occupancy: 0 / {spotCapacity}");
+
+                detailLines.Add("");
+
+                detailLines.Add(
+                    $"[bold {AppTheme.GoldLight}]MAX PER EMPTY SPOT[/]");
+
+                detailLines.Add(
+                    $"Car: {spotCapacity / configuration.VehicleTypes!["Car"].Size}");
+
+                detailLines.Add(
+                    $"MC: {spotCapacity / configuration.VehicleTypes!["MC"].Size}");
+
+                detailLines.Add(
+                    $"Bicycle: {spotCapacity / configuration.VehicleTypes!["Bicycle"].Size}");
             }
             else
             {
-                Vehicle firstVehicle = selectedSpot.ParkedVehicles[0];
+                int capacity = configuration.Garage!.SpotCapacity;
 
-                string vehicleType = GetVehicleType(firstVehicle);
+                int usedCapacity = selectedSpot.ReservedByBus is not null
+                    ? capacity
+                    : selectedSpot.GetUsedCapacity(
+                        vehicle => configuration.VehicleTypes![vehicle.GetType().Name].Size);
 
-                int capacity =
-                    configuration.VehicleTypes![vehicleType].VehiclesPerSpot;
-
-                bool isFull = vehicleCount >= capacity;
+                bool isFull = usedCapacity >= capacity;
 
                 string status = isFull
                     ? "FULL"
@@ -362,7 +388,7 @@ namespace PragueParkingV2_1.UI
                     $"Status: [{statusColor}]{status}[/]");
 
                 detailLines.Add(
-                    $"Occupancy: {vehicleCount} / {capacity}");
+                    $"Occupancy: {usedCapacity} / {capacity}");
 
                 detailLines.Add("");
 
@@ -425,7 +451,8 @@ namespace PragueParkingV2_1.UI
 
             int occupiedSpots =
                 parkingGarage.ParkingSpots.Count(
-                    spot => spot.ParkedVehicles.Count > 0);
+                    spot => spot.ParkedVehicles.Count > 0 ||
+                    spot.ReservedByBus is not null);
 
             int freeSpots =
                 totalSpots - occupiedSpots;
@@ -435,9 +462,9 @@ namespace PragueParkingV2_1.UI
                     spot => spot.ParkedVehicles.Count);
 
             string content =
-                $"[bold {AppTheme.Gold}]FREE {freeSpots}[/]" +
+                $"[bold {AppTheme.Gold}]FREE SPOTS {freeSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
-                $"[{AppTheme.Text}]OCCUPIED {occupiedSpots}[/]" +
+                $"[{AppTheme.Text}]OCCUPIED SPOTS {occupiedSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
                 $"[{AppTheme.Text}]VEHICLES {totalVehicles}[/]\n\n" +
 
@@ -466,6 +493,8 @@ namespace PragueParkingV2_1.UI
             {
                 Car => "Car",
                 MC => "MC",
+                Bicycle => "Bicycle",
+                Bus => "Bus",
 
                 _ => throw new NotSupportedException(
                     $"Vehicle type '{vehicle.GetType().Name}' is not supported.")

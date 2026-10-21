@@ -1132,3 +1132,30 @@ Det har också varit frustrerande att behöva lägga så mycket tid på Visual S
 4. Färdigställa `GarageOverView` för storleksbaserad beläggning, Bicycle, blandad beläggning och bussens fyra reserverade platser; åtgärda den observerade kraschen.
 5. Testa fyra cyklar på samma plats, cykel efter omstart, kombinationerna MC+Bicycle och full plats; implementera fullständig config reload och automatisk testdata vid saknad `parking-data.json`.
 6. Granska kvarvarande äldre `VehiclesPerSpot`-anrop i V2.1, uppdatera dokumentation och kör G-regressionstest i relevant omfattning. Senare: Git commit/push på feature-branchen och test på annan dator.
+
+
+## 2026-10-21 – V2.1: avslutande verifieringar, konfiguration och testdata
+
+### Genomfört och testat
+
+- Bussens fyra sammanhängande reservationer färdigställdes och testades genom registrering, överlappande flytt och normal utcheckning. `BUS001` flyttades från 004–007 till 006–009 utan att ankomsttiden ändrades. Utcheckningen beräknade 160 CZK för 1 timme och 38 minuter och frigjorde bussens fyra platser.
+- Garage Overview uppdaterades för `Bus`/`Bicycle`, storleksbaserad beläggning, fyra bussreservationer och statusräknare. Det tidigare rapporterade felet vid visning av Bicycle åtgärdades. Ett nytt varmt **Sunset-tema** ersatte färgsättningen i V2.1; G-temat lämnades som tidigare.
+- `FindVehicleView` kompletterades så att `Bus` och `Bicycle` visas med rätt typ och bussens fyra platsnummer. ESC-inmatning kodades för Find Vehicle, och vyn byggdes framgångsrikt; enhetlig ESC-hantering i övriga formulär kvarstår att se över.
+- `Administration` fick `Reload Configuration` med en `Action` från MainMenu. `ConfigurationService.LoadConfiguration(createIfMissing: false)` används vid manuell reload. Ny konfiguration testas först genom att befintliga parkeringar återskapas i ett tillfälligt garage via `ParkingDataMapper`; först vid lyckad kontroll aktiveras nytt garage, nya inställningar och priser.
+- Funktionstest: utökning från **100 till 200** platser utan omstart med bevarade fordon. Även **500 platser** visades och navigerades med intern viewport. Negativt test: `SpotCapacity` ändrades från 4 till 2 med `OEJ989` (Car) på plats 002; Reload Configuration avvisade ändringen och det tidigare aktiva garaget förblev korrekt.
+- `TestDataSeeder` infördes i `Application` och kopplades i `Program.cs`, endast när `parking-data.json` saknas. Testkörning i separat kopia gav `TESTBUS1` på 001–004, `TESTCAR1` på 005, `TESTMC1` och `TESTBIKE1` tillsammans på 006 (3/4 enheter). Med 200 platser visades **FREE 194 / OCCUPIED 6 / VEHICLES 4**. En JSON-fil skapades; samma fordon, platser och UTC-tider lästes tillbaka efter omstart. En buss sparas bara på sin primärplats.
+- Efter lärarens förtydligande har jag begränsat både bussparkering och bussflytt till parkeringsplatserna **001–050**. Standardkonfigurationen använder `BusMaxParkingSpot = 50`.
+- Två interfaces finns: `IVehicle` och `IParkingSpot`. G-projekten har inte ändrats som del av VG-implementeringen.
+
+### Mina personliga reflektioner
+
+Busslogiken var den svåraste delen av arbetet med V2.1. En buss måste använda fyra sammanhängande parkeringsplatser, och dessa platser behöver hanteras korrekt både när bussen parkeras, flyttas och checkas ut. Efter att ha arbetat vidare med logiken och testat funktionerna fick jag det att fungera.
+
+Jag lärde mig även hur `Action` kan användas i C#. I arbetet med `Reload Configuration` använde jag `Action` för att koppla samman `AdministrationView` och `MainMenu`. På så sätt kan administrationsvyn anropa funktionen utan att själv innehålla logiken som läser in och aktiverar den nya konfigurationen.
+
+### Kvar inför slutlig leverans
+
+- Granska V2.1 efter oanvända gamla `VehiclesPerSpot`-överlagringar och annan överflödig kod, med regressionstest före borttagning; ändra inte V2.0.
+- Verifiera bussens felinjektion/rollback, ytterligare gränsfall för Bicycle och kapacitet, mer omfattande full Reload Configuration och portabilitet.
+- Den planerade automatiska Live Demonstration i en isolerad Garage Overview har diskuterats men **är inte implementerad**.
+- Kontrollera Git Changes och versionshantera den uppdaterade koden och dokumentationen på feature-branchen. Genererade filer i `bin/` och `obj/` samt lokala runtime-data ska inte ingå.

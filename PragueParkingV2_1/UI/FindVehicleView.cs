@@ -1,6 +1,7 @@
 ﻿using PragueParkingV2_1.Data.Configuration;
 using PragueParkingV2_1.Domain;
 using Spectre.Console;
+using System.Text;
 
 namespace PragueParkingV2_1.UI
 {
@@ -25,7 +26,7 @@ namespace PragueParkingV2_1.UI
                 string instructionContent =
                     "Enter the vehicle registration ID to find its\n" +
                     "current location in the parking garage.\n\n" +
-                    "Press Enter without an ID to return to the main menu.";
+                    "Press ESC or Enter without an ID to return to the main menu.";
 
                 var instructionPanel = AppTheme.CreatePanel(
                     new Markup(instructionContent),
@@ -39,10 +40,48 @@ namespace PragueParkingV2_1.UI
 
                 Console.SetCursorPosition(leftMargin, Console.CursorTop);
 
-                string identifier = AnsiConsole.Prompt(
-                    new TextPrompt<string>(
-                        $"[{AppTheme.Gold}]Registration ID:[/] ")
-                    .AllowEmpty()).Trim();
+                AnsiConsole.Markup(
+                    $"[{AppTheme.Gold}]Registration ID:[/] ");
+
+                var input = new StringBuilder();
+
+                while (true)
+                {
+                    ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+                    if (key.Key == ConsoleKey.Escape)
+                    {
+                        return;
+                    }
+
+                    if (key.Key == ConsoleKey.Enter)
+                    {
+                        break;
+                    }
+
+                    if (key.Key == ConsoleKey.Backspace)
+                    {
+                        if (input.Length > 0)
+                        {
+                            input.Length--;
+
+                            Console.Write("\b \b");
+                        }
+
+                        continue;
+                    }
+
+                    if (!char.IsControl(key.KeyChar) && input.Length < 30)
+                    {
+                        input.Append(key.KeyChar);
+
+                        Console.Write(key.KeyChar);
+                    }
+                }
+
+                Console.WriteLine();
+
+                string identifier = input.ToString().Trim();
 
                 if (string.IsNullOrWhiteSpace(identifier))
                 {
@@ -92,9 +131,17 @@ namespace PragueParkingV2_1.UI
             {
                 Car => "Car",
                 MC => "MC",
+                Bicycle => "Bicycle",
+                Bus => "Bus",
                 _ => "Unknown"
             };
-            
+            string parkingLocation = vehicle is Bus
+                ? $"{parkingSpot.SpotNumber:D3} - {parkingSpot.SpotNumber + 3:D3}"
+                : $"{parkingSpot.SpotNumber:D3}";
+
+            string parkingLabel = vehicle is Bus
+                ? "Parking Spots"
+                : "Parking Spot";
             TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById(
                 configuration.System!.TimeZone);
 
@@ -109,7 +156,7 @@ namespace PragueParkingV2_1.UI
             string content =
                 $"Vehicle Type: {vehicleType}\n" +
                 $"Registration: {Markup.Escape(vehicle.Identifier)}\n" +
-                $"Parking Spot: {parkingSpot.SpotNumber:D3}\n" +
+                $"{parkingLabel}: {parkingLocation}\n" +
                 $"Arrival Time: {localArrivalTime:yyyy-MM-dd HH:mm}\n" +
                 $"Duration: {parkingDuration}";
 

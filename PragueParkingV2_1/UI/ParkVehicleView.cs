@@ -13,6 +13,7 @@ namespace PragueParkingV2_1.UI
             "Car",
             "MC",
             "Bicycle",
+            "Bus",
             "Back"
         };
 
@@ -74,6 +75,7 @@ namespace PragueParkingV2_1.UI
                         "Car" => new Car(identifier),
                         "MC" => new MC(identifier),
                         "Bicycle" => new Bicycle(identifier),
+                        "Bus" => new Bus(identifier),
 
                         _ => throw new ArgumentException(
                             "Unsupported vehicle type.")
@@ -93,11 +95,23 @@ namespace PragueParkingV2_1.UI
                             vehicle.ArrivalTime,
                             timeZone);
 
-                    ParkingSpot assignedSpot =
-                        parkingGarage.ParkVehicle(
+                    ParkingSpot assignedSpot;
+
+                    if (vehicle is Bus bus)
+                    {
+                        assignedSpot = parkingGarage.ParkBus(
+                            bus,
+                            spotCapacity,
+                            getSize(bus),
+                            configuration.Garage!.BusMaxParkingSpot);
+                    }
+                    else
+                    {
+                        assignedSpot = parkingGarage.ParkVehicle(
                             vehicle,
                             spotCapacity,
                             getSize);
+                    }
 
                     try
                     {
@@ -122,11 +136,25 @@ namespace PragueParkingV2_1.UI
 
                     AppTheme.PrepareScreen();
 
+                    string parkingSpotText;
+
+                    if (vehicle is Bus)
+                    {
+                        int firstSpot = assignedSpot.SpotNumber;
+                        int lastSpot = firstSpot + 3;
+
+                        parkingSpotText = $"{firstSpot:D3} - {lastSpot:D3}";
+                    }
+                    else
+                    {
+                        parkingSpotText = $"{assignedSpot.SpotNumber:D3}";
+                    }
+
                     string successContent =
                         $"Vehicle parked successfully!\n\n" +
                         $"Vehicle Type: {vehicleType}\n" +
-                        $"Registration: {vehicle.Identifier}\n" +
-                        $"Parking Spot: {assignedSpot.SpotNumber:D3}\n" +
+                        $"Registration: {Markup.Escape(vehicle.Identifier)}\n" +
+                        $"Parking Spot(s): {parkingSpotText}\n" +
                         $"Arrival Time: {localArrival:yyyy-MM-dd HH:mm}";
 
                     var successPanel = AppTheme.CreatePanel(

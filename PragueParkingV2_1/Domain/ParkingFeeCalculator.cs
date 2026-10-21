@@ -6,16 +6,23 @@ namespace PragueParkingV2_1.Domain
     {
         private decimal _carHourlyPrice;
         private decimal _motorcycleHourlyPrice;
+        private decimal _bicycleHourlyPrice;
+        private decimal _busHourlyPrice;
+
         private int _freeMinutes;
 
         public ParkingFeeCalculator(
             decimal carHourlyPrice, 
-            decimal motorcycleHourlyPrice, 
+            decimal motorcycleHourlyPrice,
+            decimal bicycleHourlyPrice,
+            decimal busHourlyPrice,
             int freeMinutes)
         {
             UpdatePricing(
                 carHourlyPrice,
                 motorcycleHourlyPrice,
+                bicycleHourlyPrice,
+                busHourlyPrice,
                 freeMinutes);
           
         }
@@ -23,9 +30,10 @@ namespace PragueParkingV2_1.Domain
         public void UpdatePricing(
             decimal carHourlyPrice,
             decimal motorcycleHourlyPrice,
+            decimal bicycleHourlyPrice,
+            decimal busHourlyPrice,
             int freeMinutes)
         {
-
             if (carHourlyPrice < 0)
             {
                 throw new ArgumentOutOfRangeException(
@@ -33,11 +41,25 @@ namespace PragueParkingV2_1.Domain
                     "Car hourly price cannot be negative.");
             }
 
-            if(motorcycleHourlyPrice < 0)
+            if (motorcycleHourlyPrice < 0)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(motorcycleHourlyPrice),
                     "Motorcycle hourly price cannot be negative.");
+            }
+
+            if (bicycleHourlyPrice < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(bicycleHourlyPrice),
+                    "Bicycle hourly price cannot be negative.");
+            }
+
+            if (busHourlyPrice < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(busHourlyPrice),
+                    "Bus hourly price cannot be negative.");
             }
 
             if (freeMinutes < 0)
@@ -49,8 +71,9 @@ namespace PragueParkingV2_1.Domain
 
             _carHourlyPrice = carHourlyPrice;
             _motorcycleHourlyPrice = motorcycleHourlyPrice;
+            _bicycleHourlyPrice = bicycleHourlyPrice;
+            _busHourlyPrice = busHourlyPrice;
             _freeMinutes = freeMinutes;
-
         }
         public ParkingFeeResult CalculateParkingFee(
             Vehicle vehicle,
@@ -63,10 +86,12 @@ namespace PragueParkingV2_1.Domain
             {
                 Car => _carHourlyPrice,
                 MC => _motorcycleHourlyPrice,
+                Bicycle => _bicycleHourlyPrice,
+                Bus => _busHourlyPrice,
+
                 _ => throw new NotSupportedException(
                     $"Vehicle type '{vehicle.GetType().Name}' is not supported.")
             };
-
             if (departureTime.Kind != DateTimeKind.Utc)
             {
                 throw new ArgumentException(

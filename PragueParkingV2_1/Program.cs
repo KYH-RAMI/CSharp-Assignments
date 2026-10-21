@@ -19,11 +19,26 @@ try
     var configuration = configurationService.LoadConfiguration();
 
     var parkingDataService = new ParkingDataService();
-    var parkingData = parkingDataService.Load();
 
-    var parkingGarage = ParkingDataMapper.ToGarage(
-        parkingData,
-        configuration);
+    ParkingGarage parkingGarage;
+
+    if (parkingDataService.ParkingDataExists())
+    {
+        var parkingData = parkingDataService.Load();
+
+        parkingGarage = ParkingDataMapper.ToGarage(
+            parkingData,
+            configuration);
+    }
+    else
+    {
+        parkingGarage = TestDataSeeder.CreateGarage(configuration);
+
+        var parkingData = ParkingDataMapper.ToDocument(
+            parkingGarage);
+
+        parkingDataService.Save(parkingData);
+    }
 
 
     var pricing = configuration.Pricing!;
@@ -31,6 +46,8 @@ try
     var feeCalculator = new ParkingFeeCalculator(
         pricing.CarHourlyPrice,
         pricing.MotorcycleHourlyPrice,
+        pricing.BicycleHourlyPrice,
+        pricing.BusHourlyPrice,
         pricing.FreeMinutes);
 
     MessageService.ShowSuccess(

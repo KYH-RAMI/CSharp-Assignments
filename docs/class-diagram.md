@@ -3,13 +3,99 @@
 **Uppdaterad:** 2026-10-21  
 **Omfattning:** Separata klassdiagram för Prague Parking 2.0 (G) och den pågående vidareutvecklingen Prague Parking 2.1 (VG).
 
-Dokumentet skiljer mellan **den befintliga, manuellt testade G-modellen** och **den delvis implementerade VG-modellen**. G-diagrammet och dess dokumenterade testhistorik är bevarade. V2.1 har egna projekt och ett eget diagram med de klasser, det interface och de metodöverlagringar som hittills har redovisats. Planerade funktioner visas inte som implementerade relationer.
+Dokumentet skiljer mellan **den befintliga, manuellt testade G-modellen** och **den delvis implementerade VG-modellen**. G-diagrammet och dess dokumenterade testhistorik är bevarade. V2.1 har egna projekt och ett separat diagram med aktuella klasser, båda interfacen och centrala metoder. Planerade funktioner visas inte som implementerade relationer.
 
 JSON-persistens och applikationslagrets mapper dokumenteras separat från domänmodellen. Det som anges som *byggt/kompilerat* i V2.1 ska inte tolkas som *funktionstestat*.
 
 UI och konfiguration beskrivs översiktligt i detta dokument. JSON-persistensen har ett separat klassdiagram längre ned. Den 14 oktober tillkom `ParkingDataMapper` i huvudprojektets applikationslager och `ParkingGarage.ParkVehicleAtSpot()` för återställning. **Den 15 oktober** integrerades `CheckOutVehicleView` och `MoveVehicleView` med huvudmenyn och JSON-sparningen. `ParkingGarage.MoveVehicle()` tillkom för att flytta befintliga fordon utan att ändra ankomsttiden. `GarageOverView` behövde inte byggas om för detta. **Den 16 oktober** verifierades även `FindVehicleView` och `AdministrationView` i UI, prisomläsning, återställning och negativa JSON-fall, rollback vid sparfel samt garageöversiktens viewport med 1 000 platser. Dokumentet beskriver den redovisade implementationen, inte en ny genomgång av hela repositoryt.
 
-**VG-lägesbild 2026-10-21:** `ParkingSpot` implementerar nu `IParkingSpot` och innehåller bussreservation (`ReservedByBus`). `ParkingGarage` har nya sök-, parkerings- och återställningsmetoder för Bus och särskild borttagning som frigör reservationerna. `ParkingDataMapper` hanterar Bus och Bicycle, men bussflödet är ännu inte end-to-end-testat. Tidigare diagram nedan speglar historiskt läge 2026-10-20; kompletteringen längst ned visar de nya relationerna.
+**Historisk VG-lägesbild från ett tidigare utvecklingssteg:** `ParkingSpot` implementerar nu `IParkingSpot` och innehåller bussreservation (`ReservedByBus`). `ParkingGarage` har nya sök-, parkerings- och återställningsmetoder för Bus och särskild borttagning som frigör reservationerna. `ParkingDataMapper` hanterar Bus och Bicycle, men bussflödet är ännu inte end-to-end-testat. Tidigare diagram nedan speglar historiskt läge 2026-10-20; kompletteringen längst ned visar de nya relationerna.
+
+## V2.1 – aktuell domänmodell och dataflöde (2026-10-21)
+
+Diagrammet visar **verifierad struktur i huvuddrag**, inte en fullständig lista över varje metodsignatur. Historiska diagram längre ned avser G-versionen eller tidiga VG-steg och ska inte läsas som aktuell V2.1-status.
+
+```mermaid
+classDiagram
+    direction TB
+    class IVehicle {
+        <<interface>>
+        +Identifier
+        +ArrivalTime
+    }
+    class IParkingSpot {
+        <<interface>>
+        +SpotNumber
+        +ParkedVehicles
+    }
+    class Vehicle {
+        <<abstract>>
+        +Identifier
+        +ArrivalTime
+    }
+    class Car
+    class MC
+    class Bicycle
+    class Bus
+    class ParkingSpot {
+        +SpotNumber
+        +ParkedVehicles
+        +ReservedByBus
+        +GetUsedCapacity()
+        +CanPark()
+        +ReserveForBus()
+        +ReleaseBusReservation()
+    }
+    class ParkingGarage {
+        +ParkingSpots
+        +ParkVehicle()
+        +MoveVehicle()
+        +FindAvailableBusSpots()
+        +ParkBus()
+        +ParkBusAtSpot()
+        +MoveBus()
+        +RemoveVehicle()
+    }
+    class ParkingFeeCalculator {
+        +UpdatePricing()
+        +CalculateParkingFee()
+    }
+    IVehicle <|.. Vehicle
+    Vehicle <|-- Car
+    Vehicle <|-- MC
+    Vehicle <|-- Bicycle
+    Vehicle <|-- Bus
+    IParkingSpot <|.. ParkingSpot
+    ParkingGarage "1" *-- "1..*" ParkingSpot
+    ParkingSpot "1" o-- "0..*" Vehicle
+    ParkingSpot --> "0..1" Bus : ReservedByBus
+    ParkingFeeCalculator ..> Vehicle
+```
+
+```mermaid
+flowchart TD
+    START[Program.cs] --> CS[ConfigurationService.LoadConfiguration]
+    START --> EXISTS{ParkingDataExists?}
+    EXISTS -->|Ja| LOAD[ParkingDataService.Load]
+    LOAD --> MAP[ParkingDataMapper.ToGarage]
+    EXISTS -->|Nej| SEED[TestDataSeeder.CreateGarage]
+    SEED --> DOC[ParkingDataMapper.ToDocument]
+    DOC --> SAVE[ParkingDataService.Save]
+    MAP --> MENU[MainMenu]
+    SAVE --> MENU
+    MENU --> ADM[AdministrationView.Reload Configuration]
+    ADM --> LOADCONF[Läs ny konfiguration utan att skapa fil]
+    LOADCONF --> SNAP[ToDocument av aktivt garage]
+    SNAP --> TRY[ToGarage med nya inställningar]
+    TRY -->|Fel| KEEP[Behåll gamla objekt]
+    TRY -->|Lyckas| COMMIT[Uppdatera priser och byt aktivt garage/konfiguration]
+```
+
+**Bussens representation:** Bus lagras som ett objekt på gruppens första plats; `ReservedByBus` pekar på samma objekt på alla fyra platser. `MoveBus()` håller ihop reservationerna och ursprunglig `ArrivalTime`; `RemoveVehicle()` frigör gruppen vid normal utcheckning. En buss får i kursversionens aktiva standard endast ha plats 001–050.
+
+**Verifierat:** 004–007 → 006–009 för `BUS001`, normal utcheckning och avgift 160 CZK; testbuss 001–004 och omstart, blandad MC+Bicycle 3/4, samt nya `Find Vehicle`-detaljer. `GarageOverView` har numera stöd för alla fyra fordonstyperna och intern viewport testad vid 500 platser. **Återstår:** riktat bus-rollbacktest, fullständig integrationstestning av alla config-variabler och slutlig interface-/legacykodgranskning. Live Demo finns bara som plan.
+
+---
 
 ## Prague Parking 2.0 (G) – befintlig domänmodell
 
@@ -405,240 +491,6 @@ Följande är manuellt verifierade integrationstester av den redovisade G-implem
 
 **Återstår inför slutlig leverans:** oberoende körning på annan dator, kontroll av fler terminalstorlekar och komplett avstämning av inlämningskraven. Testerna visar inte att alla tänkbara krasch- eller filsystemfel hanteras atomiskt. Projektets klassdiagram är baserade på redovisad kod; en fullständig kodgranskning av repositoryt har inte gjorts i detta steg.
 
-## Prague Parking 2.1 (VG) – aktuell domänmodell under utveckling
+## Avgränsning och fortsatt granskning
 
-**Status 2026-10-20:** `PragueParkingV2_1` och `PragueParkingV2_1.Data` är skapade som separata projekt i samma solution som G-versionen. Namnrymderna har anpassats till V2.1, och samtliga fyra projekt har byggts utan kompileringsfel. V2.1:s huvudmeny har startats. Detta är **inte** en verifiering av hela det nya parkeringsflödet.
-
-### Klassdiagram – redovisad kodnivå i V2.1
-
-```mermaid
-classDiagram
-    direction TB
-
-    class IVehicle {
-        <<interface>>
-        +string Identifier
-        +DateTime ArrivalTime
-    }
-
-    class Vehicle {
-        <<abstract>>
-        +string Identifier
-        +DateTime ArrivalTime
-        #Vehicle(string identifier)
-        #Vehicle(string identifier, DateTime arrivalTime)
-    }
-
-    class Car {
-        +Car(string identifier)
-        +Car(string identifier, DateTime arrivalTime)
-    }
-
-    class MC {
-        +MC(string identifier)
-        +MC(string identifier, DateTime arrivalTime)
-    }
-
-    class Bicycle {
-        +Bicycle(string identifier)
-        +Bicycle(string identifier, DateTime arrivalTime)
-    }
-
-    class Bus {
-        +Bus(string identifier)
-        +Bus(string identifier, DateTime arrivalTime)
-    }
-
-    class ParkingSpot {
-        +int SpotNumber
-        -List~Vehicle~ _parkedVehicles
-        +IReadOnlyList~Vehicle~ ParkedVehicles
-        +int GetUsedCapacity(Func getSize)
-        +bool CanPark(IVehicle vehicle, int spotCapacity, Func getSize)
-        +void ParkVehicle(Vehicle vehicle, int spotCapacity, Func getSize)
-        +Vehicle? FindVehicle(string identifier)
-        +Vehicle? RemoveVehicle(string identifier)
-    }
-
-    class ParkingGarage {
-        +IReadOnlyList~ParkingSpot~ ParkingSpots
-        +ParkingGarage(int numberOfParkingSpots)
-        +ParkingSpot? FindAvailableSpot(IVehicle vehicle, int spotCapacity, Func getSize)
-        +ParkingSpot ParkVehicle(Vehicle vehicle, int spotCapacity, Func getSize)
-        +void ParkVehicleAtSpot(Vehicle vehicle, int spotNumber, int spotCapacity, Func getSize)
-        +Vehicle? FindVehicle(string identifier)
-        +Vehicle? RemoveVehicle(string identifier)
-        +void MoveVehicle(string identifier, int targetSpotNumber, int maxVehiclesPerSpot)
-    }
-
-    IVehicle <|.. Vehicle : implements
-    Vehicle <|-- Car
-    Vehicle <|-- MC
-    Vehicle <|-- Bicycle
-    Vehicle <|-- Bus
-    ParkingGarage "1" *-- "1..*" ParkingSpot : contains
-    ParkingSpot "1" o-- "0..*" Vehicle : parks
-    ParkingSpot ..> IVehicle : size lookup
-    ParkingGarage ..> IVehicle : finds capacity
-```
-
-**Signaturnotering:** `Func` i Mermaid-diagrammet är en förenklad etikett. Den **faktiska C#-typen** är `Func<IVehicle, int>`. Detta behövs eftersom kommatecknet i den generiska typen gör metodbeteckningar svårlästa eller problematiska i vissa Mermaid-renderare. Metoderna för storleksbaserad kapacitet tar alltså emot en funktion som får ett `IVehicle` och returnerar dess storlek (`int`).
-
-**Överlagringar:** De gamla, antalsbaserade metoderna med `maxVehiclesPerSpot` finns tills vidare **parallellt** med de nya. Diagrammet betonar de tillagda metoderna; det ska inte läsas som att de gamla redan har tagits bort. `MoveVehicle()` använder ännu den gamla parametern och återstår att migrera. Metodöverlagring bygger på **olika parameterlistor**, inte enbart på skillnad i returtyp.
-
-### Implementerade förändringar och ansvar
-
-| Typ/komponent | Redovisat i V2.1 | Avgränsning |
-|---|---|---|
-| `IVehicle` | Interface med `Identifier` och `ArrivalTime`; basklassen `Vehicle` implementerar det | Första av minst två nödvändiga interfaces. `IParkingSpot` är **inte** implementerat. |
-| `Car`, `MC`, `Bicycle`, `Bus` | Ärver från `Vehicle`; `Bicycle` och `Bus` har konstruktorer både för nyregistrering och återställning med UTC-tid | Klasserna finns men Bicycle/Bus-flödena är inte end-to-end-testade. |
-| `ParkingSpot` | `GetUsedCapacity()` summerar storleksenheter. Nya överlagringar av `CanPark()` och `ParkVehicle()` använder `spotCapacity` och en storleksdelegat. | `_parkedVehicles` är fortfarande `List<Vehicle>`. Interfacebaserat arbete är därför bara delvis infört. |
-| `ParkingGarage` | Nya överlagringar av `FindAvailableSpot()`, `ParkVehicle()` och `ParkVehicleAtSpot()` använder storleksmodellen. Dubblettkontrollen återanvänds. | Flytt, utcheckning och reservation av flera platser är inte färdiga för den nya modellen. |
-| `ParkVehicleView` | Använder `Garage.SpotCapacity` och en `Func<IVehicle, int>` för storleksuppslagning. | Den redovisade fordonsmenyn innehåller ännu `Car` och `MC`, inte ett komplett Bicycle/Bus-flöde. |
-
-Exempel på hur UI:t levererar storleken till domänlogiken:
-
-```csharp
-int spotCapacity = configuration.Garage!.SpotCapacity;
-
-Func<IVehicle, int> getSize = vehicle =>
-    configuration.VehicleTypes![vehicle.GetType().Name].Size;
-
-ParkingSpot assignedSpot = parkingGarage.ParkVehicle(
-    vehicle,
-    spotCapacity,
-    getSize);
-```
-
-`ParkingSpot` behöver då **inte** känna till `config.json` eller någon filväg. Klassen ber bara den inskickade funktionen om fordonsstorleken. **Konfigurationsvalidering** (t.ex. okända fordonstyper och ogiltiga storlekar) måste fortfarande hanteras; själva delegaten garanterar inte giltiga värden.
-
-### Konfiguration och storleksmodell
-
-I V2.1 har `VehicleTypeConfiguration` fått `Size` och `GarageConfiguration` fått `SpotCapacity`. Den tidigare egenskapen `VehiclesPerSpot` finns tillfälligt kvar under migreringen. Följande är **avsedd konfiguration**, inte verifierat fungerande parkering för samtliga typer:
-
-| Fordon | Avsedd storlek | Antal på en tom standardplats med kapacitet 4 |
-|---|---:|---:|
-| `Bicycle` | 1 | Högst 4 |
-| `MC` | 2 | Högst 2 |
-| `Car` | 4 | 1 |
-| `Bus` | 16 | **Kräver specialhantering över fyra platser** |
-
-En `Bus` med storlek 16 kan **inte** parkeras med den vanliga enplatsmetoden när `SpotCapacity` är 4. Att `Bus` har en klass och en post i konfigurationen innebär därför inte att bussparkering redan fungerar.
-
-### Klassdiagram – beroenden mot V2.1:s Data-projekt
-
-```mermaid
-classDiagram
-    direction LR
-
-    class AppConfiguration {
-        +GarageConfiguration Garage
-        +Dictionary VehicleTypes
-    }
-
-    class GarageConfiguration {
-        +int NumberOfParkingSpots
-        +int SpotCapacity
-    }
-
-    class VehicleTypeConfiguration {
-        +int Size
-        +int VehiclesPerSpot
-    }
-
-    class ParkingDataMapper {
-        <<static>>
-        +Vehicle ToVehicle(VehicleData data)
-        +VehicleData ToVehicleData(Vehicle vehicle)
-        +ParkingDataDocument ToDocument(ParkingGarage garage)
-        +ParkingGarage ToGarage(ParkingDataDocument document, AppConfiguration configuration)
-    }
-
-    AppConfiguration "1" --> "1" GarageConfiguration : configures
-    AppConfiguration "1" --> "0..*" VehicleTypeConfiguration : vehicle sizes
-    ParkingDataMapper ..> AppConfiguration : reads
-    ParkingDataMapper ..> ParkingGarage : reconstructs
-    ParkingDataMapper ..> VehicleData : maps
-```
-
-**Mapper-status:** `ParkingDataMapper.ToVehicle()` och `ToVehicleData()` har utökats med `Bicycle` och `Bus`. `ToGarage()` använder vid den senaste genomgången ännu `VehiclesPerSpot` och den äldre `ParkVehicleAtSpot()`-överlagringen; övergången till `SpotCapacity`, `Size` och den nya överlagringen är **nästa kodsteg**. `ParkingDataService` måste också tillåta de nya typerna innan de kan laddas från JSON. DTO-strukturen i G-diagrammet längre ned är fortfarande utgångspunkt, men bussens representation är **inte fastställd**.
-
-### Bussparkering – ännu inte implementerad relation
-
-Bussens planerade sökning ska undersöka grupper om fyra **sammanhängande och helt lediga** parkeringsplatser i intervallet **1–50**, med möjliga startplatser **1–47**. Andra fordon får parkera där. En buss ska finnas som **ett logiskt fordon** med en bevarad identifierare och UTC-ankomsttid, samtidigt som fyra platser markeras upptagna.
-
-Hur de fyra platserna ska knytas till bussobjektet i minnet, hanteras vid flytt/utcheckning och representeras i JSON är ännu inte beslutat. Därför finns **ingen påhittad klass eller associationslinje för bussreservationer** i diagrammet. Regeln för bussflytt utanför plats 50 är inte slutligt klarlagd.
-
-**Återstående V2.1-arbete:** inför ett andra faktiskt använt interface, migrera gamla kapacitetsanrop, färdigställ parkering/flytt/utcheckning/garageöversikt, definiera sammanhängande bussreservationer, komplettera priser och fullständig konfigurationsomläsning, implementera testdatagenerering samt verifiera JSON och användarflöden med tester. Se även [`configuration.md`](configuration.md), [`parking-data.md`](parking-data.md), [`requirements.md`](requirements.md) och [`design-decisions.md`](design-decisions.md).
-
----
-
-## Sammanfattning av versionsgränsen den 20 oktober 2026
-
-**Prague Parking 2.0 (G):** Klassdiagrammet ovan beskriver den bevarade G-implementationen. De manuella testerna från den 16 oktober gäller G-versionen. Krav på körning i en annan dator och vissa terminal-/filgränsfall är ännu inte slutverifierade.
-
-**Prague Parking 2.1 (VG):** Det separata V2.1-diagrammet visar de **redovisade** nya klasserna, `IVehicle` och de nya överlagrade kapacitetsmetoderna. Det finns ännu **inte** ett andra implementerat interface, en fungerande fyrplatsreservation för `Bus` eller en färdig migration av alla UI- och persistensflöden. Fullständig konfigurationsomläsning och automatisk testdatagenerering återstår också. Den slutliga arkitekturen ska uppdateras i detta dokument först när den är implementerad.
-
-Dokumentationen grundas på redovisad kod och manuella kontroller, inte en ny fullständig inspektion av ditt lokala repository. En kompilerad V2.1-version betraktas inte automatiskt som funktionstestad eller VG-godkänd.
-
----
-
-## Komplettering av V2.1-diagrammet – 2026-10-21
-
-Följande klassdiagram avser **nya eller uppdaterade medlemmar** i V2.1. Det ersätter inte det historiska G-diagrammet eller den fullständiga VG-modellen ovan.
-
-```mermaid
-classDiagram
-    direction TB
-
-    class IVehicle {
-        <<interface>>
-        +string Identifier
-        +DateTime ArrivalTime
-    }
-    class Vehicle {
-        <<abstract>>
-    }
-    class Bus {
-        +Bus(string identifier)
-        +Bus(string identifier, DateTime arrivalTime)
-    }
-    class IParkingSpot {
-        <<interface>>
-        +int SpotNumber
-        +IReadOnlyList~Vehicle~ ParkedVehicles
-        +GetUsedCapacity(getSize) int
-        +CanPark(vehicle, spotCapacity, getSize) bool
-        +ParkVehicle(vehicle, spotCapacity, getSize) void
-        +FindVehicle(identifier) Vehicle
-        +RemoveVehicle(identifier) Vehicle
-    }
-    class ParkingSpot {
-        +Bus? ReservedByBus
-        +ReserveForBus(bus) void
-        +ReleaseBusReservation(bus) void
-        +ParkBusAtPrimarySpot(bus) void
-    }
-    class ParkingGarage {
-        +FindAvailableBusSpots(maxSpot, count) IReadOnlyList~ParkingSpot~
-        +FindAvailableBusSpotsAt(startSpot, maxSpot, count) IReadOnlyList~ParkingSpot~
-        +ParkBus(bus, spotCapacity, busSize, maxSpot) ParkingSpot
-        +ParkBusAtSpot(bus, startSpot, spotCapacity, busSize, maxSpot) ParkingSpot
-        +RemoveVehicle(identifier) Vehicle
-    }
-    class ParkingDataMapper {
-        +ToGarage(document, configuration) ParkingGarage
-        +ToDocument(garage) ParkingDataDocument
-    }
-
-    IVehicle <|.. Vehicle
-    Vehicle <|-- Bus
-    IParkingSpot <|.. ParkingSpot
-    ParkingGarage "1" *-- "many" ParkingSpot
-    ParkingSpot --> "0..1" Bus : ReservedByBus
-    ParkingDataMapper ..> ParkingGarage
-```
-
-**Design:** En buss finns som ett `Bus`-objekt på huvudplatsen i `ParkedVehicles`; de fyra sammanhängande platserna refererar till samma objekt via `ReservedByBus`. `IParkingSpot` definierar den generella enplatsmodellens kontrakt; `ParkingGarage` samordnar flerplatsparkeringen. JSON sparar en buss på huvudplatsen och rekonstruerar reservationerna vid återställning.
-
-**Bevisläge:** De nya metoderna och relationerna har kompilerats. Flytt och JSON-återställning för Car är manuellt verifierade; första Bicycle kunde registreras. Bussens parkering/JSON-rundtur/avgift/flytt/utcheckning återstår att testa. Garage Overview är ännu inte anpassad och kan krascha med Bicycle.
+Det första V2.1-diagrammet ovan visar den nu implementerade fyrtypsmodellen och bussens fyra reservationer. G-diagrammet under avsnittet **Prague Parking 2.0** är oförändrad historisk referens. Alla klass-/metodsignaturer ska slutligen jämföras med aktuell kod före kursinlämning; detta dokument är inte ett automatiskt genererat diagram.

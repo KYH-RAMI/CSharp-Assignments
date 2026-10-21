@@ -9,13 +9,15 @@ namespace PragueParkingV2_1.UI
     {
         public static void Show(
             ConfigurationService configurationService,
-            ParkingFeeCalculator feeCalculator)
+            ParkingFeeCalculator feeCalculator,
+            Action reloadConfiguration)
         {
             int selectedIndex = 0;
 
             string[] menuOptions =
             {
                 "Reload Pricing",
+                "Reload Configuration",
                 "Back to Main Menu"
             };
 
@@ -43,12 +45,16 @@ namespace PragueParkingV2_1.UI
                             feeCalculator.UpdatePricing(
                                 pricing.CarHourlyPrice,
                                 pricing.MotorcycleHourlyPrice,
+                                pricing.BicycleHourlyPrice,
+                                pricing.BusHourlyPrice,
                                 pricing.FreeMinutes);
 
                             MessageService.ShowSuccess(
                                 "Pricing reloaded successfully!\n\n" +
                                 $"Car: {pricing.CarHourlyPrice} CZK/hour\n" +
                                 $"MC: {pricing.MotorcycleHourlyPrice} CZK/hour\n" +
+                                $"Bicycle: {pricing.BicycleHourlyPrice} CZK/hour\n" +
+                                $"Bus: {pricing.BusHourlyPrice} CZK/hour\n" +
                                 $"Free minutes: {pricing.FreeMinutes}");
                         }
 
@@ -73,7 +79,45 @@ namespace PragueParkingV2_1.UI
                         Console.ReadKey(intercept: true);
 
                         break;
+                    
+                    case "Reload Configuration":
+                        {
+                            AppTheme.PrepareScreen();
 
+                            try
+                            {
+                                reloadConfiguration();
+
+                                MessageService.ShowSuccess(
+                                    "Configuration reloaded successfully!");
+                            }
+                            catch (Exception ex) when (
+                                ex is IOException or
+                                UnauthorizedAccessException or
+                                JsonException or
+                                InvalidDataException or
+                                InvalidOperationException or
+                                ArgumentOutOfRangeException)
+                            {
+                                MessageService.ShowError(
+                                    "Failed to reload configuration:\n" +
+                                    Markup.Escape(ex.Message));
+                            }
+
+                            AnsiConsole.WriteLine();
+
+                             leftMargin = Math.Max(
+                                0,
+                                (Console.WindowWidth - AppTheme.FormWidth) / 2);
+
+                            AnsiConsole.MarkupLine(
+                                $"{new string(' ', leftMargin)}" +
+                                $"[{AppTheme.Muted}]Press any key to continue...[/]");
+
+                            Console.ReadKey(intercept: true);
+
+                            break;
+                        }
                     case "Back to Main Menu":
                         return;
                 }

@@ -71,12 +71,15 @@ namespace PragueParkingV2_1.UI
 
                 return;
             }
+            string sourceSpotText = vehicle is Bus
+                ? $"{sourceSpot.SpotNumber:D3} - {sourceSpot.SpotNumber + 3:D3}"
+                : $"{sourceSpot.SpotNumber:D3}";
             AnsiConsole.WriteLine();
             string currentspot =
                 $"\n[bold {AppTheme.GoldLight}]VEHICLE FOUND[/]\n\n" +
                 $"[{AppTheme.Muted}]" +
                 $"Registration: {Markup.Escape(identifier)}\n" +
-                $"Current Spot: {sourceSpot.SpotNumber:D3}\n" +
+                $"Current Spot(s): {sourceSpotText}\n" +
                 $"[/]";
 
             var spotpanel = AppTheme.CreatePanel(
@@ -174,11 +177,26 @@ namespace PragueParkingV2_1.UI
                     continue;
                 }
                 // Kontrollera att destinationsplatsen kan ta emot fordonet.
-                var targetSpot = parkingGarage.ParkingSpots.FirstOrDefault(
-                    spot => spot.SpotNumber == targetSpotNumber);
+                bool canMoveToTarget;
 
-                if (targetSpot is null ||
-                    !targetSpot.CanPark(vehicle, spotCapacity, getSize))
+                if (vehicle is Bus bus)
+                {
+                    canMoveToTarget = parkingGarage.CanMoveBusToSpot(
+                        bus,
+                        targetSpotNumber,
+                        configuration.Garage!.BusMaxParkingSpot);
+                }
+                else
+                {
+                    var targetSpot = parkingGarage.ParkingSpots.FirstOrDefault(
+                        spot => spot.SpotNumber == targetSpotNumber);
+
+                    canMoveToTarget =
+                        targetSpot is not null &&
+                        targetSpot.CanPark(vehicle, spotCapacity, getSize);
+                }
+
+                if (!canMoveToTarget)
                 {
                     errorMessage =
                         $"Parking spot {targetSpotNumber:D3} is not available for this vehicle.";
@@ -192,12 +210,16 @@ namespace PragueParkingV2_1.UI
             }
             Console.SetCursorPosition(0, spotAreaTop);
             Console.Write("\x1b[0J");
+            
+            string targetSpotText = vehicle is Bus
+                ? $"{targetSpotNumber:D3} - {targetSpotNumber + 3:D3}"
+                : $"{targetSpotNumber:D3}";
 
             string summary =
                 $"[{AppTheme.Muted}]" +
                 $"Registration: {Markup.Escape(identifier)}\n" +
-                $"Current Spot: {sourceSpot.SpotNumber:D3}\n" +
-                $"Target Spot: {targetSpotNumber:D3}" +
+                $"Current Spot(s): {sourceSpotText}\n" +
+                $"Target Spot(s): {targetSpotText}" +
                 $"[/]";
             
             var confirmationPanel = AppTheme.CreatePanel(
@@ -220,15 +242,27 @@ namespace PragueParkingV2_1.UI
             {
                 return;
             }
-           
+
 
             try
             {
-                parkingGarage.MoveVehicle(
-                    identifier,
-                    targetSpotNumber,
-                      spotCapacity,
-                      getSize);
+                if (vehicle is Bus bus)
+                {
+                    parkingGarage.MoveBus(
+                        identifier,
+                        targetSpotNumber,
+                        spotCapacity,
+                        getSize(bus),
+                        configuration.Garage!.BusMaxParkingSpot);
+                }
+                else
+                {
+                    parkingGarage.MoveVehicle(
+                        identifier,
+                        targetSpotNumber,
+                        spotCapacity,
+                        getSize);
+                }
             }
             catch (InvalidOperationException ex)
             {
@@ -252,11 +286,23 @@ namespace PragueParkingV2_1.UI
                 // Återställ fordonets ursprungliga placering.
                 try
                 {
-                    parkingGarage.MoveVehicle(
-                        identifier,
-                        sourceSpot.SpotNumber,
-                          spotCapacity,
-                          getSize);
+                    if (vehicle is Bus bus)
+                    {
+                        parkingGarage.MoveBus(
+                            identifier,
+                            sourceSpot.SpotNumber,
+                            spotCapacity,
+                            getSize(bus),
+                            configuration.Garage!.BusMaxParkingSpot);
+                    }
+                    else
+                    {
+                        parkingGarage.MoveVehicle(
+                            identifier,
+                            sourceSpot.SpotNumber,
+                            spotCapacity,
+                            getSize);
+                    }
                 }
                 catch (Exception rollbackEx)
                 {
@@ -282,8 +328,8 @@ namespace PragueParkingV2_1.UI
                 $"Vehicle moved successfully!\n\n" +
                 $"Vehicle Type: {vehicle.GetType().Name}\n" +
                 $"Registration: {Markup.Escape(identifier)}\n" +
-                $"Previous Spot: {sourceSpot.SpotNumber:D3}\n" +
-                $"New Spot: {targetSpotNumber:D3}";
+                $"Previous Spot(s): {sourceSpotText}\n" +
+                $"New Spot(s): {targetSpotText}";
 
             var successPanel = AppTheme.CreatePanel(
                 new Markup(successContent),

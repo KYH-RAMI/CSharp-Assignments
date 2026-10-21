@@ -193,7 +193,14 @@ namespace PragueParkingV2_1.UI
             AppTheme.WriteCenteredPanel(checkoutSummaryPanel);
             AnsiConsole.WriteLine();
 
+            AnsiConsole.WriteLine();
+
+             leftMargin = Math.Max(
+                0,
+                (Console.WindowWidth - AppTheme.FormWidth) / 2);
+
             AnsiConsole.MarkupLine(
+                $"{new string(' ', leftMargin)}" +
                 $"[{AppTheme.Muted}]Press any key to continue...[/]");
             Thread.Sleep(3000);
             while (Console.KeyAvailable)

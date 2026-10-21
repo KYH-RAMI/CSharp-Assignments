@@ -7,7 +7,7 @@ Besluten nedan beskriver både genomförda arkitekturval och planerade lösninga
 
 **Versionsgräns 2026-10-20:** Prague Parking 2.0 har genomförda manuella G-tester och lämnas i huvudsak oförändrad. `PragueParkingV2_1` och `PragueParkingV2_1.Data` har skapats som separata VG-projekt i samma solution. V2.1 har nya domänklasser och delar av en ny kapacitetsmodell, men saknar ännu ett verifierat genomgående VG-flöde. Äldre beslut och G-testresultat nedan gäller fortfarande G-versionen om inget annat anges.
 
-**Aktuell versionsgräns 2026-10-21:** V2.1 har efter 20 oktober fått `IParkingSpot`, JSON-konfigurationsmall, uppdaterade storleksbaserade UI-/mapper-anrop och en implementerad modell för fyra bussreservationer. Bilflytt med återställning efter omstart och första Bicycle-registreringen är manuellt verifierade. Bussens hela flöde, avgiftsberäkning och Garage Overview är inte klara; den senare har ett observerat körfel för Bicycle. Äldre beslutsnoteringar nedan är tidsbundna.
+**Historisk versionsgräns från tidigare steg 2026-10-21 (se aktuell status nedan):** V2.1 har efter 20 oktober fått `IParkingSpot`, JSON-konfigurationsmall, uppdaterade storleksbaserade UI-/mapper-anrop och en implementerad modell för fyra bussreservationer. Bilflytt med återställning efter omstart och första Bicycle-registreringen är manuellt verifierade. Bussens hela flöde, avgiftsberäkning och Garage Overview är inte klara; den senare har ett observerat körfel för Bicycle. Äldre beslutsnoteringar nedan är tidsbundna.
 
 ## DD-001 – Separation mellan UI, domän och dataåtkomst
 
@@ -475,7 +475,7 @@ Parkeringsreglerna ligger fortsatt i domänlagret.
 
 Nyparkering och flytt av buss behöver gemensam kontroll av fyra sammanhängande lediga platser. Eventuella olika områdesbegränsningar för nyparkering och flytt beslutas först efter att lärarens förtydligande har preciserats; vi inför inte en oprövad undantagsregel.
 
-En buss får inte räknas som fyra oberoende fordon. En framtida utökning av JSON-modellen måste kunna representera kopplingen mellan en buss och dess fyra platser, men den exakta representationen är **inte beslutad**. G-versionens fastställda format gäller tills vidare.
+En buss får inte räknas som fyra oberoende fordon. Vid beslutstillfället var JSON-representationen ännu inte fastställd. I den senare V2.1-implementationen sparas bussen en gång på huvudplatsen och reservationerna återskapas vid inläsning. G-versionens filformat är oförändrat.
 
 **Ytterligare VG-krav:** Om `parking-data.json` saknas vid uppstart av 2.1 ska datafilen skapas och fyllas med giltiga testfordon. Detta införs inte som nytt beteende i G-versionen.
 
@@ -559,10 +559,10 @@ Func<IVehicle, int> getSize = vehicle =>
 
 **Återstår:** Migrera bland annat `ParkingDataMapper.ToGarage()`, flytt, utcheckning och garageöversikt från `VehiclesPerSpot` till storleksreglerna. När alla anrop använder den nya modellen kan tillfälliga överlagringar och äldre VG-beroenden tas bort. Befintlig G-kod ska inte ändras. Inget genomgående test av blandade storlekar har redovisats ännu.
 
-## DD-037 – Bussens fyra sammanhängande platser: algoritm under utvärdering
+## DD-037 – Bussens fyra sammanhängande platser: ursprunglig algoritmskiss
 
 **Datum:** 2026-10-20  
-**Status:** Föreslagen algoritm; varken reservationsmodell eller full implementation är beslutad.
+**Historiskt beslut från 2026-10-20:** Algoritmskiss före implementationen. Genomförd lösning beskrivs i DD-043 och DD-046.
 
 **Arbetshypotes för nyparkering:** En buss ska vara **ett fordon** med storleken 16 och behöver fyra **helt lediga, sammanhängande** parkeringsplatser. Sökningen sker bland platserna 1–50. Övriga fordon får också parkera inom detta område; deras beläggning kan därför göra en fyrplatsgrupp oanvändbar för buss.
 
@@ -584,7 +584,7 @@ Func<IVehicle, int> getSize = vehicle =>
 ## DD-038 – VG-konfiguration, validering och omläsning under körning
 
 **Datum:** 2026-10-20  
-**Status:** Struktur och viss validering påbörjad; säker omläsning av hela konfigurationen saknas.
+**Historiskt beslut från 2026-10-20:** Struktur och validering under utveckling. Genomförd omläsning dokumenteras i DD-047.
 
 **Beslut:** V2.1 ska definiera fordonsstorlekar per typ via `VehicleTypes` och en gemensam platskapacitet via `Garage.SpotCapacity`. Planerade VG-priser är 5 CZK per påbörjad timme för `Bicycle` och 80 CZK för `Bus`, utöver befintliga priser. G:s inställningar och `Reload Pricing` hålls åtskilda från V2.1:s framtida omläsning av hela konfigurationen.
 
@@ -647,3 +647,46 @@ Func<IVehicle, int> getSize = vehicle =>
 **Datum:** 2026-10-21. **Status:** Beslut, ej genomfört.
 
 **Motivering:** Vyn omfattar cirka 500 kodrader och använder fortfarande G:s `VehiclesPerSpot`. `GetVehicleType` saknar Bicycle och vyn gav ett oväntat fel efter cykelregistrering. Därför skjuts ombyggnaden upp tills bussens fyra reservationer är stabila, så att färgstatus, detaljpanel och summering av platser/fordon kan uppdateras tillsammans.
+
+
+## DD-045 – V2.1:s Garage Overview och Sunset-tema i drift
+
+**Datum:** 2026-10-21. **Status:** Implementerat; manuellt testat.
+
+Det tidigare beslutet DD-044 om att *skjuta upp* ombyggnaden har nu genomförts. `GarageOverView` räknar upptagen plats även för bussreservationer, men räknar bussens fordonsobjekt endast en gång. Primärplats och övriga tre reservationer markeras konsekvent. `GetVehicleType` känner igen Car, MC, Bicycle och Bus; platsens utnyttjande baseras på storleksenheter (`SpotCapacity`). `AppTheme` i V2.1 använder separat varmt Sunset-tema. Intern viewport fungerar med 500 platser. Den tidigare kraschen vid Bicycle i översikten har åtgärdats. Denna post uppdaterar DD-044:s tidigare status och gäller inte G-versionens färger.
+
+## DD-046 – Bussens gräns och verifierade normalflöden
+
+**Datum:** 2026-10-21. **Status:** Implementerat och testat i normalflöde; negativa tester återstår.
+
+Enligt lärarens förtydligande får bussar endast använda parkeringsplatserna **001–050**, både vid nyparkering och vid flytt. Standarden `BusMaxParkingSpot = 50` följer det. Den tekniska egenskapen är konfigurerbar för framtida ändringar, men kursinlämningen utgår från 1–50. Detta klargör den tidigare öppna frågan i DD-026 och DD-037.
+
+`Bus` lagras en gång på huvudplatsen och refereras i fyra `ReservedByBus`. `MoveBus` möjliggör flytt med partiell överlappning; `BUS001` flyttades 004–007 → 006–009 och återställdes korrekt efter omstart. Normal utcheckning frigjorde fyra reservationer och beräknade 160 CZK för 1 h 38 min. Riktat IO-fel/rollback för Bus och tester av gränslägen 047–050 samt nekad 048–051 återstår.
+
+## DD-047 – Reload Configuration med temporärt garage och bevarat tillstånd
+
+**Datum:** 2026-10-21. **Status:** Implementerat, delvis verifierat.
+
+`AdministrationView` anropar en `Action` från `MainMenu` för att läsa in **hela** konfigurationen. `ConfigurationService.LoadConfiguration(createIfMissing: false)` avvisar saknad fil vid manuell reload; vid normal uppstart är `createIfMissing: true` standard och en mall får kopieras första gången. Den aktiva garagedatan konverteras till DTO genom `ParkingDataMapper.ToDocument()` och testas med `ToGarage()` under nya konfigurationen. Nytt garage, konfiguration och priser aktiveras först efter framgångsrik återställning. Vid fel förblir gamla aktiva objekt intakta; configfilen på disken återställs inte automatiskt.
+
+**Tester:** 100 → 200 platser, utökning till 500 och navigering i viewport fungerade utan omstart. `SpotCapacity` 4 → 2 med parkerad Car på plats 002 avvisades med begripligt felmeddelande; gamla tillståndet behölls. Prisändring genom den fullständiga reloadvägen och andra configgränsfall är ännu inte separat verifierade. Detta ersätter DD-038:s status *omläsning saknas*.
+
+## DD-048 – TestDataSeeder endast för saknad datafil
+
+**Datum:** 2026-10-21. **Status:** Implementerat och testat för giltig provkonfiguration.
+
+`Program.cs` anropar `ParkingDataService.ParkingDataExists()` innan `Load()`. Om filen saknas skapar `TestDataSeeder.CreateGarage()` en riktig `ParkingGarage` med Bus, Car, MC och Bicycle genom den befintliga parkeringslogiken, och `ToDocument()`/`Save()` skriver filen. Finns filen (även som giltig tom lista) ska ingen testseeding ske. Korrupt befintlig datafil skrivs inte över som följd av seedern. Programomstart läser tillbaka sparade fordon/tider i stället för att skapa nya.
+
+**Manuellt test:** `TESTBUS1` 001–004, `TESTCAR1` 005, `TESTMC1` och `TESTBIKE1` tillsammans på 006; vid 200 platser FREE 194 / OCCUPIED 6 / VEHICLES 4. JSON-innehåll med UTC-tider och lyckad omstart redovisade. För liten eller annars ovanlig konfiguration och riktat sparfel under första skapandet återstår. Detta ersätter den tidigare DD-039:s status *ej implementerad*.
+
+## DD-049 – Hitta nya fordon och avbryta sökning
+
+**Datum:** 2026-10-21. **Status:** Korrekt resultatpresentation manuellt testad.
+
+`FindVehicleView` visar nu `Bus` och `Bicycle` i stället för `Unknown`. För Bus visas hela intervallet (exempel `BUSCFG` 004–007), för Bicycle en plats (exempel `BIKE001` 003). Den tidigare inmatningen med Spectre.Console `TextPrompt<string>` ersattes i Find-vyn med `Console.ReadKey(intercept: true)` för möjlighet att avbryta med ESC och hantera Backspace. Grön byggning är redovisad; ett fullständigt systematiskt avbrytningstest av alla vyer är fortfarande öppet.
+
+## DD-050 – Frivillig automatisk demonstrationssekvens, separat från kurskrav och datafil
+
+**Datum:** 2026-10-21. **Status:** Endast beslutad/planerad; INTE implementerad.
+
+För att demonstrera systemet eller spela in skärmen övervägs en automatisk uppspelning i befintlig Garage Overview: incheckning, flytt och utcheckning av flera typer, färger och statistik uppdaterade mellan händelserna, utan manuella steg. Demonstrationen ska använda ett separat garage i minnet och får inte läsa över eller skriva till det riktiga `parking-data.json`. Detta är en frivillig framtida utökning, inte samma sak som VG-14:s obligatoriska automatiska testdata vid saknad fil.

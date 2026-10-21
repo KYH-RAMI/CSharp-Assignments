@@ -22,7 +22,8 @@ namespace PragueParkingV2_1.Data.Configuration
                 "Config",
                 "config.template.json");
         }
-        public AppConfiguration LoadConfiguration()
+        public AppConfiguration LoadConfiguration(
+            bool createIfMissing = true)
         {
             var path = GetConfigurationPath();
 
@@ -32,6 +33,13 @@ namespace PragueParkingV2_1.Data.Configuration
 
             if (!File.Exists(path))
             {
+                if (!createIfMissing)
+                {
+                    throw new FileNotFoundException(
+                        "Cannot reload configuration because config.json is missing.",
+                        path);
+                }
+
                 var templatePath = GetTemplatePath();
 
                 if (!File.Exists(templatePath))

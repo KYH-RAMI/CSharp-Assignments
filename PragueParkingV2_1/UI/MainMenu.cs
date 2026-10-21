@@ -1,4 +1,5 @@
-﻿using PragueParkingV2_1.Data.Configuration;
+﻿using PragueParkingV2_1.Application;
+using PragueParkingV2_1.Data.Configuration;
 using PragueParkingV2_1.Data.Persistence;
 using PragueParkingV2_1.Domain;
 using Spectre.Console;
@@ -85,12 +86,38 @@ namespace PragueParkingV2_1.UI
                                 configuration);
 
                             break;
-                        
+
                         case "Administration":
 
                             AdministrationView.Show(
                                 configurationService,
-                                feeCalculator);
+                                feeCalculator,
+                                () =>
+                                {
+                                    AppConfiguration newConfiguration =
+                                    configurationService.LoadConfiguration(
+                                        createIfMissing: false);
+
+                                    var parkingData =
+                                        ParkingDataMapper.ToDocument(parkingGarage);
+
+                                    ParkingGarage newGarage =
+                                        ParkingDataMapper.ToGarage(
+                                            parkingData,
+                                            newConfiguration);
+
+                                    var pricing = newConfiguration.Pricing!;
+
+                                    feeCalculator.UpdatePricing(
+                                        pricing.CarHourlyPrice,
+                                        pricing.MotorcycleHourlyPrice,
+                                        pricing.BicycleHourlyPrice,
+                                        pricing.BusHourlyPrice,
+                                        pricing.FreeMinutes);
+
+                                    parkingGarage = newGarage;
+                                    configuration = newConfiguration;
+                                });
 
                             break;
 

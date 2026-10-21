@@ -5,17 +5,18 @@ namespace PragueParkingV2_1.UI
 {
     internal static class AppTheme
     {
-        public const string Background = "#0B2D50";
+        // Prague Parking V2.1 - Sunset Edition
+        public const string Background = "#201711";
 
-        public const string GoldLight = "#FFDF70";
-        public const string Gold = "#FECC00";
-        public const string GoldDark = "#D9A600";
+        public const string GoldLight = "#FFEDD8";
+        public const string Gold = "#E7BC91";
+        public const string GoldDark = "#BC8A5F";
 
         public const string Accent = Gold;
-        public const string Text = "#F5F8FF";
-        public const string Muted = "#B8CBE0";
-        public const string Border = "#4488BE";
-        public const string SelectionText = "#071C35";
+        public const string Text = "#FFEDD8";
+        public const string Muted = "#D4A276";
+        public const string Border = "#A47148";
+        public const string SelectionText = "#201711";
         public const int FormWidth = 62;
         private const int PanelWidth = FormWidth;
 
@@ -27,7 +28,7 @@ namespace PragueParkingV2_1.UI
 
         public const int GarageMapWidth = 70;
         public const string StatusText = "#071C35";
-        public const string SelectedSpotText = GoldLight;
+        public const string SelectedSpotText = SelectionText;
         public const string SelectedSpotBackground = Gold;
 
         public const int GarageSpotWidth = 12;
@@ -38,13 +39,13 @@ namespace PragueParkingV2_1.UI
         public static readonly Color NormalSpotBorder = Color.White;
 
         public static readonly Color BorderColor =
-            new(68, 136, 190);
+            new(164, 113, 72);
         public static readonly Color SuccessBorderColor = Color.Green;
         public static void PrepareScreen()
         {
             Console.CursorVisible = false;
 
-            Console.Write("\u001b]11;rgb:0B/2D/50\u001b\\");
+            Console.Write("\u001b]11;rgb:20/17/11\u001b\\");
             Console.Write("\u001b[0m");
 
             AnsiConsole.Clear();
