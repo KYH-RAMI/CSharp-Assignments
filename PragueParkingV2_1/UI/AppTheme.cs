@@ -234,11 +234,14 @@ namespace PragueParkingV2_1.UI
                 0,
                 options.Count - 1);
 
+            // Anpassa höjden efter antalet menyalternativ.
+            int menuHeight = PanelHeight +
+                Math.Max(0, options.Count - 7) * 3;
+
             PrepareScreen();
 
             if (Console.WindowWidth < PanelWidth + 2 ||
-                Console.WindowHeight < PanelHeight + 2 ||
-                options.Count > 7)
+                Console.WindowHeight < menuHeight + 2)
             {
                 return AnsiConsole.Prompt(
                     new SelectionPrompt<string>()
@@ -251,7 +254,7 @@ namespace PragueParkingV2_1.UI
                 (Console.WindowWidth - PanelWidth) / 2;
 
             int top =
-                (Console.WindowHeight - PanelHeight) / 2;
+                (Console.WindowHeight - menuHeight) / 2;
 
             bool hasAuthor =
                 !string.IsNullOrWhiteSpace(author);
@@ -259,7 +262,7 @@ namespace PragueParkingV2_1.UI
             int firstOptionRow = hasAuthor ? 11 : 10;
             int optionSpacing = !hasAuthor && options.Count <= 3 ? 2 : 1;
 
-            DrawFrame(left, top, PanelWidth, PanelHeight);
+            DrawFrame(left, top, PanelWidth, menuHeight);
 
             WriteGradientCentered(
                 left,
@@ -296,7 +299,7 @@ namespace PragueParkingV2_1.UI
                 Gold,
                 true);
 
-            if (!hasAuthor && !string.IsNullOrWhiteSpace(hint))
+            if (!hasAuthor && options.Count <= 7 && !string.IsNullOrWhiteSpace(hint))
             {
                 WriteCentered(
                     left,
@@ -308,7 +311,7 @@ namespace PragueParkingV2_1.UI
 
             WriteCentered(
                 left,
-                top + 19,
+                top + menuHeight - 3,
                 PanelWidth,
                 $"↑ ↓ Navigate   |   Enter Select   |   Esc {escapeOption}",
                 Muted);

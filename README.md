@@ -1,627 +1,261 @@
 # Prague Parking V2
 
-Prague Parking V2 är ett objektorienterat parkeringssystem utvecklat i C# och .NET 10.
+**Ett objektorienterat parkeringssystem i C# och .NET 10**, med interaktivt konsolgränssnitt, konfigurerbara parkeringsregler och JSON-baserad datalagring.
 
-Applikationen använder Spectre.Console för ett interaktivt konsolgränssnitt med tangentbordsnavigering, parkeringsöversikt och fordonsinformation. Projektet byggs stegvis: först Prague Parking 2.0 (G), därefter Prague Parking 2.1 (VG).
+Projektet omfattar två färdigutvecklade och testade versioner: **Prague Parking 2.0 (G)** och **Prague Parking 2.1 (VG)**. Båda ligger i samma Visual Studio-lösning, men har egna projekt och separata datafiler. V2.1 vidareutvecklar systemet med fler fordonstyper, storleksbaserad kapacitet, bussparkering och en automatisk livedemonstration.
 
-**Author:** Rami Issa  
-**Development Environment:** Visual Studio Community 2026  
-**Framework:** .NET 10  
-**Language:** C#  
-**Status:** V2.0 (G) färdig och testad; V2.1 (VG) funktionsbyggd, kvalitetssäkring pågår  
-**Last Updated:** 2026-10-21
-
-> **Aktuell status 2026-10-21:** Prague Parking V2.0 (G) är färdigutvecklad och tidigare manuellt testad. Den separata V2.1-versionen innehåller nu båda interfacen (`IVehicle`, `IParkingSpot`), Bicycle/Bus, storleksbaserad kapacitet, bussens fyra reservationer, manuellt omstartstestad JSON-persistens, uppdaterad garagekarta i Sunset-tema, fullständig konfigurationsomläsning med kontroll mot parkerade fordon och testdata vid saknad datafil. Flera positiva och negativa flöden har manuellt verifierats. V2.1 är **inte slutgranskad**: bland annat bussens sparfel/rollback, fullständig validering av reload, kodstädning, portabilitet och leveransformalia återstår. Tidigare daterade avsnitt nedan är utvecklingshistorik, inte aktuell status.
-
----
-
-## Project Overview
-
-Projektet vidareutvecklar Prague Parking V1 till ett objektorienterat parkeringssystem.
-
-Systemet ska hantera:
-
-- Incheckning av fordon.
-- Utcheckning och parkeringsavgifter.
-- Sökning efter parkerade fordon.
-- Flytt av fordon mellan parkeringsplatser.
-- Visuell presentation av parkeringshuset.
-- Konfigurerbara parkeringsregler och priser.
-- Permanent lagring av parkeringsinformation.
-
-**Prague Parking 2.0 (G)** är färdigställd och bevaras som en separat, testad version. **Prague Parking 2.1 (VG)** finns nu i samma solution som ett eget konsolprojekt och ett eget dataklassbibliotek. Den utvecklas stegvis utan att G-versionens arkitektur eller tester skrivs om. Kompilerad kod och påbörjade funktioner är inte liktydigt med färdig VG-funktionalitet.
-
----
-
-## Technologies
-
-| Technology | Usage |
+| Projektinformation | |
 |---|---|
-| C# | Programming language and object-oriented domain model |
-| .NET 10 | Application framework |
-| Spectre.Console | Console user interface |
-| System.Text.Json | JSON-konfiguration samt sparning och återställning av parkeringsdata |
-| Git | Version control |
-| GitHub | Source repository |
-| Visual Studio Community 2026 | Development environment |
+| **Utvecklare** | Rami Issa |
+| **Utbildning** | Systemutvecklare DevSecOps, KYH |
+| **Kursuppgift** | C# Programming – Assignment 2 |
+| **Utvecklingsperiod** | **5–22 oktober 2026** (18 kalenderdagar inklusive start- och slutdatum) |
+| **Färdigställd** | **22 oktober 2026** |
+| **Status** | **V2.0 (G) och V2.1 (VG): färdigutvecklade, testade och kravgenomgångna** |
+| **Utvecklingsmiljö** | Visual Studio Community 2026, .NET 10 |
 
----
+## Översikt
 
-## Solution Structure
+Prague Parking hanterar ett parkeringsgarage från incheckning till utcheckning. Användaren kan parkera, söka efter och flytta fordon, få parkeringsavgiften beräknad och se garagebeläggningen i en interaktiv översikt.
 
-Den färdigställda G-versionen innehåller bland annat följande:
+| Funktion | V2.0 (G) | V2.1 (VG) |
+|---|:---:|:---:|
+| Incheckning, sökning, flytt och utcheckning | ✓ | ✓ |
+| Parkeringsavgift och kvitto | ✓ | ✓ |
+| Bil (Car) och motorcykel (MC) | ✓ | ✓ |
+| Cykel (Bicycle) och buss (Bus) | – | ✓ |
+| JSON-lagring och återställning vid omstart | ✓ | ✓ |
+| Interaktiv garagekarta | ✓ | ✓ |
+| Storleksbaserad kapacitet och blandade fordonstyper | – | ✓ |
+| Buss på fyra sammanhängande platser | – | ✓ |
+| Två interfaces: `IVehicle`, `IParkingSpot` | – | ✓ |
+| Omläsning av prislista (`Reload Pricing`) | ✓ | ✓ |
+| Omläsning av hela konfigurationen (`Reload Configuration`) | – | ✓ |
+| Automatisk livedemonstration | – | ✓ |
 
-```text
-PragueParkingV2
-│
-├── Application
-│   └── ParkingDataMapper.cs
-│
-├── Domain
-│   ├── Vehicle.cs
-│   ├── Car.cs
-│   ├── MC.cs
-│   ├── ParkingSpot.cs
-│   ├── ParkingGarage.cs
-│   ├── ParkingFeeCalculator.cs
-│   ├── ParkingFeeResult.cs
-│   ├── CheckoutService.cs
-│   └── CheckoutResult.cs
-│
-├── UI
-│   ├── MainMenu.cs
-│   ├── AppTheme.cs
-│   ├── GarageOverView.cs
-│   ├── MessageService.cs
-│   ├── ParkVehicleView.cs
-│   ├── CheckOutVehicleView.cs
-│   ├── MoveVehicleView.cs
-│   ├── FindVehicleView.cs
-│   └── AdministrationView.cs
-│
-├── Config
-│   └── config.json
-│
-└── Program.cs
+V2.0 har behållits som en separat G-version. Vid utvecklingen av V2.1 har den färdiga G-koden inte skrivits om.
 
-PragueParkingV2.Data
-│
-├── Configuration
-│   ├── AppConfiguration.cs
-│   └── ConfigurationService.cs
-│
-└── Persistence
-    ├── ParkingDataService.cs
-    ├── ParkingDataDocument.cs
-    ├── ParkingSpotData.cs
-    └── VehicleData.cs
-```
+## Kom igång
 
-`Config/config.json` är konfigurationsfilen i huvudprojektet. Vid körning använder `ParkingDataService` `Data/parking-data.json` under `AppContext.BaseDirectory` (vanligen huvudprojektets `bin/Debug/net10.0/Data/`). Det separata klassbibliotekets källkodsmapp `Persistence` är inte lagringsplats för runtime-filen.
+### Förutsättningar
 
-Domänlogik, användargränssnitt och dataåtkomst hålls separerade. Klassbiblioteket `PragueParkingV2.Data` innehåller konfigurationshantering och JSON-persistens. `ParkingDataDocument`, `ParkingSpotData` och `VehicleData` är separata datamodeller. `ParkingDataMapper` i huvudprojektets `Application`-lager kopplar samman dessa DTO:er med domänmodellen utan att Data-projektet beror på domänklasserna.
+- **.NET 10 SDK** eller **Visual Studio Community 2026** med stöd för .NET-utveckling.
+- En terminal med stöd för interaktiv tangentbordsinmatning och ANSI-färger. Gränssnittet har främst körts och testats i Windows Terminal.
 
-V2.1 finns sedan 2026-10-20 som **två ytterligare projekt** i `PragueParkingV2.slnx`:
+### Starta i Visual Studio
 
-```text
-PragueParkingV2.slnx
-├── PragueParkingV2/                # G – Console App
-├── PragueParkingV2.Data/           # G – Class Library
-├── PragueParkingV2_1/              # VG – Console App
-│   ├── Application/
-│   ├── Config/config.json
-│   ├── Domain/
-│   │   ├── IVehicle.cs
-│   │   ├── Vehicle.cs
-│   │   ├── Car.cs
-│   │   ├── MC.cs
-│   │   ├── Bicycle.cs
-│   │   ├── Bus.cs
-│   │   ├── ParkingSpot.cs
-│   │   └── ParkingGarage.cs
-│   ├── UI/
-│   └── Program.cs
-├── PragueParkingV2_1.Data/         # VG – Class Library
-│   ├── Configuration/
-│   └── Persistence/
-├── Documentation/
-│   ├── README.md
-│   └── LOGGBOK.md
-└── docs/
-    ├── class-diagram.md
-    ├── configuration.md
-    ├── design-decisions.md
-    ├── parking-data.md
-    ├── project-plan.md
-    └── requirements.md
-```
+1. Öppna **`PragueParkingV2.slnx`**.
+2. Välj **`PragueParkingV2_1`** som startprojekt för VG-versionen, eller **`PragueParkingV2`** för G-versionen.
+3. Bygg lösningen med **Ctrl + Shift + B**.
+4. Starta med **Ctrl + F5** eller **F5**.
+5. Navigera med **piltangenterna** och **Enter**. Använd **ESC** för att lämna en vy där det stöds.
 
-De två VG-projekten refererar till varandra via `PragueParkingV2_1` → `PragueParkingV2_1.Data`; huvudprojektet ska inte använda G-versionens dataklassbibliotek. V2.0 och V2.1 har separata körkataloger och därmed separata `Data/parking-data.json` vid vanliga körningar från respektive projekt. **Kontrollera alltid körsökvägen vid andra distributions- eller körsätt.**
+De två `.Data`-projekten är klassbibliotek och ska inte väljas som startprojekt.
 
-Strukturen ovan sammanfattar de filer som hittills har redovisats under utvecklingen. Den är inte en ny fullständig inventering av den lokala arbetsmappen.
+### Starta från terminalen
 
----
-
-## Getting Started
-
-### Requirements
-
-- Visual Studio Community 2026 med stöd för C# och .NET-utveckling **eller** .NET 10 SDK.
-- En terminal som kan visa Spectre.Console och ta emot tangentbordsinmatning. Windows Terminal används vid de hittills dokumenterade UI-testerna.
-- Projektets källkod och tillhörande projekt-/solutionfiler.
-
-### Run in Visual Studio
-
-1. Öppna projektets solution i Visual Studio Community 2026.
-2. Välj rätt startprojekt: `PragueParkingV2` för G eller `PragueParkingV2_1` för pågående VG. Välj inte ett `.Data`-klassbibliotek.
-3. Bygg lösningen.
-4. Starta med **Ctrl+F5** eller **F5**.
-5. Använd piltangenterna och Enter för att navigera i menyn. **ESC** lämnar garageöversikten och kan avsluta huvudmenyn. **Obs:** V2.1 har genomgått riktade funktionstester, men slutlig regression återstår.
-
-### Run with the .NET CLI
-
-Öppna en terminal i katalogen med projektets solution eller huvudprojekt. Kör:
+Öppna terminalen i katalogen där `PragueParkingV2.slnx` ligger:
 
 ```bash
 dotnet restore
 dotnet build
-```
-
-Starta därefter valt huvudprojekt (exemplet nedan gäller G):
-
-```bash
-# Prague Parking 2.0 (G)
-dotnet run --project PragueParkingV2/PragueParkingV2.csproj
 
 # Prague Parking 2.1 (VG)
 dotnet run --project PragueParkingV2_1/PragueParkingV2_1.csproj
+
+# Prague Parking 2.0 (G)
+dotnet run --project PragueParkingV2/PragueParkingV2.csproj
 ```
 
-Kommandona utgår från solutionens rotkatalog med respektive projekt i en underkatalog. Välj det projekt som ska köras.
+> **Konfiguration och filer:** V2.1 använder `Config/config.template.json` som mall. Om den aktiva `Config/config.json` saknas vid första start kopieras mallen till en ny fil. Aktiva filer läses relativt programmets körkatalog (`AppContext.BaseDirectory`), vanligtvis `bin/Debug/net10.0/`. G- och VG-versionen använder var sin körkatalog.
 
-**Konfiguration (G):** `ConfigurationService` läser och validerar `Config/config.json` relativt `AppContext.BaseDirectory` vid uppstart. Om runtime-filen saknas kan en standardkonfiguration skapas. En befintlig ogiltig konfigurationsfil skrivs inte över automatiskt; uppstarten stoppas kontrollerat. **Observera skillnaden mellan projektfilen `PragueParkingV2/Config/config.json` och runtime-kopian under `bin/Debug/net10.0/Config/`.** Ändrad garagekapacitet kräver omstart i G-versionen. För ändringar av enbart priser kan **Administration → Reload Pricing** användas medan programmet körs. Se [`configuration.md`](docs/configuration.md) för struktur och värden.
+## Teknik och arkitektur
 
-**Runtime-data (G):** `ParkingDataService` använder `AppContext.BaseDirectory` och söker efter `Data/parking-data.json`. Om filen saknas returnerar `Load()` ett tomt datadokument i minnet; filen skapas först när `Save()` anropas. Vid programstart återställs fordon via `ParkingDataMapper.ToGarage()` till sina sparade platser med ursprunglig UTC-ankomsttid. Efter parkering, utcheckning eller flytt sparas det aktuella tillståndet med `ToDocument()` och `Save()`. En befintlig ogiltig datafil avvisas i stället för att skrivas över vid normal uppstart. Utvalda skrivfel och återställning av tillstånd har testats manuellt. Generell kraschsäkerhet och fullständig transaktionshantering är inte verifierade.
-
-**Avgränsning:** Krav på att kunna bygga eller köra lösningen på annan dator behöver verifieras enligt lärarens instruktioner. Det innebär inte att en fristående distributionslösning eller en beta-/webbmiljö ska utvecklas.
-
----
-
-## Domain Model
-
-### Vehicle
-
-`Vehicle` är en abstrakt basklass för samtliga fordonstyper. Den innehåller:
-
-- `Identifier` – generell fordonsidentifierare.
-- `ArrivalTime` – fordonets ankomsttid i UTC.
-
-Basklassen validerar identifierare och ankomsttid. Den har också en skyddad konstruktor för en befintlig UTC-ankomsttid vid återställning från JSON. I V2.0 gäller detta `Car` och `MC`. I V2.1 implementerar basklassen dessutom `IVehicle`, vars kontrakt hittills anger `Identifier` och `ArrivalTime`; även `Bicycle` och `Bus` har två konstruktörer för nyregistrering respektive återställning av befintlig ankomsttid.
-
-### Car
-
-`Car` representerar en bil och ärver från `Vehicle`.
-
-### MC
-
-`MC` representerar en motorcykel och ärver från `Vehicle`.
-
-### Bicycle och Bus (V2.1)
-
-`Bicycle` och `Bus` har tillkommit som klasser som ärver från `Vehicle`. De lagrar **inte** hårdkodade storlekar; dessa läses från konfigurationsmodellen. Bussens krav på flera sammanhängande platser är en uppgift för parkeringsgaraget, inte för `Bus`-klassen.
-
-### ParkingSpot
-
-`ParkingSpot` representerar en individuell parkeringsplats och ansvarar för:
-
-- Parkeringsplatsnummer.
-- En intern lista över parkerade fordon, exponerad via `IReadOnlyList<Vehicle>`.
-- I G: kontroll av maxantal och tillåtna fordonskombinationer. I pågående VG: nya metoder för storleksbaserad kapacitet.
-- Parkering, sökning och borttagning av fordon på den egna platsen.
-
-I V2.1 har `GetUsedCapacity(Func<IVehicle, int>)`, en överlagrad `CanPark(...)` och en överlagrad `ParkVehicle(...)` lagts till. De nya metoderna använder konfigurerad fordonsstorlek, men de äldre överlagringarna finns ännu kvar under migreringen. Detta är **inte ett avslutat gränssnittskontrakt** eller ett fullt integrerat nytt parkeringsflöde.
-
-### ParkingGarage
-
-`ParkingGarage` representerar hela parkeringshuset och ansvarar för:
-
-- Skapande och hantering av parkeringsplatser.
-- Tilldelning av första lämpliga plats vid nyparkering.
-- Parkering, sökning, borttagning och flytt av fordon mellan platser.
-- Validering av destination och kapacitet innan en flytt genomförs.
-- Kontroll av dubbla identifierare i hela garaget, utan hänsyn till stora eller små bokstäver.
-
-V2.1 har dessutom överlagrade metoder för storleksbaserad sökning, parkering och återställning till bestämd plats. **Bussens sammanhängande fyrplatsreservation, flytt och utcheckning är ännu inte implementerade.**
-
-### ParkingFeeCalculator
-
-`ParkingFeeCalculator` ansvarar för prisregler och beräkning av parkeringsavgifter:
-
-- Timpriser för `Car` och `MC`.
-- Debitering per påbörjad timme.
-- Konfigurerbar gratisgräns.
-- Uppdatering av aktiva prisvärden med `UpdatePricing()` efter validering.
-
-Beräkningen returnerar ett `ParkingFeeResult` med parkeringstid, timpris, gratisminuter och total avgift.
-
-### CheckoutService
-
-`CheckoutService` samordnar utcheckningen:
-
-1. Söker efter fordonet.
-2. Beräknar parkeringsavgiften.
-3. Tar bort fordonet efter lyckad beräkning.
-4. Returnerar ett `CheckoutResult` till det anropande lagret.
-
-`ParkingFeeResult` och `CheckoutResult` är tillfälliga resultatobjekt och ska inte sparas i `parking-data.json`.
-
-Se [`class-diagram.md`](docs/class-diagram.md) för klassernas relationer och metodsignaturer. Diagrammet behöver uppdateras för V2.1.
-
----
-
-## Configuration
-
-Applikationen använder `config.json` för priser, gratisminuter, garagekapacitet, tidszon och kapacitetsregler för fordonstyper.
-
-### Default Configuration – V2.0 (G)
-
-| Setting | Value |
+| Teknik | Användning |
 |---|---|
-| Parking Spots | 100 |
-| Car Hourly Price | 20 CZK |
-| MC Hourly Price | 10 CZK |
-| Free Parking | Nuvarande kod: kortare än 10 minuter gratis; exakt 10 minuter debiteras. Uppgiftens formulering bör slutavstämmas. |
-| Car Capacity | 1 per spot |
-| MC Capacity | 2 per spot |
-| Time Zone | Europe/Prague |
+| **C# / .NET 10** | Objektorienterad applikationslogik |
+| **Spectre.Console 0.57.2** | Menyer, paneler, parkeringskarta och tangentbordsnavigering |
+| **System.Text.Json** | Konfiguration och beständig lagring av parkeringsdata |
+| **Git / GitHub** | Versionshantering |
+| **Visual Studio Community 2026** | Utveckling, felsökning och byggning |
 
-Konfigurationen läses och valideras vid programstart. **100 platser är standardvärdet**; antalet kan ändras i konfigurationen och har manuellt testats med **100, 200 och 1 000 platser**. Aktiva prisvärden hålls i `ParkingFeeCalculator` och används utan en ny filläsning för varje beräkning.
-
-**Administration → Reload Pricing är implementerad och manuellt verifierad.** Ett höjt bilpris från 20 till 30 CZK började användas utan omstart. Ett ogiltigt bilpris på −10 CZK avvisades, och det tidigare giltiga priset behölls. Standardpriserna återställdes efter testet. Detta gäller endast priserna; **fullständig konfigurationsomläsning är ett VG-krav**.
-
-### Pågående konfigurationsmodell – V2.1 (VG)
-
-Det avsedda konfigurationsupplägget för V2.1 innehåller:
-
-| Inställning | Avsett grundvärde | Status |
-|---|---:|---|
-| `Garage.NumberOfParkingSpots` | 100 | Konfigurerat som standard |
-| `Garage.SpotCapacity` | 4 | Egenskap tillagd i `AppConfiguration` |
-| `Garage.BusMaxParkingSpot` | 50 | Planerat; C#-hantering ännu inte verifierad |
-| `VehicleTypes.Car.Size` | 4 | Pågående migrering |
-| `VehicleTypes.MC.Size` | 2 | Pågående migrering |
-| `VehicleTypes.Bicycle.Size` | 1 | Pågående migrering |
-| `VehicleTypes.Bus.Size` | 16 | Pågående migrering |
-| `Pricing.CarHourlyPrice` | 20 CZK/h | G-pris, ska bibehållas |
-| `Pricing.MotorcycleHourlyPrice` | 10 CZK/h | G-pris, ska bibehållas |
-| `Pricing.BicycleHourlyPrice` | 5 CZK/h | VG-krav; komplett kodstöd återstår |
-| `Pricing.BusHourlyPrice` | 80 CZK/h | VG-krav; komplett kodstöd återstår |
-| `Pricing.FreeMinutes` | 10 | Befintlig regel |
-| `System.TimeZone` | `Europe/Prague` | Befintlig regel |
-
-I V2.1 har `VehicleTypeConfiguration.Size` lagts till och `ConfigurationService` validerar positiva `Size`-värden i en `foreach` över konfigurerade typer. **Standardgenerering, övriga konfigurationsklasser, full validering, UI och omladdning under drift är ännu inte konsekvent migrerade.** Den gamla egenskapen `VehiclesPerSpot` används fortfarande i delar av koden och måste avvecklas innan V2.1 funktionstestas.
-
-Se [`configuration.md`](docs/configuration.md).
-
----
-
-## User Interface
-
-Applikationens användargränssnitt utvecklas med Spectre.Console och gemensamma UI-komponenter.
-
-### Main Menu
-
-En interaktiv huvudmeny har implementerats med följande menyval:
-
-1. Park Vehicle
-2. Check Out Vehicle
-3. Move Vehicle
-4. Find Vehicle
-5. Garage Overview
-6. Administration
-7. Exit
-
-`AppTheme.ShowMenu()` används för återanvändbar menypresentation och tangentbordsnavigering, medan `MainMenu` ansvarar för att öppna rätt vy. Piltangenterna flyttar markeringen, Enter väljer funktion och ESC kan avsluta huvudmenyn.
-
-- **Garage Overview:** Ansluten till huvudmenyn.
-- **Park Vehicle:** Ansluten till huvudmenyn; parkering, automatisk JSON-sparning och återställning efter omstart har verifierats manuellt.
-- **Check Out Vehicle:** Ansluten till huvudmenyn; avgiftsberäkning, kvitto, borttagning och JSON-sparning har testats med omstart.
-- **Move Vehicle:** Ansluten till huvudmenyn; validering, bekräftelse, flytt, JSON-sparning och lyckad återställning efter omstart har testats.
-- **Find Vehicle:** Implementerad sökvy som kan hitta `Car` och `MC`, oberoende av stora/små bokstäver, och visa plats, lokalt presenterad ankomsttid och parkeringstid. Okänt fordonsnummer ger felmeddelande och möjlighet att söka igen.
-- **Administration:** Implementerad prisomläsning under körning med validering och bibehållna tidigare priser vid ogiltig ändring.
-
-Samtliga huvudmenyfunktioner i G-versionen har nu testats i relevanta manuella flöden. Det innebär inte att varje tänkbart gränsfall eller varje terminalmiljö är verifierad.
-
-### Visual Theme – V2.0 (G)
-
-`AppTheme` centraliserar färger och återanvändbara UI-funktioner som `PrepareScreen()`, `RestoreScreen()`, `CreatePanel()` och `ShowMenu()`. Temat är inspirerat av Sveriges flagga.
-
-| Element | Color |
-|---|---|
-| Background | Dark Blue |
-| Primary Accent | Swedish Gold |
-| Title Gradient | Light Gold / Gold / Dark Gold |
-| Main Text | White |
-| Secondary Text | Light Blue Grey |
-| Panel Borders | Blue |
-
-För V2.1 har titlarna i `Program.cs`, `MainMenu` och `Administration` ändrats så att versionen framgår som **V2.1**. V2.1 använder nu ett separat Sunset-tema; G-versionens färgsättning är oförändrad.
-
-`MessageService` används för gemensamma statusmeddelanden: success, information, warning och error. Panelerna centreras via `AppTheme.WriteCenteredPanel()`. **2026-10-16 rättades även vänstermarginalen för `Press any key to continue...`** när `waitForKey` används, så att texten ligger i linje med panelen. Detta är manuellt kontrollerat i felmeddelandet för ett redan parkerat fordon. Parkering, utcheckning och flytt har egna centrerade kvittopaneler; full UI-kompatibilitet mellan terminaler återstår.
-
-### Console Rendering
-
-Huvudmenyn har utvecklats för centrerad presentation och minskat flimmer, bland annat med positionsbaserad rendering. Menylogiken har därefter samlats i `AppTheme.ShowMenu()` för att undvika duplicering mellan vyer.
-
-Terminalstorlek, tangentbordsbeteende, ANSI-sekvenser och återställning av bakgrund behöver fortfarande verifieras i flera terminalmiljöer. En tidigare diskuterad reservlösning med `SelectionPrompt` är **inte bekräftad som implementerad**.
-
----
-
-## Garage Overview
-
-Garageöversikten (`GarageOverView.cs`) använder ett kompakt Spectre.Console-`Grid` **inuti en gemensam `Panel`** för parkeringskartan. Den tidigare `Table`-lösningen, med tabellramar och radavgränsare, har ersatts eftersom den krävde för mycket utrymme och orsakade radbrutna platsnummer. Separata paneler per parkeringsplats används inte längre.
-
-### Parking Map and Layout
-
-- Parkeringsplatserna sorteras efter `SpotNumber` och visas som numrerade, färgade celler utan egna ramar.
-- Antalet parkeringsplatser hämtas från `ParkingGarage` (som skapas med konfigurerat antal); inget fast rutnät med 5 × 5 eller 10 × 10 platser används.
-- `GetGarageLayout()` beräknar kartans bredd, detaljpanelens bredd, antal kolumner och synliga rader utifrån Spectre.Consoles rapporterade terminalstorlek.
-- `PARKING MAP` får **ungefär 80 % av den tillgängliga bredden** och `SPOT DETAILS` ungefär 20 %, med en minsta bredd på 23 tecken för detaljpanelen. Fördelningen är alltså inte exakt 80/20 i alla terminalstorlekar.
-- `SPOT DETAILS` ligger längst till höger. `GARAGE STATUS` visas under båda panelerna och redovisar `FREE`, `OCCUPIED` och `VEHICLES`.
-- För att undvika terminalscrollning används en **intern viewport endast när hela parkeringskartan inte ryms på höjden**. När viewporten behövs visar footern vilket intervall av parkeringsplatser som syns.
-- Ett terminalfönster under 80 kolumner eller 18 rader får ett meddelande om att fönstret behöver förstoras i stället för att en oläsbar karta renderas.
-
-### Parking Status
-
-| Status | Bakgrund | Text i markerad cell |
-|---|---|---|
-| FREE | Grön | Guld |
-| PARTIALLY OCCUPIED | Orange | Guld |
-| FULL | Röd | Guld |
-
-**I G-versionen** beräknas beläggningsstatus med `GetSpotColor()` utifrån antalet parkerade fordon och den konfigurerade kapaciteten per fordonstyp. V2.1:s vy måste senare ändras till storleksenheter och bussreservationer. Normalt används temats mörka statustext. **Markering ändrar textfärgen, inte statusbakgrunden.** Färgerna hämtas från `AppTheme`.
-
-### Navigation
-
-| Key | Action |
-|---|---|
-| Arrow Up | Flytta markeringen en rutnätsrad uppåt |
-| Arrow Down | Flytta markeringen en rutnätsrad nedåt |
-| Arrow Left | Flytta markeringen en plats åt vänster inom aktuell rad |
-| Arrow Right | Flytta markeringen en plats åt höger inom aktuell rad |
-| ESC | Gå tillbaka till huvudmenyn |
-
-Navigationen använder **samma dynamiskt beräknade kolumnantal** som parkeringskartan. Layouten beräknas om vid nästa tangenttryckning, exempelvis efter att terminalen har ändrat storlek. Den tidigare sidnavigeringen med `Page Up`/`Page Down` används inte i den här implementationen. `AnsiConsole.Live()` hanterar uppdateringarna under navigering.
-
-### Verified and Remaining Tests
-
-**Visuellt kontrollerat 2026-10-13–15 i Windows Terminal:** 200 konfigurerade platser (001–200) kunde visas utan avklippta nummer i det använda fönstret. `SPOT DETAILS` och `GARAGE STATUS` visade korrekt information för både två bilar och en bil tillsammans med två MC på plats 003. Med en bil och två MC på två platser visades `FREE 198`, `OCCUPIED 2`, `VEHICLES 3`.
-
-**Ytterligare verifierat 2026-10-16:** Garageöversikten provades med **1 000 parkeringsplatser**, där den interna viewporten visade avgränsade platsintervall. Navigering till plats **1000** och tillbaka mot början fungerade; markeringen stannade på plats 1000 vid försök att navigera förbi slutet. Efter återställning till **100 parkeringsplatser** visades **FREE 98 / OCCUPIED 2 / VEHICLES 3**, med två MC på 003 och en bil på 051. Fordonen fanns kvar efter kapacitetsändringen och omstart.
-
-**Återstår att verifiera separat:** ändrad terminalstorlek under körning, fler smala/låga terminalmiljöer, eventuella återstående navigeringsgränsfall och komplett test mot kravspecifikationen. 500 platser har inte redovisats som ett separat prov.
-
----
-
-## Spot Details
-
-Informationspanelen för markerad parkeringsplats har vidareutvecklats för att visa:
-
-- Parkeringsplatsnummer och status.
-- Beläggning.
-- Samtliga parkerade fordon på platsen.
-- Fordonstyp och identifierare.
-- Ankomsttid i konfigurerad tidszon.
-- Aktuell parkeringstid (`Duration`).
-
-Parkeringstiden beräknas från `ArrivalTime` i UTC när panelen renderas, och lagras inte som ett eget fordonsfält.
-
-Exempel på tidsformat:
+Lösningen är uppdelad i **fyra projekt**:
 
 ```text
-35m
-2h 15m
-1d 3h 20m
+PragueParkingV2.slnx
+├── PragueParkingV2/                 G – Console App
+├── PragueParkingV2.Data/            G – Class Library
+├── PragueParkingV2_1/               VG – Console App
+│   ├── Application/                 Bl.a. ParkingDataMapper och DemoScenario
+│   ├── Domain/                      Fordon, interfaces och parkeringslogik
+│   ├── UI/                          Menyer, Garage Overview och MenuInput
+│   ├── Config/                      config.template.json
+│   └── Program.cs
+├── PragueParkingV2_1.Data/          VG – Class Library
+│   ├── Configuration/               AppConfiguration och ConfigurationService
+│   └── Persistence/                 JSON-datamodeller och ParkingDataService
+├── README.md
+├── LOGGBOK.md
+└── docs/                           Fördjupad teknisk dokumentation
 ```
 
-**Status:** Panelen har verifierats manuellt med parkerade bilar och två MC på samma plats, inklusive ett **omstartstest den 16 oktober** där båda MC behöll sina identifierare, placering och ursprungliga ankomsttider. Panelen visade individuella tider, parkeringstid och beläggning `2 / 2`. Andra terminalstorlekar och ytterligare gränsfall återstår.
+**Ansvarsfördelningen** följer en uppdelning mellan domänmodell, användargränssnitt, applikationsflöde och dataåtkomst. `ParkingDataMapper` översätter mellan parkeringsgaragets domänobjekt och de datamodeller (DTO:er) som används vid JSON-lagring. Dataklassbiblioteket behöver därmed inte känna till de konkreta fordonsklasserna.
 
----
+### Objektorienterad domänmodell
 
-## Parking Data Persistence
+- **`Vehicle`** är en abstrakt basklass med `Identifier` och `ArrivalTime` (UTC). `Car`, `MC`, `Bicycle` och `Bus` ärver från basklassen.
+- **`IVehicle`** anger ett gemensamt kontrakt för fordonen i V2.1.
+- **`ParkingSpot`** ansvarar för en enskild plats, dess fordon, tillgänglig kapacitet och eventuella bussreservationer.
+- **`IParkingSpot`** definierar platsens gemensamma kontrakt i V2.1.
+- **`ParkingGarage`** ansvarar för platstilldelning, sökning, flytt, borttagning och bussens sammanhängande platser.
+- **`ParkingFeeCalculator`** beräknar avgifter enligt konfigurationen; **`CheckoutService`** samordnar utcheckningen.
 
-**Status för V2.0 (G), 2026-10-16: JSON-inläsning och automatisk sparning vid parkering, utcheckning och flytt är implementerade.** Både lyckade normalflöden och utvalda negativa scenarier har verifierats manuellt, inklusive omstart med två MC och framprovocerade skrivfel. Detta ska inte förväxlas med generell transaktionssäkerhet.
+Klassrelationer och tekniska motiveringar finns i [klassdiagrammet](docs/class-diagram.md) och [designbesluten](docs/design-decisions.md).
 
-- `ParkingDataService` i `PragueParkingV2.Data/Persistence` sköter `Load()`/`Save()`, JSON-serialisering, grundläggande datavalidering, `Data/parking-data.json` relativt `AppContext.BaseDirectory` och temporärfil med `File.Move()`/`File.Replace()`.
-- `ParkingDataMapper` i `PragueParkingV2/Application` översätter mellan DTO-modellen och `ParkingGarage`/`Vehicle`. `ToGarage()` skapar garaget enligt `config.json`, använder `ParkVehicleAtSpot()` och behåller identifierare, fordonsklass, parkeringsplats och UTC-ankomsttid. `ToDocument()` sparar endast upptagna platser.
-- `Program.cs` läser först konfiguration, sedan parkeringsdokument och bygger garaget via mappern.
-- `ParkVehicleView`, `CheckOutVehicleView` och `MoveVehicleView` sparar ändringar efter en domänoperation och före framgångsmeddelandet. Vid rapporterade filskrivningsfel försöker UI-koden återställa det tidigare tillståndet i minnet. **Detta har felinjiceringstestats för alla tre flöden**, men är inte en fullständig transaktionsgaranti.
+## Parkeringsregler i V2.1
 
-JSON-strukturen för G-versionen är oförändrad:
+### Storleksbaserad kapacitet
 
-```json
-{
-  "ParkingSpots": [
-    {
-      "SpotNumber": 17,
-      "Vehicles": [
-        {
-          "Identifier": "ABC123",
-          "VehicleType": "Car",
-          "ArrivalTime": "2026-10-05T14:30:00Z"
-        }
-      ]
-    }
-  ]
-}
-```
+I G-versionen begränsas hur många fordon av en typ som får dela en plats. I VG-versionen använder garaget i stället **storleksenheter**. En vanlig parkeringsplats har som standard kapaciteten **4**.
 
-**Verifierat end-to-end den 14 oktober:** Testbilen `ABC123` lästes in på plats 001. Bilen `UKB48K` parkerades på plats 002 kl. 20:53, programmet avslutades helt och båda bilarna fanns kvar på respektive plats efter omstart. Garageöversikten visade två upptagna av 200 platser.
+| Fordonstyp | Storlek | Exempel på användning |
+|---|---:|---|
+| Bicycle | 1 | Upp till fyra cyklar på en plats |
+| MC | 2 | Upp till två MC på en plats |
+| Car | 4 | En bil fyller en plats |
+| Bus | 16 | Reserverar fyra sammanhängande platser |
 
-**Verifierat 2026-10-15:** Utcheckning med sparad borttagning kontrollerades efter omstart. `ABC123` flyttades från plats 001 till 050, och placeringen bevarades efter omstart. Två MC kunde dela samma plats.
+En MC och en cykel kan exempelvis dela en plats: **2 + 1 = 3 av 4** utnyttjade enheter. Storlekarna hämtas från konfigurationen, inte från hårdkodade värden i fordonsklasserna.
 
-**Verifierat 2026-10-16:** `DEF123` och `EDF123` återställdes på plats 003 med sina ursprungliga ankomsttider. Korrupt JSON avvisades utan att skrivas över. Dubbletter (`ABC123`/`abc123`), plats 201 i ett 200-platsersgarage, tre MC på en plats och blandning av Car/MC på samma plats avvisades med kontrollerad uppstartsfelhantering. Vi framkallade sparfel genom att tillfälligt skapa en katalog med namnet `parking-data.json.tmp`: en ny parkering av `ROLL123` avbröts utan att fordonet blev kvar, en utcheckning återställde fordonet och en misslyckad flytt återställde ursprungsplatsen. Efter borttagning av den avsiktligt blockerande katalogen sparades flytten **050 → 051**, och plats 051 kvarstod efter omstart.
+### Bussens parkeringslogik
 
-**Återstår för G vid eventuell ytterligare testning:** separat kontroll av utelämnade obligatoriska JSON-fält, krasch mitt under filersättning, misslyckad kompensation och fullständig temporärfilsstädning i fler feltyper. De manuella testerna är **inte bevis för allmän kraschsäkerhet eller transaktionssäkerhet**.
+En buss hanteras som **ett fordon**, men använder **fyra angränsande parkeringsplatser**. `ParkingGarage` söker efter ett giltigt sammanhängande intervall och skapar reservationer för samma bussobjekt. Vid flytt kontrolleras det nya intervallet, även när det överlappar det gamla. Vid utcheckning frigörs samtliga reservationer.
 
-**V2.1:** `ParkingDataMapper.ToVehicle()` och `ToVehicleData()` har utökats med `Bicycle` och `Bus`. Däremot använder `ToGarage()` ännu den gamla `VehiclesPerSpot`-modellen, och `ParkingDataService` validerar fortfarande endast `Car` och `MC` i den senast visade implementationen. **Inläsning, återställning och sparning med de nya fordonstyperna är därför ännu inte klara eller testade.** Bussens planerade modell är ett fordon med en identifierare, en ankomsttid och en reservation över fyra sammanhängande platser, men det slutliga JSON-formatet är inte fastställt.
+Standardkonfigurationen begränsar bussparkering till **platserna 001–050** via `BusMaxParkingSpot`. Hela bussens fyrplatsintervall måste ligga inom den tillåtna delen av garaget.
 
-Se [`parking-data.md`](docs/parking-data.md) och [`design-decisions.md`](docs/design-decisions.md) för detaljer.
+### Parkeringsavgifter
 
----
+| Fordon | Pris per påbörjad timme |
+|---|---:|
+| Car | 20 CZK |
+| MC | 10 CZK |
+| Bicycle | 5 CZK |
+| Bus | 80 CZK |
 
-## Current Development Status
+**Standardregel:** Parkering kortare än **10 minuter** är gratis. Vid debitering avrundas parkeringstiden uppåt till påbörjad timme. Exakt 10 minuter omfattas inte av gratisperioden i den implementerade regeln.
 
-### V2.0 (G) – verifierad status 2026-10-16
+## Konfiguration och datalagring
 
-| Component | Status 2026-10-16 |
+### Konfiguration
+
+I V2.1 innehåller `config.template.json` följande standardvärden:
+
+| Inställning | Värde |
 |---|---|
-| Domain model (`Vehicle`, `Car`, `MC`, `ParkingSpot`, `ParkingGarage`) | Implementerad; grundfall manuellt testade, inklusive återställning på bestämd plats |
-| `ConfigurationService` / `AppConfiguration` | Implementerade; grundläggande validering testad |
-| `ParkingFeeCalculator` / `CheckoutService` | Implementerade; utcheckning har även testats via UI inklusive sparad borttagning |
-| `MainMenu`, `AppTheme`, `MessageService` | Implementerade för aktiva vyer |
-| `GarageOverView` och `Spot Details` | Manuellt testade med 100, 200 och 1 000 platser, viewport/navigering samt bil och två MC; vissa terminalgränsfall återstår |
-| `ParkVehicleView` | **Manuellt verifierad** för incheckning av bil samt JSON-sparning och återställning efter omstart |
-| `ParkingDataService` / JSON DTO:er | Inläsning, sparning och flera negativa datatester samt framprovocerade skrivfel manuellt verifierade; ingen generell transaktionsgaranti |
-| `ParkingDataMapper` | Implementerad; lyckade återställningar och kontrollerade fel för ogiltigt platsnummer och kapacitetsöverskridande verifierade |
-| `CheckOutVehicleView` | Kvitto, avgiftsberäkning, sparad borttagning samt rollback vid framprovocerat sparfel verifierade i manuella tester |
-| `MoveVehicleView` | Lyckad flytt och omstart, nekad otillåten destination samt rollback vid framprovocerat sparfel verifierade |
-| `FindVehicleView`, `AdministrationView` | Båda implementerade och manuellt verifierade; sökning, priskorrigering och avvisning av ogiltigt pris testade |
+| `Garage.NumberOfParkingSpots` | 100 |
+| `Garage.SpotCapacity` | 4 |
+| `Garage.BusMaxParkingSpot` | 50 |
+| `VehicleTypes` | Car 4, MC 2, Bicycle 1, Bus 16 |
+| `Pricing.FreeMinutes` | 10 |
+| `System.TimeZone` | Europe/Prague |
 
-**V2.0 är färdigställd enligt projektets nuvarande status.** Tabellen bevarar de manuella kontroller som dokumenterades i oktober. Standardvärdet **100** platser har återställts i G-konfigurationen efter tidigare tester med större garage. Eventuella kompletterande leveranskontroller är separata från fortsatt VG-utveckling.
+`ConfigurationService` läser och validerar inställningarna. Under körning kan **Administration → Reload Configuration** läsa om den aktiva filen och kontrollera att ändringarna är förenliga med fordon som redan står parkerade. En ogiltig ändring aktiveras inte. **Reload Pricing** används för att uppdatera prisreglerna.
 
-### V2.1 (VG) – status 2026-10-21
+Att ändra projektets mall påverkar inte automatiskt en redan skapad aktiv `config.json`. Mer information finns i [configuration.md](docs/configuration.md).
 
-| Del | Implementerat och testat |
+### JSON-persistens
+
+Parkeringsinformationen sparas i **`Data/parking-data.json`** under programmets körkatalog. Vid omstart läses parkerade fordon tillbaka med **identifierare, fordonstyp, parkeringsplats och ursprunglig ankomsttid i UTC**.
+
+I V2.1 sparas en buss som **ett fordon på sin primärplats**; de övriga tre platserna reserveras när garaget återställs. JSON-modellen skiljer sig därmed från hur bussens platser representeras i minnet.
+
+Om V2.1:s datafil saknas vid uppstart skapar `TestDataSeeder` ett startläge med **en buss, en bil, en MC och en cykel** och sparar detta. En befintlig datafil fylls inte på med testfordon. Vanlig incheckning, utcheckning och flytt uppdaterar den permanenta datan.
+
+Se [parking-data.md](docs/parking-data.md) för JSON-format, validering och återställningsflöde.
+
+## Användargränssnitt
+
+Gränssnittet är byggt med Spectre.Console och använder återanvändbara komponenter för menyer, statusmeddelanden, paneler och kvitton.
+
+- **Park Vehicle:** Registrera ett fordon och tilldela en giltig plats.
+- **Check Out Vehicle:** Beräkna avgift, visa kvitto och avsluta parkeringen.
+- **Move Vehicle:** Flytta ett fordon efter kontroll av destinationen.
+- **Find Vehicle:** Sök via identifierare och visa plats, ankomsttid och parkeringstid.
+- **Garage Overview:** Visa och navigera mellan parkeringsplatser och platsdetaljer.
+- **Administration:** Läs om prislista eller fullständig konfiguration.
+- **Live Demonstration (V2.1):** Visa systemets parkeringslogik automatiskt.
+- **Exit:** Avsluta applikationen.
+
+**V2.0** använder ett blågult färgtema. **V2.1** har ett separat mörkt **Sunset-tema** för att skilja versionerna åt.
+
+### Garage Overview
+
+Parkeringskartan anpassar antal kolumner och synliga rader efter terminalens storlek. Kartan använder färgade celler utan individuella ramar, en detaljpanel till höger och en statuspanel under kartan. Om alla platser inte ryms samtidigt används en intern viewport.
+
+| Färg | Status |
 |---|---|
-| Projektstruktur och objektorientering | Separata V2.1-projekt i samma solution; `IVehicle` och `IParkingSpot` implementerade |
-| Fordon och kapacitet | `Car`, `MC`, `Bicycle` och `Bus` med storleksbaserad kapacitet |
-| Busslogik | Fyra sammanhängande platser; parkering, överlappande flytt, utcheckning och JSON-återställning testade i normalflödet |
-| Garage Overview | Visning av samtliga fordonstyper, blandad beläggning, statusräknare, Sunset-tema och intern viewport |
-| Konfigurationsomläsning | `Reload Configuration` testad med 100→200 och 500 platser samt avvisning av otillåten minskning av `SpotCapacity` |
-| Automatisk testdata | `TestDataSeeder` skapar testfordon om datafilen saknas; JSON-sparning och återställning efter omstart verifierade |
+| Grön | Ledig plats |
+| Orange | Delvis upptagen plats |
+| Röd | Fullbelagd plats eller reserverad bussplats |
 
-Bland återstående kontroller finns bussens återställning vid sparfel, ytterligare gränstester, kodgranskning och portabilitet. Detaljerad kravstatus och testhistorik finns i [`requirements.md`](docs/requirements.md) och [`LOGGBOK.md`](LOGGBOK.md).
----
+**SPOT DETAILS** visar bland annat fordonsidentifierare, typ, kapacitetsutnyttjande och parkeringstid. Piltangenterna används för navigering och **ESC** återgår till föregående meny.
 
-## Testing
+### Live Demonstration – V2.1
 
-Manuella domäntester finns noterade i [`LOGGBOK.md`](LOGGBOK.md), bland annat Car/MC-kapacitet, dubblettkontroll, prisberäkning och grundläggande checkout. Äldre tester av `ParkingDataService.Load()` omfattade giltig JSON (`ABC123`) och avvisning av okänd fordonstyp (`Truck`).
+Livedemonstrationen visar hur parkeringsgaraget förändras under ett automatiskt scenario med **Car, MC, Bicycle och Bus**. Den illustrerar incheckning, utcheckning och flytt, inklusive bussens fyra sammanhängande platser och blandad beläggning.
 
-**Integrationstest 2026-10-14 (Windows Terminal / Visual Studio):**
+Rubriken **`LIVE DEMONSTRATION | PARKING MAP`** visas i kartpanelen. **`LAST EVENT`** redovisar den senaste händelsen, medan **`SPOT DETAILS`** och **`GARAGE STATUS`** uppdateras under demonstrationen. Scenariot fortsätter tills användaren trycker **ESC**.
 
-1. Startade med befintlig data: `ABC123` visades på plats 001 med äldre ankomsttid.
-2. Parkerade `UKB48K` via `Park Vehicle`; fick plats 002 och lyckad bekräftelse (ankomsttid 20:53 lokalt).
-3. Avslutade programmet helt och startade om.
-4. Garageöversikten visade `UKB48K` kvar på plats 002 med oförändrad ankomsttid; `ABC123` kvar på plats 001; `FREE 198`, `OCCUPIED 2`, `VEHICLES 2`.
+Demonstrationen använder **ett separat garage i minnet** och ändrar **inte** den ordinarie `parking-data.json`. Det gör den användbar vid presentation utan att störa parkerade fordon i det vanliga systemet.
 
-Detta verifierade **normalflödet för incheckning → sparning → omstart → återställning** den 14 oktober.
+## Tester och utvecklingsperiod
 
-**Integrationstester 2026-10-15 (Windows Terminal / Visual Studio):**
+**Båda versionerna är färdigutvecklade och manuellt testade. Kravmatrisens G- och VG-punkter har slutligen gåtts igenom den 22 oktober 2026.** Under utvecklingen har jag kontrollerat både normalflöden och utvalda fel- och gränsfall. Följande är en sammanfattning; detaljerade teststeg, observationer och reflektioner finns i [LOGGBOK.md](LOGGBOK.md).
 
-1. Check Out Vehicle testades med beräknad avgift, borttagning av fordon och sparning. Efter omstart var den utcheckade bilen borta medan kvarvarande fordon fanns kvar.
-2. Move Vehicle testades för bil `ABC123`: från plats 001 till plats 050. Garageöversikten visade plats 001 ledig och plats 050 upptagen, även efter omstart.
-3. Flytt till samma plats och en otillåten/upptagen plats avvisades. Inmatningen förbättrades med `while`-loop och en enda uppdaterad felpanel åt gången.
-4. Två MC visades på samma plats 003, med kapacitet `2 / 2`, identifierarna `DEF123` och `EDF123` och egna ankomsttider. Flytt av MC till bilplats nekades. Garageöversikten visade `FREE 198`, `OCCUPIED 2`, `VEHICLES 3`.
-
-**Ytterligare manuella tester 2026-10-16 (Windows Terminal / Visual Studio):**
-
-1. `DEF123` och `EDF123` återställdes efter omstart på plats 003 med bevarade ankomsttider.
-2. Korrupt JSON, skiftlägesokänsliga fordonsdubbletter, platsnummer utanför garagekapaciteten, för många MC och blandad Car/MC på samma plats avvisades. Den ursprungliga testfilen återställdes efter varje negativt test.
-3. Framprovocerade sparfel testade rollback vid **Park**, **Check Out** och **Move**. Testet använde en temporär blockerande katalog med namnet `parking-data.json.tmp` i körmiljön; den togs bort efter testen.
-4. Den därefter lyckade flytten `ABC123` från **050 till 051** fanns kvar efter omstart.
-5. **Administration → Reload Pricing:** giltig ändring 20 → 30 CZK fungerade utan omstart; −10 CZK avvisades utan att ersätta giltigt pris.
-6. **Find Vehicle:** sökning efter `ABC123` och `def123`, även med små bokstäver, samt kontroll av ett registreringsnummer som saknas. Försök att parkera `abc123` igen avvisades som dubblett.
-7. **Garage Overview:** 1 000 platser, intern viewport och navigering till sista platsen testades. Därefter återställdes standardkapaciteten 100 platser, med tre fordon på två platser: `FREE 98`, `OCCUPIED 2`, `VEHICLES 3`.
-8. `MessageService` justerades så att väntetexten ligger i linje med den centrerade felpanelen; manuellt verifierat i dubblettfallet.
-
-**Inte slutverifierat:** körning på en annan dator, samtliga terminalstorlekar och felscenarier, krasch under filersättning samt slutlig krav- och leveranskontroll.
-
-Testresultat och reflektioner dokumenteras i [`LOGGBOK.md`](LOGGBOK.md); kravstatus i [`requirements.md`](docs/requirements.md). **Aktuella VG-testresultat finns i statusavsnittet ovan.**
-
----
-
-## Prague Parking 2.1 (VG) – aktuellt läge 2026-10-21
-
-V2.1 är byggd vidare från den färdigtestade G-versionen i **separata** projekt `PragueParkingV2_1` (Console App) och `PragueParkingV2_1.Data` (Class Library), i samma solution. G-koden och G:s parkeringsfil ska förbli oförändrade. .NET 10 och Spectre.Console 0.57.2 används i den redovisade VG-miljön.
-
-### Implementerade funktioner
-
-- `IVehicle` och `IParkingSpot` är implementerade; `Vehicle` respektive `ParkingSpot` uppfyller kontrakten. Det exakta gränssnittsberoendet i samtliga anrop granskas vid slutlig kodgenomgång.
-- `Car`, `MC`, `Bicycle` och `Bus` hanteras via gemensam domänmodell. Konfigurerade standardstorlekar är **4, 2, 1, 16**, och normal platskapacitet är **4** enheter.
-- En buss registreras **en gång** på primärplatsen och reserverar **fyra intilliggande platser** genom samma `Bus`-objektreferens. Registrering, överlappande bussflytt och normal utcheckning har testats. Enligt lärarens förtydligande får **bussar endast parkera på platserna 001–050, även vid flytt**. `BusMaxParkingSpot = 50` är konfigurerbart, utan hårdkodad 50-gräns i konfigurationsklassen.
-- Garage Overview använder storleksbaserade färger, bussreservationer och korrekt summering. Den tidigare cykelrelaterade kraschen är åtgärdad. V2.1 använder mörkt **Sunset-tema**, medan tidigare G-tema dokumenteras historiskt.
-- Avgiftsmodell: Car **20**, MC **10**, Bicycle **5** och Bus **80 CZK/påbörjad timme**; under 10 minuter gratis i den aktuella implementationen. Bus `BUS001` debiterades **160 CZK** för **1 h 38 min**.
-- `Find Vehicle` kan visa Bus med hela platsintervallet och Bicycle med korrekt typ. ESC-stöd har lagts till i sökfältet; motsvarande beteende i andra inmatningsvyer är inte helt enhetligt och är ett separat förbättringsområde.
-- `Administration` har både **Reload Pricing** och **Reload Configuration**. Den senare läser hela `config.json`, bygger ett tillfälligt garage från aktuell data och aktiverar ny konfiguration först efter lyckad validering. Saknad fil vid manuell reload avvisas, men saknad fil vid första start skapas från `config.template.json`.
-- `TestDataSeeder` skapar och sparar vid **saknad** `Data/parking-data.json` fyra giltiga testfordon via befintliga domänmetoder; en **befintlig** fil (även tom) fylls inte på automatiskt.
-
-### Manuella tester den 21 oktober
-
-| Test | Verifierat resultat |
+| Datum | Arbete och dokumenterade kontrollpunkter |
 |---|---|
-| Bus incheckning/flytt/utcheckning | Buss tar fyra platser; `BUS001` flyttades 004–007 → 006–009 med bevarad ankomsttid; fyra platser frigjordes vid normal utcheckning |
-| Bus pris | 1 h 38 min → 160 CZK, dvs. två påbörjade timmar × 80 CZK |
-| Blandad kapacitet | MC (2) och Bicycle (1) delar plats 006, som visar 3/4 upptaget |
-| Hitta fordon | `BUSCFG` visades med typ Bus och intervallet 004–007; `BIKE001` som Bicycle på 003 |
-| Reload Configuration, giltigt | 100 → 200 platser, sedan test med 500; befintliga fordon och placeringar kvar, viewport navigerbar |
-| Reload Configuration, ogiltigt | `SpotCapacity` 4 → 2 avvisades med `OEJ989` på 002; aktivt garage behöll tidigare tillstånd |
-| Testdata vid saknad fil | `TESTBUS1` på 001–004; `TESTCAR1` på 005; `TESTMC1` och `TESTBIKE1` på 006; vid 200 platser: FREE 194 / OCCUPIED 6 / VEHICLES 4 |
-| JSON och omstart | En buss sparades bara på primärplats; giltiga UTC-tider; samma fordon, platser och tider kvarstod efter omstart i separat testkopia |
+| **2026-10-05** | Projektstart: Prague Parking V2. |
+| **2026-10-11** | Arbete med JSON-persistens och tidiga valideringskontroller. |
+| **2026-10-13** | Garagekartans layout och visning av parkeringsplatser testades under perioden 13–15 oktober. |
+| **2026-10-14** | Incheckning, sparning, omstart och återställning av fordon i G-versionen. |
+| **2026-10-15** | Utcheckning, kvitto, fordonsflytt och återställning efter omstart. |
+| **2026-10-16** | Fördjupade G-tester: felaktig JSON, dubbletter, kapacitetsgränser, framprovocerade sparfel, prisomläsning och garagekarta med upp till 1 000 platser. |
+| **2026-10-20** | Separata projekt för V2.1 etablerades i samma solution. |
+| **2026-10-21** | VG-tester: bussens incheckning/flytt/utcheckning, blandad kapacitet, avgifter, konfigurationsomläsning, testdata och JSON-återställning. |
+| **2026-10-22** | Live Demonstration färdigställd och kontrollerad; äldre kapacitetskod rensades och lösningen byggdes utan fel. **Projektet färdigutvecklat och testat.** |
 
-### Återstående kvalitetssäkring
+**Utvecklingstid:** **5–22 oktober 2026** – **17 dygn mellan start- och slutdatum, eller 18 kalenderdagar inklusive båda datumen**. Perioden beskriver projektets start och avslut, inte antalet faktiska arbetstimmar.
 
-V2.1 ska ännu granskas för felinjektion och rollback för Bus, ogiltiga JSON-varianter, fyracykel-/kapacitetsgränser, aktivering av pris- och tidszonsändring via full reload, omkonfigurering med aktiva bussreservationer, hantering av ovanligt små/ändrade garage samt körning på annan dator. `VehiclesPerSpot` finns kvar i den kopierade V2.1-konfigurationsmodellen och får tas bort **först efter referenssökning och regressionstest**; G-versionens kod ska inte röras. Live Demonstration med automatisk uppspelning i en isolerad Garage Overview är **planerad, inte implementerad**. Den personliga VG-reflektionen (cirka 2–3 sidor) återstår.
+Bland genomförda kontroller finns bland annat:
 
-Det här avsnittet redovisar faktiskt uppnått och testat läge; detaljer finns i [`LOGGBOK.md`](LOGGBOK.md), [`requirements.md`](docs/requirements.md) och [`project-plan.md`](docs/project-plan.md).
+- **G:** Incheckning, utcheckning, flytt, sökning, priskalkyl, JSON-sparning och återställning efter omstart.
+- **G:** Avvisning av korrupt JSON, ogiltiga platsnummer, dubbletter och överbeläggning; återställning vid framprovocerade sparfel i parkering, utcheckning och flytt.
+- **VG:** MC och Bicycle på samma plats (3/4 kapacitet), bussens överlappande flytt **004–007 → 006–009**, och bussavgift **160 CZK för 1 h 38 min**.
+- **VG:** `Reload Configuration` med utökat antal platser och nekad kapacitetsminskning; startdata vid saknad JSON-fil samt bevarade fordon och ankomsttider efter omstart.
+- **VG:** Garage Overview och den separata Live Demonstration, inklusive användning av **ESC**.
 
+Dessa manuella tester dokumenterar de genomförda scenarierna; de innebär inte ett generellt bevis på kraschsäkerhet under alla tänkbara filsystemfel eller fullständig kompatibilitet med varje terminalmiljö.
 
-## Documentation
+## Dokumentation
 
-Projektets dokumentation består av:
+README ger en snabb introduktion. För teknisk fördjupning och utvecklingshistorik finns följande dokument:
 
-| Document | Content |
+| Dokument | Innehåll |
 |---|---|
-| [`README.md`](README.md) | Projektöversikt och startinstruktioner |
-| [`LOGGBOK.md`](LOGGBOK.md) | Utvecklingshistorik, tester, problem och lärdomar |
-| [`requirements.md`](docs/requirements.md) | Spårbara G- och VG-krav med status |
-| [`project-plan.md`](docs/project-plan.md) | Projektfaser, milstolpar och prioriteringar |
-| [`design-decisions.md`](docs/design-decisions.md) | Arkitektoniska och tekniska beslut |
-| [`class-diagram.md`](docs/class-diagram.md) | Domänmodell och klassrelationer |
-| [`configuration.md`](docs/configuration.md) | `config.json` och konfigurationsregler |
-| [`parking-data.md`](docs/parking-data.md) | JSON-format, persistensflöden och återstående skydd |
+| [LOGGBOK.md](LOGGBOK.md) | Utveckling dag för dag, tester, problem och egna reflektioner |
+| [requirements.md](docs/requirements.md) | G- och VG-krav samt kravuppföljning |
+| [project-plan.md](docs/project-plan.md) | Projektplan, arbetsfaser och milstolpar |
+| [design-decisions.md](docs/design-decisions.md) | Arkitekturval och tekniska avvägningar |
+| [class-diagram.md](docs/class-diagram.md) | Klassdiagram och relationer mellan klasser |
+| [configuration.md](docs/configuration.md) | Inställningar och hantering av JSON-konfiguration |
+| [parking-data.md](docs/parking-data.md) | Datalagring, JSON-struktur och återställning |
 
-Länkarna utgår från att `README.md` ligger i repositoryroten och att de sex ämnesdokumenten ligger i `docs/`.
+## Projektinformation
 
-Dokumentationen uppdateras när implementation och tester förändrar projektets verifierade status.
+Prague Parking V2 är min **andra individuella inlämningsuppgift i C#** inom utbildningen **Systemutvecklare DevSecOps vid KYH**, läsåret **2026**. Arbetet omfattar objektorienterad programmering, gränssnitt, konfigurationshantering, datalagring och ett interaktivt konsolgränssnitt.
 
----
-
-## GitHub
-
-Projektet versionshanteras med Git och GitHub.
-
-Repositoryt hålls privat under utvecklingen. Det ska göras publikt inför inlämningen enligt uppgiftens krav. Inlämningen ska hänvisa till repositoryts startsida.
-
-Repositorylänk anges vid slutlig inlämning.
-
----
-
-## Academic Project
-
-**Project:** Prague Parking V2  
-**Assignment:** C# Programming – Assignment 2  
-**School:** KYH  
-**Program:** Systemutvecklare DevSecOps  
-**Academic Year:** 2026  
-**Author:** Rami Issa
-
-This project is being developed as the second individual assignment in the C# programming course at KYH.
-
-The assignment focuses on object-oriented programming, application architecture, data persistence, and console-based user interfaces using C# and .NET 10.
-
----
-
-## Kvarstående kontroller inför inlämning (2026-10-21)
-
-V2.1:s implementerade funktioner och manuella tester redovisas ovan och i kravmatrisen. Utvecklingshistoriken finns i loggboken. Inför nästa versionering återstår granskning av ändringarna i Git och kontroll av vilka lokala filer som ska undantas.
+**Utvecklare:** Rami Issa  
+**Utvecklingsperiod:** 5–22 oktober 2026  
+**Färdigställt:** 22 oktober 2026  
+**Versionshantering:** Git och GitHub  
+**Repository:** Privat, enligt individuellt undantag godkänt av läraren. Läraren ges åtkomst till projektet inför bedömningen; publik publicering krävs inte.

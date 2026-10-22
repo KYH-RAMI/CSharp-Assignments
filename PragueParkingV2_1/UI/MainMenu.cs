@@ -14,6 +14,7 @@ namespace PragueParkingV2_1.UI
             "Move Vehicle",
             "Find Vehicle",
             "Garage Overview",
+            "Live Demonstration",
             "Administration",
             "Exit"
         };
@@ -85,6 +86,11 @@ namespace PragueParkingV2_1.UI
                                 parkingGarage,
                                 configuration);
 
+                            break;
+                        
+                        case "Live Demonstration":
+                            GarageOverView.DisplayLiveDemonstration(
+                                configuration);
                             break;
 
                         case "Administration":

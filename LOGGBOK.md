@@ -1159,3 +1159,82 @@ Jag lärde mig även hur `Action` kan användas i C#. I arbetet med `Reload Conf
 - Verifiera bussens felinjektion/rollback, ytterligare gränsfall för Bicycle och kapacitet, mer omfattande full Reload Configuration och portabilitet.
 - Den planerade automatiska Live Demonstration i en isolerad Garage Overview har diskuterats men **är inte implementerad**.
 - Kontrollera Git Changes och versionshantera den uppdaterade koden och dokumentationen på feature-branchen. Genererade filer i `bin/` och `obj/` samt lokala runtime-data ska inte ingå.
+
+---
+
+## 2026-10-22 – Slutförande av Prague Parking V2.0 och V2.1
+
+### Genomfört
+
+Idag färdigställde jag de sista delarna av Prague Parking V2.1 och genomförde den avslutande kodstädningen.
+
+#### Live Demonstration
+
+Jag färdigställde den interaktiva Live Demonstration som jag hade påbörjat tidigare.
+
+- Implementerade en automatisk demonstration med Car, MC, Bicycle och Bus.
+- Demonstrationen använder ett separat parkeringsgarage med 100 platser i minnet.
+- Fordon kan parkeras, flyttas och checkas ut under demonstrationen.
+- Parkeringskartan uppdateras löpande och visar aktuell beläggning med gröna, orange och röda färger.
+- Anpassade `SPOT DETAILS` och `LAST EVENT` så att informationen presenteras tydligt utan att panelernas storlek förändras i onödan.
+- Förbättrade den dynamiska renderingen och presentationen av parkeringskartan.
+- Implementerade möjligheten att avsluta demonstrationen med ESC.
+- Säkerställde att demonstrationen inte påverkar det ordinarie parkeringsgaraget eller dess sparade JSON-data.
+
+Arbetet med demonstrationen tog betydligt mer tid än jag först hade räknat med. Framför allt behövde jag arbeta med hur konsolen uppdateras medan fordonen ändrar parkeringsplatser.
+
+#### Kodstädning och slutkontroll
+
+Jag gick igenom V2.1 för att rensa bort äldre kod som inte längre behövdes efter övergången till den storleksbaserade kapacitetsmodellen.
+
+- Tog bort gamla metodöverlagringar som använde `maxVehiclesPerSpot`.
+- Tog bort den gamla konfigurationsegenskapen `VehiclesPerSpot` från V2.1.
+- Behöll den nya modellen med `SpotCapacity` och fordonsstorlekar via `Size`.
+- Kontrollerade att `config.template.json` innehåller rätt standardvärden.
+- Granskade `ConfigurationService` och hur den aktiva konfigurationsfilen skapas från mallen.
+- Kontrollerade att ändringarna inte gav kompileringsfel.
+- Lät den färdiga G-versionens kod och kapacitetsmodell vara oförändrade.
+
+### Slutlig projektstatus
+
+Både Prague Parking V2.0 (G) och Prague Parking V2.1 (VG) är nu färdigutvecklade och testade.
+
+Projektet påbörjades den **5 oktober 2026** och färdigställdes den **22 oktober 2026**, vilket motsvarar 18 kalenderdagar inklusive start- och slutdatum.
+
+Under utvecklingen har jag arbetat med objektorientering, arv, interfaces, delegater, JSON-persistens, konfigurationshantering, felhantering, felsökning och användargränssnitt med Spectre.Console.
+
+Den återstående inlämningsförberedelsen består av att kontrollera dokumentationen mot lärarens kravspecifikation och säkerställa att rätt filer versionshanteras i GitHub.
+
+### Mina personliga reflektioner – 22 oktober 2026
+
+Det känns riktigt skönt att äntligen ha blivit klar med Prague Parking V2.0 och V2.1. Jag började den 5 oktober och blev färdig den 22 oktober 2026. Det har varit 18 intensiva kalenderdagar där jag har lagt ner väldigt mycket tid på projektet. Jag vågar knappt tänka på hur många timmar det egentligen har blivit.
+
+En stor del av tiden har gått åt till research, felsökning och att försöka förstå hur olika delar av C# fungerar och hänger ihop. Det har inte alltid varit enkelt. Ibland har jag fastnat länge på saker som jag först trodde skulle vara ganska enkla. Samtidigt har det varit lärorikt eftersom jag verkligen har behövt sätta mig in i problemen och förstå varför vissa lösningar fungerar och andra inte.
+
+Jag har också fått lägga mycket tid på att lära mig Visual Studio 2026. Det är en kraftfull utvecklingsmiljö med många användbara funktioner, men det tar tid att lära sig hur allt fungerar. Jag har bland annat blivit bättre på att använda felsökaren, hitta metodreferenser, navigera mellan klasser och förstå felmeddelanden. Det är kunskaper som jag kommer att ha nytta av även i kommande projekt.
+
+#### Mina tankar om undervisningen
+
+Något jag hade önskat under kursens gång är att undervisningen hade varit mer inriktad på objektorienterad programmering (OOP) än på de absoluta grunderna i programmering. Jag tycker personligen att man borde ha läst exempelvis Programmering A/1, eller ha motsvarande grundläggande kunskaper, innan man söker sig till en utbildning inom systemutveckling.
+
+Jag hade själv aldrig programmerat i C# innan den här kursen. Min tidigare erfarenhet kommer främst från webbutveckling och Java samt Programmering B/2, där jag arbetade med C++. C++ var ett språk jag verkligen inte tyckte om, men C# har jag däremot fått ett helt annat intresse för. Jag tycker faktiskt väldigt mycket om språket och vill fortsätta utvecklas inom det.
+
+Det jag framför allt saknade var mer praktisk träning i OOP. Att förstå hur klasser, objekt, arv, interfaces och metoder fungerar tillsammans i ett större program är enligt mig betydligt svårare än att lära sig grundläggande syntax. Det är också något som kräver mycket övning.
+
+Jag försökte även bidra genom att ta initiativ till guider som kunde hjälpa mina klasskamrater att förstå grunderna bättre. Min förhoppning var att det skulle frigöra mer undervisningstid till de avancerade momenten. Tyvärr upplevde jag att initiativet inte fick det gensvar jag hade hoppats på och att mina synpunkter om undervisningens nivå inte riktigt fick gehör. Det tycker jag är synd, eftersom min avsikt var att både hjälpa andra och skapa bättre möjligheter för oss som ville fördjupa oss ytterligare.
+
+Jag tar ändå med mig väldigt mycket från kursen. Framför allt har arbetet med Prague Parking gett mig den praktiska OOP-träning som jag efterfrågade. Det har också fått mig att inse hur mycket jag fortfarande har kvar att lära mig, vilket snarare motiverar mig att fortsätta utvecklas på egen hand.
+
+#### Mina avslutande tankar
+
+Under projektets gång har jag samtidigt märkt hur mycket jag faktiskt har utvecklats. I början var det svårt att hålla reda på alla klasser, metoder och hur de skulle samarbeta. Mot slutet började jag få en bättre helhetsförståelse. Busslogiken i V2.1 var förmodligen den största utmaningen, men också ett av momenten där jag lärde mig mest.
+
+Jag har även lagt väldigt mycket tid på det visuella gränssnittet och på den avslutande Live Demonstration. Det tog betydligt längre tid än jag hade räknat med, men jag ville inte lämna ifrån mig något som jag själv inte var nöjd med.
+
+Även om det känns skönt att ha blivit färdig betyder det inte att mitt lärande slutar här. Tvärtom har projektet gjort mig ännu mer intresserad av att fortsätta utvecklas inom C#. Jag känner fortfarande att det finns mycket kvar att lära, framför allt inom objektorientering och hur man bygger större och mer välstrukturerade applikationer.
+
+Jag tänker därför fortsätta på egen hand, utmana mig själv med nya projekt och fördjupa mina kunskaper. Jag vill inte bara kunna skriva kod som fungerar, utan också förstå varför den fungerar och hur jag kan förbättra den.
+
+Jag är nöjd med att jag tog mig hela vägen i mål, trots all tid och energi som krävdes. Samtidigt ser jag det här projektet som ett steg i min utveckling snarare än ett slutmål.
+
+**Prague Parking är färdigt, men min utveckling som programmerare fortsätter.**

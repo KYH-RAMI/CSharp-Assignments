@@ -290,49 +290,7 @@ namespace PragueParkingV2_1.Domain
             }
         }
 
-        public ParkingSpot? FindAvailableSpot(
-            Vehicle vehicle,
-            int maxVehiclesPerSpot)
-        {
-            foreach (var parkingSpot in _parkingSpots)
-            {
-                if (parkingSpot.CanPark(vehicle, maxVehiclesPerSpot))
-                {
-                    return parkingSpot;
-                }
-            }
 
-            return null;
-        }
-
-        public ParkingSpot ParkVehicle(
-            Vehicle vehicle,
-            int maxVehiclesPerSpot)
-        {
-            ArgumentNullException.ThrowIfNull(vehicle);
-
-            if (FindVehicle(vehicle.Identifier) is not null)
-            {
-                throw new InvalidOperationException(
-                    $"Vehicle '{vehicle.Identifier}' is already parked.");
-            }
-
-            var parkingSpot = FindAvailableSpot(
-                vehicle,
-                maxVehiclesPerSpot);
-
-            if (parkingSpot is null)
-            {
-                throw new InvalidOperationException(
-                    "No available parking spots.");
-            }
-
-            parkingSpot.ParkVehicle(
-                vehicle,
-                maxVehiclesPerSpot);
-
-            return parkingSpot;
-        }
         public ParkingSpot ParkVehicle(
             Vehicle vehicle,
             int spotCapacity,
@@ -366,29 +324,6 @@ namespace PragueParkingV2_1.Domain
             return parkingSpot;
         }
 
-        public void ParkVehicleAtSpot(
-            Vehicle vehicle,
-            int spotNumber,
-            int maxVehiclesPerSpot)
-        {
-            ArgumentNullException.ThrowIfNull(vehicle);
-            var parkingSpot = _parkingSpots.Find(
-                spot => spot.SpotNumber == spotNumber);
-            if (FindVehicle(vehicle.Identifier) is not null)
-            {
-                throw new InvalidOperationException(
-                    $"Vehicle '{vehicle.Identifier}' is already parked.");
-            }
-            if (parkingSpot is null)
-            {
-                throw new InvalidOperationException(
-                    $"Parking spot {spotNumber} does not exist.");
-            }
-
-            parkingSpot.ParkVehicle(
-                vehicle,
-                maxVehiclesPerSpot);
-        }
         public void ParkVehicleAtSpot(
             Vehicle vehicle,
             int spotNumber,

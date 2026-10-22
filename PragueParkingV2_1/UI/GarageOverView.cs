@@ -2,14 +2,14 @@
 using PragueParkingV2_1.Domain;
 using Spectre.Console;
 using Spectre.Console.Rendering;
-
+using PragueParkingV2_1.Application;
 namespace PragueParkingV2_1.UI
 {
     internal static class GarageOverView
     {
-        // The map is measured from the terminal, not from a fixed garage capacity.
+        // Layout dimensions are based on terminal size, not garage capacity.
         private static (int MapWidth, int DetailsWidth, int ColumnsPerRow, int VisibleRows)
-            GetGarageLayout(int numberOfSpots)
+            GetGarageLayout(int numberOfSpots, bool demoMode = false)
         {
             int terminalWidth = AnsiConsole.Console.Profile.Width;
             int terminalHeight = AnsiConsole.Console.Profile.Height;
@@ -32,8 +32,8 @@ namespace PragueParkingV2_1.UI
                 1,
                 Math.Min(numberOfSpots, mapContentWidth / cellWidth));
 
-            // Footer, panel borders, and a safety margin are reserved below the map.
-            int visibleRows = Math.Max(1, terminalHeight - 12);
+            // Reserve room for details, the footer and the demo event panel.
+            int visibleRows = Math.Max(1, terminalHeight - (demoMode ? 15 : 10));
 
             return (mapWidth, detailsWidth, columnsPerRow, visibleRows);
         }
@@ -54,10 +54,10 @@ namespace PragueParkingV2_1.UI
 
             // A smaller terminal cannot show both panels and the footer readably.
             if (AnsiConsole.Console.Profile.Width < 80 ||
-                AnsiConsole.Console.Profile.Height < 18)
+                AnsiConsole.Console.Profile.Height < 24)
             {
                 AnsiConsole.MarkupLine(
-                    "[yellow]Enlarge the terminal to at least 80 columns and 18 rows.[/]");
+                    "[yellow]Enlarge the terminal to at least 80 columns and 24 rows.[/]");
                 return;
             }
 
@@ -124,18 +124,115 @@ namespace PragueParkingV2_1.UI
                     }
                 });
         }
+        // Runs a separate, in-memory garage until ESC is pressed.
+        public static void DisplayLiveDemonstration(
+            AppConfiguration configuration)
+        {
+            ArgumentNullException.ThrowIfNull(configuration);
+
+            if (AnsiConsole.Console.Profile.Width < 80 ||
+                AnsiConsole.Console.Profile.Height < 28)
+            {
+                AnsiConsole.MarkupLine(
+                    "[yellow]Enlarge the terminal to at least 80 columns and 28 rows.[/]");
+                return;
+            }
+
+            ParkingGarage demoGarage = new(
+                DemoScenario.DemoParkingSpots);
+
+            List<ParkingSpot> garageSpots = demoGarage.ParkingSpots
+                .OrderBy(spot => spot.SpotNumber)
+                .ToList();
+
+            IReadOnlyList<DemoStep> steps;
+
+            try
+            {
+                steps = DemoScenario.Create(demoGarage, configuration);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageService.ShowError(ex.Message, waitForKey: true);
+                return;
+            }
+
+            IRenderable CreateDemoFrame(DemoStep step)
+            {
+                var layout = GetGarageLayout(garageSpots.Count, demoMode: true);
+
+                int selectedIndex = garageSpots.FindIndex(
+                    spot => spot.SpotNumber == step.FocusSpot);
+
+                selectedIndex = Math.Max(0, selectedIndex);
+
+                return BuildOverviewLayout(
+                    garageSpots,
+                    selectedIndex,
+                    demoGarage,
+                    configuration,
+                    layout,
+                    lastEvent: step.Description,
+                    demoMode: true);
+            }
+
+            // Shows the initial empty garage before the first check-in.
+            AppTheme.PrepareScreen();
+
+            AnsiConsole.Live(CreateDemoFrame(steps[0]))
+                .Start(context =>
+                {
+                    while (true)
+                    {
+                        foreach (DemoStep step in steps)
+                        {
+                            // Execute real domain operations, not UI-only color changes.
+                            step.Execute();
+                            context.UpdateTarget(CreateDemoFrame(step));
+
+                            int remaining = step.DelayMs;
+
+                            while (remaining > 0)
+                            {
+                                if (Console.KeyAvailable &&
+                                    Console.ReadKey(intercept: true).Key == ConsoleKey.Escape)
+                                {
+                                    return;
+                                }
+
+                                int sleep = Math.Min(25, remaining);
+                                Thread.Sleep(sleep);
+                                remaining -= sleep;
+                            }
+                        }
+
+                        // Fresh state on each cycle; no JSON persistence.
+                        demoGarage = new ParkingGarage(
+                            DemoScenario.DemoParkingSpots);
+
+                        garageSpots = demoGarage.ParkingSpots
+                            .OrderBy(spot => spot.SpotNumber)
+                            .ToList();
+
+                        steps = DemoScenario.Create(demoGarage, configuration);
+                    }
+                });
+        }
 
         private static IRenderable BuildOverviewLayout(
             IReadOnlyList<ParkingSpot> garageSpots,
             int selectedSpotIndex,
             ParkingGarage parkingGarage,
             AppConfiguration configuration,
-            (int MapWidth, int DetailsWidth, int ColumnsPerRow, int VisibleRows) layout)
+            (int MapWidth, int DetailsWidth, int ColumnsPerRow, int VisibleRows) layout,
+            string? lastEvent = null,
+            bool demoMode = false)
         {
             // A viewport is used only if the complete map exceeds the terminal height.
             int totalRows = (garageSpots.Count + layout.ColumnsPerRow - 1) /
                             layout.ColumnsPerRow;
             int visibleRows = Math.Min(totalRows, layout.VisibleRows);
+
             int selectedRow = selectedSpotIndex / layout.ColumnsPerRow;
             int firstVisibleRow = Math.Clamp(
                 selectedRow - visibleRows / 2,
@@ -154,7 +251,8 @@ namespace PragueParkingV2_1.UI
                 layout.MapWidth,
                 layout.ColumnsPerRow,
                 firstVisibleIndex,
-                endVisibleIndex);
+                endVisibleIndex,
+                demoMode);
 
             Panel detailsPanel = BuildDetailsPanel(
                 garageSpots[selectedSpotIndex],
@@ -166,7 +264,8 @@ namespace PragueParkingV2_1.UI
                 parkingGarage,
                 totalWidth,
                 garageSpots[firstVisibleIndex].SpotNumber,
-                garageSpots[endVisibleIndex - 1].SpotNumber);
+                garageSpots[endVisibleIndex - 1].SpotNumber,
+                demoMode);
 
             var top = new Grid();
             top.AddColumn(new GridColumn
@@ -186,7 +285,23 @@ namespace PragueParkingV2_1.UI
             });
             top.AddRow(garagePanel, new Text(""), detailsPanel);
 
-            // Footer spans both panels rather than occupying only the first column.
+
+            if (lastEvent is not null)
+            {
+                Panel lastEventPanel = AppTheme.CreatePanel(
+                    new Markup(
+                        $"[bold {AppTheme.GoldLight}]" +
+                        $"{Markup.Escape(lastEvent)}[/]"),
+                    title: "LAST EVENT",
+                    width: totalWidth,
+                    padding: new Padding(2, 0, 2, 0));
+
+                return new Rows(
+                    top,
+                    lastEventPanel,
+                    footer);
+            }
+
             return new Rows(top, footer);
         }
 
@@ -196,7 +311,8 @@ namespace PragueParkingV2_1.UI
             AppConfiguration configuration,
             int columnsPerRow,
             int firstVisibleIndex,
-            int endVisibleIndex)
+            int endVisibleIndex,
+            bool demoMode)
         {
             int numberWidth = Math.Max(3, garageSpots[^1].SpotNumber.ToString().Length);
             int cellWidth = numberWidth + 3;
@@ -226,7 +342,8 @@ namespace PragueParkingV2_1.UI
                         ? CreateParkingSpotCell(
                             garageSpots[index],
                             index == selectedSpotIndex,
-                            configuration)
+                            configuration,
+                            demoMode)
                         : new Text("");
                 }
 
@@ -243,7 +360,8 @@ namespace PragueParkingV2_1.UI
             int mapWidth,
             int columnsPerRow,
             int firstVisibleIndex,
-            int endVisibleIndex)
+            int endVisibleIndex,
+            bool demoMode)
         {
             Grid map = BuildGarageGrid(
                 garageSpots,
@@ -251,11 +369,14 @@ namespace PragueParkingV2_1.UI
                 configuration,
                 columnsPerRow,
                 firstVisibleIndex,
-                endVisibleIndex);
+                endVisibleIndex,
+                demoMode);
 
             return AppTheme.CreatePanel(
                 map,
-                title: "PARKING MAP",
+                title: demoMode
+                ? "LIVE DEMONSTRATION | PARKING MAP"
+                : "PARKING MAP",
                 width: mapWidth,
                 padding: new Padding(1, 0, 1, 0));
         }
@@ -263,24 +384,34 @@ namespace PragueParkingV2_1.UI
         private static Markup CreateParkingSpotCell(
             ParkingSpot spot,
             bool isSelected,
-            AppConfiguration configuration)
+            AppConfiguration configuration,
+            bool demoMode)
         {
-            string backgroundColor = isSelected
-                ? AppTheme.SelectedSpotBackground
-                : GetSpotColor(spot, configuration);
+            // Demo keeps occupancy colors visible even for the focused cell.
+            string background = demoMode
+                ? GetSpotColor(spot, configuration)
+                : isSelected
+                    ? AppTheme.SelectedSpotBackground
+                    : GetSpotColor(spot, configuration);
 
-            string foregroundColor = isSelected
-                ? AppTheme.SelectedSpotText
-                : AppTheme.StatusText;
+            string foreground = demoMode
+                ? AppTheme.StatusText
+                : isSelected
+                    ? AppTheme.SelectedSpotText
+                    : AppTheme.StatusText;
+
+            string emphasis = demoMode && isSelected
+                ? "bold underline"
+                : "bold";
 
             return new Markup(
-                $"[bold {foregroundColor} on {backgroundColor}] " +
+                $"[{emphasis} {foreground} on {background}] " +
                 $"{spot.SpotNumber:D3} [/] ");
         }
 
         private static string GetSpotColor(
-    ParkingSpot parkingSpot,
-    AppConfiguration configuration)
+            ParkingSpot parkingSpot,
+            AppConfiguration configuration)
         {
             // Bus reservations always occupy the entire parking spot.
             if (parkingSpot.ReservedByBus is not null)
@@ -312,139 +443,124 @@ namespace PragueParkingV2_1.UI
             AppConfiguration configuration,
             int detailsWidth)
         {
-            var detailLines = new List<string>
-            {
-                $"[bold {AppTheme.Gold}]" +
-                $"PARKING SPOT {selectedSpot.SpotNumber:D3}[/]",
-                ""
-            };
+            int capacity = configuration.Garage!.SpotCapacity;
+            int count = selectedSpot.ParkedVehicles.Count;
 
-            int vehicleCount = selectedSpot.ParkedVehicles.Count;
+            Func<IVehicle, int> getSize = vehicle =>
+                configuration.VehicleTypes![vehicle.GetType().Name].Size;
 
-            if (selectedSpot.ReservedByBus is Bus bus &&
-                vehicleCount == 0)
-            {
-                int capacity = configuration.Garage!.SpotCapacity;
+            int used = selectedSpot.ReservedByBus is not null
+                ? capacity
+                : selectedSpot.GetUsedCapacity(getSize);
 
-                detailLines.Add(
-                    $"Status: [{AppTheme.StatusFull}]BUS RESERVED[/]");
+            string status = selectedSpot.ReservedByBus is not null && count == 0
+                ? "BUS RESERVED"
+                : used == 0
+                    ? "FREE"
+                    : used >= capacity
+                        ? "FULL"
+                        : "PARTIALLY OCCUPIED";
 
-                detailLines.Add(
-                    $"Occupancy: {capacity} / {capacity}");
-
-                detailLines.Add("");
-
-                detailLines.Add(
-                    $"[bold {AppTheme.GoldLight}]BUS RESERVATION[/]");
-
-                detailLines.Add(
-                    $"Registration: {Markup.Escape(bus.Identifier)}");
-            }
-
-            else if (vehicleCount == 0)
-            {
-                int spotCapacity = configuration.Garage!.SpotCapacity;
-
-                detailLines.Add(
-                    $"Status: [{AppTheme.StatusFree}]FREE[/]");
-
-                detailLines.Add(
-                    $"Occupancy: 0 / {spotCapacity}");
-
-                detailLines.Add("");
-
-                detailLines.Add(
-                    $"[bold {AppTheme.GoldLight}]MAX PER EMPTY SPOT[/]");
-
-                detailLines.Add(
-                    $"Car: {spotCapacity / configuration.VehicleTypes!["Car"].Size}");
-
-                detailLines.Add(
-                    $"MC: {spotCapacity / configuration.VehicleTypes!["MC"].Size}");
-
-                detailLines.Add(
-                    $"Bicycle: {spotCapacity / configuration.VehicleTypes!["Bicycle"].Size}");
-            }
-            else
-            {
-                int capacity = configuration.Garage!.SpotCapacity;
-
-                int usedCapacity = selectedSpot.ReservedByBus is not null
-                    ? capacity
-                    : selectedSpot.GetUsedCapacity(
-                        vehicle => configuration.VehicleTypes![vehicle.GetType().Name].Size);
-
-                bool isFull = usedCapacity >= capacity;
-
-                string status = isFull
-                    ? "FULL"
-                    : "PARTIALLY OCCUPIED";
-
-                string statusColor = isFull
+            string statusColor = used == 0
+                ? AppTheme.StatusFree
+                : used >= capacity
                     ? AppTheme.StatusFull
                     : AppTheme.StatusPartial;
 
-                detailLines.Add(
-                    $"Status: [{statusColor}]{status}[/]");
+            var lines = new List<string>
+            {
+                $"[bold {AppTheme.Gold}]PARKING SPOT {selectedSpot.SpotNumber:D3}[/]",
+                "",
+                "Status:",
+                $"[bold {statusColor}]{status}[/]",
+                $"Occupancy: {used} / {capacity}",
+                ""
+            };
 
-                detailLines.Add(
-                    $"Occupancy: {usedCapacity} / {capacity}");
+            // Keep panel height constant, including spots shared by four bicycles.
+            int textWidth = Math.Max(12, detailsWidth - 4);
 
-                detailLines.Add("");
+            if (selectedSpot.ReservedByBus is Bus reservedBus && count == 0)
+            {
+                lines.Add($"[bold {AppTheme.GoldLight}]BUS RESERVATION[/]");
+                lines.Add("Registration:");
+                lines.Add(Markup.Escape(Shorten(reservedBus.Identifier, textWidth)));
+            }
+            else if (count == 0)
+            {
+                lines.Add($"[bold {AppTheme.GoldLight}]MAX PER EMPTY SPOT[/]");
+                lines.Add($"Car: {capacity / configuration.VehicleTypes!["Car"].Size}");
+                lines.Add($"MC: {capacity / configuration.VehicleTypes!["MC"].Size}");
+                lines.Add($"Bicycle: {capacity / configuration.VehicleTypes!["Bicycle"].Size}");
+            }
+            else
+            {
+                lines.Add($"[bold {AppTheme.GoldLight}]PARKED VEHICLES[/]");
 
-                TimeZoneInfo timeZone =
-                    TimeZoneInfo.FindSystemTimeZoneById(
-                        configuration.System!.TimeZone!);
-
-                DateTime nowUtc = DateTime.UtcNow;
-
-                for (int i = 0; i < vehicleCount; i++)
+                if (count == 1)
                 {
-                    Vehicle vehicle = selectedSpot.ParkedVehicles[i];
+                    Vehicle vehicle = selectedSpot.ParkedVehicles[0];
+                    string vehicleText = $"{GetVehicleType(vehicle)} {vehicle.Identifier}";
+                    lines.Add(Markup.Escape(Shorten(vehicleText, textWidth)));
 
-                    string type = GetVehicleType(vehicle);
+                    TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById(
+                        configuration.System!.TimeZone!);
+                    DateTime localArrival = TimeZoneInfo.ConvertTimeFromUtc(
+                        vehicle.ArrivalTime, timeZone);
 
-                    DateTime localArrival =
-                        TimeZoneInfo.ConvertTimeFromUtc(
-                            vehicle.ArrivalTime,
-                            timeZone);
-
-                    TimeSpan duration =
-                        nowUtc - vehicle.ArrivalTime;
-
-                    detailLines.Add(
-                        $"[bold {AppTheme.GoldLight}]VEHICLE {i + 1}[/]");
-
-                    detailLines.Add($"Type: {type}");
-
-                    detailLines.Add(
-                        $"ID: {Markup.Escape(vehicle.Identifier)}");
-
-                    detailLines.Add(
-                        $"Arrival: {localArrival:yyyy-MM-dd HH:mm}");
-
-                    detailLines.Add(
-                        $"Duration: {FormatDuration(duration)}");
-
-                    if (i < vehicleCount - 1)
+                    lines.Add($"Date: {localArrival:yyyy-MM-dd}");
+                    lines.Add($"Time: {localArrival:HH:mm}");
+                    lines.Add($"Duration: {FormatDuration(DateTime.UtcNow - vehicle.ArrivalTime)}");
+                }
+                else
+                {
+                    int visible = Math.Min(count, 4);
+                    for (int i = 0; i < visible; i++)
                     {
-                        detailLines.Add("");
+                        Vehicle vehicle = selectedSpot.ParkedVehicles[i];
+                        string vehicleText = $"{GetVehicleType(vehicle)} {vehicle.Identifier}";
+                        lines.Add(Markup.Escape(Shorten(vehicleText, textWidth)));
+                    }
+
+                    if (count > visible)
+                    {
+                        lines.Add($"+{count - visible} more vehicles");
                     }
                 }
             }
 
+            // 12 content rows + 2 border rows, regardless of vehicle count.
+            const int maxContentRows = 12;
+            if (lines.Count > maxContentRows)
+            {
+                lines = lines.Take(maxContentRows).ToList();
+            }
+            while (lines.Count < maxContentRows)
+            {
+                // Non-breaking space makes the otherwise empty row measurable.
+                lines.Add("\u00A0");
+            }
+
             return AppTheme.CreatePanel(
-                new Markup(string.Join("\n", detailLines)),
+                new Markup(string.Join("\n", lines)),
                 title: "SPOT DETAILS",
                 width: detailsWidth,
                 padding: new Padding(1, 0, 1, 0));
+        }
+
+        private static string Shorten(string text, int width)
+        {
+            return text.Length <= width
+                ? text
+                : text[..Math.Max(0, width - 3)] + "...";
         }
 
         private static Panel BuildFooter(
             ParkingGarage parkingGarage,
             int width,
             int firstVisibleSpot,
-            int lastVisibleSpot)
+            int lastVisibleSpot,
+            bool demoMode)
         {
             int totalSpots =
                 parkingGarage.ParkingSpots.Count;
@@ -461,18 +577,22 @@ namespace PragueParkingV2_1.UI
                 parkingGarage.ParkingSpots.Sum(
                     spot => spot.ParkedVehicles.Count);
 
+            string commands = demoMode
+                ? $"[{AppTheme.GoldLight}]ESC[/] " +
+                  $"[{AppTheme.Muted}]Stop demonstration[/]"
+                : $"[{AppTheme.GoldLight}]← ↑ ↓ →[/] " +
+                  $"[{AppTheme.Muted}]Navigate[/]" +
+                  $"   [{AppTheme.Muted}]│[/]   " +
+                  $"[{AppTheme.GoldLight}]ESC[/] " +
+                  $"[{AppTheme.Muted}]Back[/]";
+
             string content =
                 $"[bold {AppTheme.Gold}]FREE SPOTS {freeSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
                 $"[{AppTheme.Text}]OCCUPIED SPOTS {occupiedSpots}[/]" +
                 $"   [{AppTheme.Muted}]│[/]   " +
                 $"[{AppTheme.Text}]VEHICLES {totalVehicles}[/]\n\n" +
-
-                $"[{AppTheme.GoldLight}]← ↑ ↓ →[/] " +
-                $"[{AppTheme.Muted}]Navigate[/]" +
-                $"   [{AppTheme.Muted}]│[/]   " +
-                $"[{AppTheme.GoldLight}]ESC[/] " +
-                $"[{AppTheme.Muted}]Back[/]";
+                commands;
 
             if (firstVisibleSpot > 1 || lastVisibleSpot < totalSpots)
             {

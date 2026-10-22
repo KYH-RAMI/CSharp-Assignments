@@ -25,7 +25,7 @@ namespace PragueParkingV2_1.UI
             string content =
                 $"[{AppTheme.Muted}]" +
                 $"Enter the vehicle registration number.\n" +
-                $"Leave empty and press Enter to go back." +
+                $"Press ESC or leave empty and press Enter to go back." +
                 $"[/]";
 
             var panel = AppTheme.CreatePanel(
@@ -42,11 +42,10 @@ namespace PragueParkingV2_1.UI
                 leftMargin,
                 Console.CursorTop);
 
-            string identifier = AnsiConsole.Prompt(
-                new TextPrompt<string>(
-                    $"{padding}[{AppTheme.Gold}]Registration ID:[/] ")
-                .AllowEmpty());
-            
+            string? identifier = MenuInput.ReadText(
+                "Registration ID",
+                leftMargin);
+
             if (string.IsNullOrWhiteSpace(identifier))
             {
                 return;
@@ -95,7 +94,7 @@ namespace PragueParkingV2_1.UI
             string newspot =
                 $"[{AppTheme.Muted}]" +
                 $"Enter the new SPOT number to move vehicle to.\n" +
-                $"Leave empty and press Enter to go back." +
+                $"Press ESC or leave empty and press Enter to go back." +
                 $"[/]";
 
             var newspotpanel = AppTheme.CreatePanel(
@@ -138,10 +137,10 @@ namespace PragueParkingV2_1.UI
                     leftMargin,
                     Console.CursorTop);
 
-                string spot = AnsiConsole.Prompt(
-                    new TextPrompt<string>(
-                        $"{padding}[{AppTheme.Gold}]Spot:[/] ")
-                    .AllowEmpty());
+                string? spot = MenuInput.ReadText(
+                    "Spot",
+                    leftMargin,
+                    maxLength: 10);
 
                 // Avbryt flytten.
                 if (string.IsNullOrWhiteSpace(spot))
@@ -233,10 +232,10 @@ namespace PragueParkingV2_1.UI
             Console.SetCursorPosition(
                 leftMargin,
                 Console.CursorTop);
-            
-            bool confirmed = AnsiConsole.Confirm(
-                $"{padding}[{AppTheme.Gold}]Confirm move?[/]",
-                defaultValue: false);
+
+            bool confirmed = MenuInput.Confirm(
+                "Confirm move?",
+                leftMargin);
 
             if (!confirmed)
             {

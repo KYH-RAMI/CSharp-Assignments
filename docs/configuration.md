@@ -1,43 +1,56 @@
 # Prague Parking V2 – Konfiguration
 
-**Uppdaterad:** 2026-10-21  
-**Omfattning:** Gemensam dokumentation för Prague Parking 2.0 (G) och Prague Parking 2.1 (VG). Konfiguration och kördata hålls åtskilda mellan versionernas projekt.
+**Uppdaterad:** 2026-10-22  
+**Projektperiod:** 2026-10-05–2026-10-22 (18 kalenderdagar inklusive start- och slutdatum)  
+**Omfattning:** Konfiguration, validering och omläsning för Prague Parking V2.0 (G) och V2.1 (VG).  
+**Projektstatus:** Båda programversionerna är färdigutvecklade och manuellt testade. Kraven har gåtts igenom inför inlämningen. Kodutvecklingen är avslutad; dokumentationen färdigställs före själva inlämningen.
 
-**Aktuellt läge 2026-10-21:** G-versionens konfiguration och menybaserade **Reload Pricing** är manuellt testade. V2.1 har en separat konfigurationsmall, storleksbaserad kapacitet, priser för fyra fordonstyper och menyvalet **Reload Configuration**. Full omläsning har testats med ändrat antal parkeringsplatser och avvisning av en otillåten kapacitetsändring. Fler negativa tester och granskning av äldre `VehiclesPerSpot`-referenser återstår.
+> **Versionsgräns:** V2.0 och V2.1 är separata, körbara projekt i samma Visual Studio-solution. De har skilda Data-projekt, körkataloger och aktiva konfigurationsfiler. **G-versionens `VehiclesPerSpot` har behållits oförändrad.** I V2.1 har modellen ersatts av `SpotCapacity` och `VehicleTypes.Size`; föråldrade VG-referenser till `VehiclesPerSpot` har tagits bort vid slutstädningen den 22 oktober.
 
-> **Läsanvisning:** Fram till avsnittet **”Prague Parking 2.1 (VG) – Ny konfigurationsmodell”** dokumenteras den **befintliga G-versionen** och dess tester. G-konfigurationens JSON-exempel ska inte användas för att ersätta V2.1:s konfiguration.
+---
 
-**Historisk status från tidigare steg 2026-10-21 (se aktuell status nedan):** V2.1 använder nu en **separat `config.template.json` som mall**. `ConfigurationService` kopierar mallen till aktiv runtime-`config.json` vid saknad fil, men bevarar/validerar befintliga inställningar. Konfigurationsklasser och validering är kompletterade för Bicycle, Bus, `SpotCapacity` och `BusMaxParkingSpot`. V2.1 har startat med den nya mallen. **Fullständig omläsning under körning och färdig prisberäkning för Bicycle/Bus återstår.** Anteckningar med status 2026-10-20 nedan beskriver tidigare läge.
+## 1. Syfte och ansvar
 
-## Prague Parking 2.0 (G) – Konfigurationsstruktur
+`Config/config.json` innehåller administrerbara regler för parkeringssystemet: priser, gratisminuter, garagekapacitet, tidszon och fordonskapacitet. Inställningarna läses med `ConfigurationService` från respektive versions separata Data-projekt. `System.Text.Json` används för JSON-hanteringen.
+
+Konfigurationen beskriver **hur garaget ska fungera**, medan `Data/parking-data.json` beskriver **vilka fordon som faktiskt är parkerade**. Att dessa filer har olika ansvar gör det möjligt att ändra priser och regler utan att blanda samman dem med parkerade fordons identitet, plats och ankomsttid.
+
+De aktiva inställningarna läses in i programmet. Ändringar i filen under pågående körning får effekt först när relevant omläsningsfunktion används; i G gäller det priser och i VG även hela konfigurationen.
+
+| Område | V2.0 (G) | V2.1 (VG) |
+|---|---|---|
+| Fordonstyper | `Car`, `MC` | `Car`, `MC`, `Bicycle`, `Bus` |
+| Kapacitetsmodell | `VehiclesPerSpot` per fordonstyp | `Garage.SpotCapacity` och `VehicleTypes.*.Size` |
+| Standardantal parkeringsplatser | 100 | 100 |
+| Kapacitet för en normal plats | En Car **eller** två MC | 4 storleksenheter |
+| Omläsning i Administration | `Reload Pricing` | `Reload Pricing` och `Reload Configuration` |
+| Standardkonfiguration | G-projektets konfigurationsvärden | Versionshanterad `config.template.json` |
+| Saknad aktiv `config.json` | Standardkonfiguration kan skapas i körmiljön | Aktiv fil kopieras från mallen vid programstart |
+| Permanenta parkeringsdata | Separat `parking-data.json` | Separat `parking-data.json` |
+
+## 2. Prague Parking V2.0 (G)
+
+### 2.1 Konfigurationsstruktur
 
 ```mermaid
 flowchart TD
-    A[Configuration]
-
-    A --> B[Pricing]
-    B --> B1[FreeMinutes = 10]
-    B --> B2[CarHourlyPrice = 20]
-    B --> B3[MotorcycleHourlyPrice = 10]
-
-    A --> C[Garage]
-    C --> C1[NumberOfParkingSpots = 100]
-
-    A --> D[System]
-    D --> D1[TimeZone = Europe/Prague]
-
-    A --> E[VehicleTypes]
-
-    E --> E1[Car]
-    E1 --> E11[VehiclesPerSpot = 1]
-
-    E --> E2[MC]
-    E2 --> E21[VehiclesPerSpot = 2]
+    A["Configuration – G"]
+    A --> B["Pricing"]
+    B --> B1["FreeMinutes = 10"]
+    B --> B2["CarHourlyPrice = 20"]
+    B --> B3["MotorcycleHourlyPrice = 10"]
+    A --> C["Garage"]
+    C --> C1["NumberOfParkingSpots = 100"]
+    A --> D["System"]
+    D --> D1["TimeZone = Europe/Prague"]
+    A --> E["VehicleTypes"]
+    E --> E1["Car: VehiclesPerSpot = 1"]
+    E --> E2["MC: VehiclesPerSpot = 2"]
 ```
 
-Diagrammet beskriver **standardkonfigurationen för G-versionen**. `NumberOfParkingSpots = 100` är det faktiska standardvärdet, men inte ett fast antal platser i programkoden: administratören kan ändra det via konfigurationen. Fordonstyperna `Bicycle` och `Bus` ingår ännu inte.
+Standardinställningen är 100 platser, men antalet är **konfigurerbart**. Varken parkeringslogiken eller garageöversiktens kolumnberäkning förutsätter att garaget alltid har just 100 platser.
 
-## G – Exempel på `config.json`
+### 2.2 Exempel på `config.json` för G
 
 ```json
 {
@@ -63,282 +76,83 @@ Diagrammet beskriver **standardkonfigurationen för G-versionen**. `NumberOfPark
 }
 ```
 
-Exemplet visar standardvärden, inte nödvändigtvis de värden som användes vid det senaste manuella testet.
+Detta är standardvärden, inte en ögonblicksbild av ett visst manuellt test.
 
-## Syfte
+### 2.3 `VehiclesPerSpot` och parkeringsregler
 
-`config.json` innehåller inställningar som styr hur applikationen fungerar och
-som ska kunna ändras utan att programkoden behöver modifieras eller kompileras om.
+`VehicleTypes.Car.VehiclesPerSpot = 1` betyder att en parkeringsplats rymmer en bil. `VehicleTypes.MC.VehiclesPerSpot = 2` betyder att två motorcyklar kan dela en plats. I G får `Car` och `MC` **inte blandas** på samma parkeringsplats.
 
-Konfigurationen innehåller bland annat:
+`ParkingSpot` kontrollerar placeringen genom domänreglerna, exempelvis `CanPark()`. Kapacitetsvärdet kommer från konfigurationen och skickas till parkeringslogiken; det är inte en fast verksamhetsregel i `ParkingSpot`.
 
-- priser
-- gratis parkeringstid
-- antal parkeringsplatser
-- tidszon
-- fordonsrelaterade kapacitetsregler
+**Manuellt verifierat 14–16 oktober:** Två MC fick dela plats 003 och återställdes efter omstart med samma identifierare och ursprungliga UTC-ankomsttider. Försök att blanda Car/MC och att läsa in tre MC på samma två-MC-plats avvisades. Flytt till en olämplig plats nekades.
 
-Priser och andra administrerbara värden placeras i konfigurationen för att
-undvika hårdkodade inställningar i domänlogiken.
+### 2.4 Inläsning vid start och ändring av antal platser
 
-Att redigera en konfigurationsfil innebär inte automatiskt att ett redan
-startat program använder de nya värdena. **I G-versionen finns nu ett menyval
-för omläsning av prislistan under körning**, men övriga inställningar, till
-exempel garagekapaciteten, kräver fortfarande omstart. Omläsning av hela
-konfigurationen tillhör VG-versionen.
+G-versionens konfigurationsfil finns i projektets `PragueParkingV2/Config/config.json`; under körning används en aktiv kopia i `Config/config.json` **relativt `AppContext.BaseDirectory`**. Under en vanlig Debug-körning kan den exempelvis ligga under `bin/Debug/net10.0/Config/`.
 
-## Inläsning av konfiguration
+En ändring i projektfilen påverkar därför inte nödvändigtvis en **redan befintlig runtime-fil**. Vid test ändras den fil som körningen faktiskt läser. Ändrat antal parkeringsplatser i G börjar användas vid **nästa programstart**, inte genom `Reload Pricing`.
 
-Konfigurationen läses in vid programstart genom `ConfigurationService` i
-det separata projektet `PragueParkingV2.Data`.
+`ConfigurationService` läser och validerar bland annat garageantal, priser, gratisminuter, tidszon och `VehiclesPerSpot`. Saknad runtime-konfiguration kan återskapas med standardvärden. En **befintlig, felaktig** konfigurationsfil skrivs däremot inte tyst över; programmet stoppar uppstarten kontrollerat och visar ett felmeddelande.
 
-Projektets ursprungliga konfigurationsfil finns under
-`PragueParkingV2/Config/config.json` och kopieras till körmiljön. Under körning
-används `Config/config.json` relativt `AppContext.BaseDirectory`.
+**Manuellt verifierat 13–16 oktober:** Garageöversikten har provats med 100, 200 och 1 000 konfigurerade platser. Vid 1 000 platser fungerade intern viewport, navigering till plats 1000 och tillbaka. Efter återställning till 100 platser fanns de tidigare parkerade fordonen på platserna 003 och 051 kvar efter omstart. Dessa tester avser konfigurerat platsantal och översikt, inte 1 000 samtidiga parkerade fordon.
 
-**Skillnad mellan projektfil och runtime-fil:** Vid test med 200 platser upptäcktes
-att en ändring av projektets `Config/config.json` inte nödvändigtvis motsvarade
-innehållet i den redan existerande kopian under `bin/Debug/net10.0/Config/`.
-Den körande applikationen använder **runtime-filen**. Om en ny garagekapacitet
-ska testas måste rätt fil ändras och applikationen startas om.
+### 2.5 `Reload Pricing` i Administration
 
-**Test 2026-10-16:** Runtime-konfigurationen användes för att växla från 200
-till 1 000 och därefter till standardvärdet 100 platser. Befintliga fordon
-på platserna 003 och 051 behöll sina placeringar efter omstart. Detta visar
-att garagets storlek kan ändras när sparade platsnummer fortfarande är
-giltiga inom den nya kapaciteten.
+I G laddar `AdministrationView` om **endast prisuppgifterna** från den aktiva runtime-`config.json` genom `ConfigurationService.LoadPricing()`. Efter validering uppdateras den befintliga, gemensamma `ParkingFeeCalculator` med `UpdatePricing()`. Ett giltigt prisbyte får därmed effekt vid efterföljande utcheckning **utan programomstart**.
 
-Den inlästa konfigurationen valideras innan värdena används för att skapa
-och konfigurera övriga delar av applikationen.
-
-Exempel på värden som valideras:
-
-- antal parkeringsplatser
-- Car-pris
-- MC-pris
-- antal gratisminuter
-- tidszon
-- `VehiclesPerSpot` för respektive fordonstyp
-
-En befintlig men ogiltig konfigurationsfil skrivs inte över automatiskt.
-Programmet stoppar i stället uppstarten kontrollerat och presenterar ett
-felmeddelande via `MessageService`.
-
-Om runtime-versionen av `config.json` saknas kan `ConfigurationService`
-återskapa den med systemets standardvärden. Detta gäller körmiljön och ska
-inte förväxlas med projektets ursprungliga fil.
-
-## Antal parkeringsplatser och Garage Overview
-
-`Garage.NumberOfParkingSpots` avgör hur många `ParkingSpot`-objekt
-`ParkingGarage` skapar vid uppstart. Antalet platser är inte låst till
-100 i domänmodellen eller i garageöversiktens kolumnberäkning.
-
-Under utvecklingen den **13 oktober 2026** visades **200 konfigurerade
-parkeringsplatser (001–200)** samtidigt i ett tillräckligt stort
-terminalfönster. Det verifierades visuellt, men är inte ett fullständigt
-automatiserat test av samtliga terminalstorlekar och garagekapaciteter.
-
-`GarageOverView` använder ett kompakt Spectre.Console-`Grid` i en panel
-för parkeringskartan. Antalet kolumner och den synliga ytan beräknas med
-hänsyn till terminalens bredd och höjd; parkeringskartan prioriteras med
-ungefär **80 % av bredden** och detaljpanelen med ungefär **20 %**,
-med en minsta läsbar bredd för detaljerna.
-
-När fler parkeringsplatser finns än terminalen kan visa samtidigt
-används en intern visningsyta (viewport) för kartan. Tanken är att
-undvika oönskad scrollning av hela terminalen och låta piltangenterna
-flytta markeringen. Den aktuella implementationen kräver ett
-terminalfönster på minst **80 kolumner och 18 rader** för att visa
-översikten; annars visas en uppmaning om att förstora fönstret.
-
-**Teststatus 2026-10-16:** Tidigare testades 200 platser med en bil och två MC på samma plats. Två MC på plats 003 har därefter återställts korrekt efter omstart, med oförändrade identifierare och UTC-ankomsttider. En bil står efter en sparad flytt på plats 051.
-
-- **200 platser:** `FREE 198`, `OCCUPIED 2`, `VEHICLES 3`.
-- **1 000 platser:** `FREE 998`, `OCCUPIED 2`, `VEHICLES 3`. Den interna viewporten visade först intervallet 001–234 och senare 768–1000. Navigering till plats 1000, stopp vid den övre platsgränsen och återgång mot början har testats.
-- **100 platser:** `FREE 98`, `OCCUPIED 2`, `VEHICLES 3`. Standardkapaciteten återställdes utan att fordonen på 003 och 051 försvann.
-
-**Fortfarande öppet:** Anpassning till flera små terminalstorlekar och ändring av fönsterstorlek medan översikten är öppen är inte fullständigt verifierade. Testerna ovan visar visuell funktion, inte automatiserade tester för alla terminalmiljöer.
-
-## Prisregler vid körning
-
-Prisinställningarna läses från `config.json` vid programstart.
-
-De aktiva värdena för:
-
-- `CarHourlyPrice`
-- `MotorcycleHourlyPrice`
-- `FreeMinutes`
-
-överförs till `ParkingFeeCalculator`.
-
-`ParkingFeeCalculator` lagrar de aktiva prisreglerna i minnet och använder
-dem vid beräkning av parkeringsavgifter.
-
-Det innebär att `config.json` inte behöver läsas från disk vid varje
-prisberäkning. **Check Out Vehicle** använder konfigurerade priser och gratisminuter vid beräkningen av avgiften; ett normalt utcheckningsflöde med JSON-sparning testades den 15 oktober.
-
-**Administrationsmenyn har nu en fungerande Reload Pricing-funktion.**
-`AdministrationView` anropar `ConfigurationService.LoadPricing()` och uppdaterar
-den **befintliga, gemensamma** `ParkingFeeCalculator` via `UpdatePricing()`.
-Ny prissättning gäller alltså även vid utcheckning i samma programkörning,
-utan att garaget behöver skapas om.
-
-Prisberäkningen använder aktuell fordonstyp för att välja rätt timpris:
-
-```text
-Car
-    ↓
-CarHourlyPrice = 20 CZK
-
-MC
-    ↓
-MotorcycleHourlyPrice = 10 CZK
+```mermaid
+flowchart TD
+    A["Administration → Reload Pricing"] --> B["Läs nya prisvärden"]
+    B --> C["Validera alla prisvärden"]
+    C --> D{"Giltiga?"}
+    D -->|Ja| E["UpdatePricing: aktivera nya priser"]
+    D -->|Nej| F["Behåll tidigare giltiga priser"]
 ```
 
-Avgiften beräknas per påbörjad timme. Den nuvarande implementationen ger
-gratis parkering vid en tid **kortare än 10 minuter** (`duration.TotalMinutes <
-FreeMinutes`); därefter tillämpas timpriset för respektive fordonstyp.
-Gratisgränsen används gemensamt för de fordonstyper som stöds i
-Prague Parking 2.0.
+**Verifierat 16 oktober:** Bilpriset ändrades från **20 till 30 CZK per påbörjad timme**. En parkering på 20 timmar och 20 minuter beräknades då som 21 påbörjade timmar × 30 CZK = **630 CZK** utan omstart. Ett efterföljande prisvärde på **−10 CZK** avvisades; det tidigare giltiga priset 30 CZK fortsatte användas. Slutligen återställdes bilpriset till 20 CZK.
 
-**Kravtolkning att stämma av:** Uppgiftstexten har både formuleringen
-*högst tio minuter* och *mindre än tio minuter*. Den nu implementerade och
-testade gränsen följer *mindre än tio minuter*. Exakt 10:00 är därmed inte
-gratis enligt nuvarande kod. Regeln ändras inte utan ett uttryckligt beslut.
+**Avgränsning:** `Reload Pricing` i G laddar inte om antalet parkeringsplatser, tidszon eller fordonskapacitet. Detta är ett medvetet versionsskilt beteende, inte en ofärdig G-funktion.
 
-## Uppdatering av prisregler
+---
 
-`ParkingFeeCalculator` innehåller `UpdatePricing()` för kontrollerad
-uppdatering av aktiva prisregler. Funktionen är nu även **integrerad med
-Administration-vyn** och manuellt verifierad utan programomstart.
+## 3. Prague Parking V2.1 (VG)
 
-Det implementerade omläsningsflödet följer principen:
+### 3.1 Storleksbaserad konfigurationsmodell
 
-```text
-config.json
-    ↓
-läs nya prisvärden
-    ↓
-validera samtliga prisvärden
-    ↓
-giltiga?
-    ├── Ja  → ersätt aktiva prisregler
-    └── Nej → behåll tidigare giltiga prisregler
+I VG ersätts G-versionens antal fordon per plats med en **storleksbaserad kapacitetsmodell**. En vanlig plats rymmer som standard fyra enheter. Kapacitet och storlek hämtas från den aktiva konfigurationen.
+
+```mermaid
+flowchart TD
+    A["Configuration – VG"]
+    A --> B["Pricing"]
+    B --> B1["FreeMinutes = 10"]
+    B --> B2["Car = 20; MC = 10 CZK/timme"]
+    B --> B3["Bicycle = 5; Bus = 80 CZK/timme"]
+    A --> C["Garage"]
+    C --> C1["NumberOfParkingSpots = 100"]
+    C --> C2["SpotCapacity = 4"]
+    C --> C3["BusMaxParkingSpot = 50"]
+    A --> D["System"]
+    D --> D1["TimeZone = Europe/Prague"]
+    A --> E["VehicleTypes / Size"]
+    E --> E1["Bicycle = 1"]
+    E --> E2["MC = 2"]
+    E --> E3["Car = 4"]
+    E --> E4["Bus = 16"]
 ```
 
-Alla nya prisvärden ska valideras innan något av de aktiva värdena
-ersätts.
+| Fordon | `Size` | Hur kapaciteten används |
+|---|---:|---|
+| Bicycle | 1 | Upp till fyra cyklar på en normal plats, om inga andra fordon tar utrymme |
+| MC | 2 | Upp till två MC på en normal plats |
+| Car | 4 | En bil fyller en normal plats |
+| Bus | 16 | Fyra sammanhängande, helt lediga platser reserveras |
 
-Detta minskar risken för att applikationen hamnar i ett delvis uppdaterat
-eller ogiltigt tillstånd.
+Exempelvis kan **en MC och två Bicycle** dela en normal plats: `2 + 1 + 1 = 4`. Kombinationen **en MC och en Bicycle** upptar tre av fyra enheter och har testats i V2.1.
 
-**Verifiering 2026-10-16:** Bilpriset ändrades i runtime-`config.json` från
-20 till **30 CZK/timme** och aktiverades genom **Administration → Reload Pricing**
-utan omstart. Utcheckningens förhandsvisning använde det nya priset: 20 timmar
-20 minuter beräknades till 21 påbörjade timmar × 30 CZK = **630 CZK**.
-Ett försök att läsa in **−10 CZK/timme** avvisades med felmeddelande; det
-tidigare giltiga priset **30 CZK/timme** användes fortsatt. Därefter
-återställdes bilpriset till **20 CZK/timme**.
+En `Func<IVehicle, int>` kan användas för att slå upp storleken hos ett fordon i konfigurationen. Därmed behöver `ParkingSpot` inte själv läsa JSON för att kontrollera kapacitet. De gamla VG-anropen med `maxVehiclesPerSpot` och den äldre egenskapen `VehiclesPerSpot` togs bort vid kodstädningen den 22 oktober. **V2.0:s motsvarande kod ändrades inte.**
 
-**Avgränsning:** G-versionens meny läser endast om **prissättningen** (inklusive
-gratisminuter). Garageantal, tidszon och fordonskapaciteter läses inte om
-under körning. Att läsa om **hela** konfigurationen och pröva den mot
-befintliga fordon är ett separat VG-krav.
-
-## Tidszon
-
-`System.TimeZone` anger vilken tidszon som ska användas när tider presenteras
-för användaren.
-
-Ankomsttider lagras internt i UTC och konverteras till den konfigurerade
-tidszonen vid presentation, bland annat i `GarageOverView`.
-
-Standardvärdet är:
-
-```text
-Europe/Prague
-```
-
-`ParkingFeeCalculator` arbetar med UTC-baserade tider för att beräkningen
-mellan `ArrivalTime` och `departureTime` ska vara entydig, även vid byte
-mellan sommar- och vintertid.
-
-Tidszonen påverkar alltså hur klockslag **visas**, inte den sparade
-ankomsttidens ursprungliga UTC-värde.
-
-## Konfiguration och parkeringsdata
-
-Konfiguration och parkeringsdata har olika ansvar.
-
-```text
-config.json
-    ↓
-Hur systemet ska fungera
-
-parking-data.json
-    ↓
-Vilka fordon som faktiskt är parkerade
-```
-
-`config.json` ska därför inte innehålla det aktuella tillståndet i
-parkeringshuset.
-
-Parkerade fordon ska i stället sparas separat i `parking-data.json`,
-enligt det redan dokumenterade formatet i `docs/parking-data.md`:
-
-```text
-ParkingSpots
-    └── SpotNumber
-         └── Vehicles
-              ├── Identifier
-              ├── VehicleType
-              └── ArrivalTime
-```
-
-Endast upptagna parkeringsplatser ska skrivas till datafilen. Tomma platser återskapas nu från konfigurationen vid programstart genom `ParkingDataMapper.ToGarage()`.
-
-Prisregler och gratisgränser sparas inte i `parking-data.json`, utan hämtas
-från `config.json`. `ArrivalTime` i parkeringsdata ska bevaras i UTC så att
-parkeringstiden förblir korrekt efter omstart.
-
-**Status 2026-10-16:** `ParkingDataMapper.ToGarage()` skapar det konfigurerade antalet platser och återställer fordon med ursprungligt platsnummer och UTC-ankomsttid. Återställning med **två MC på plats 003** har verifierats efter omstart. Bilen `ABC123` flyttades i ett separat lyckat test från 050 till **051**, och den nya placeringen fanns kvar efter omstart. När garaget ändrades från 1 000 till 100 platser kvarstod dessa tre fordon.
-
-**Negativa tester:** En korrupt JSON-fil avvisades utan att skrivas över. Inläsning av dubbletter (`ABC123`/`abc123`), platsnummer 201 i ett garage med 200 platser, tre MC på en två-MC-plats och blandad Car/MC-beläggning på samma plats gav kontrollerade fel. Framprovocerad skrivvägran via en katalog med namnet `parking-data.json.tmp` testade kompensationen efter Park, Check Out och Move; programmet gav fel och återställde det observerade garagetillståndet i minnet. Dessa tester bevisar **inte** fullständig atomisk filhantering eller kraschåterhämtning. Mer detaljer finns i `parking-data.md`.
-
-## Kapacitetsmodell i Prague Parking 2.0
-
-På G-nivå används `VehiclesPerSpot`.
-
-Exempel:
-
-```text
-Car → 1 fordon per plats
-MC  → 2 fordon per plats
-```
-
-Dessa värden hämtas från konfigurationen och skickas till parkeringslogiken
-vid behov, exempelvis till `ParkingGarage.ParkVehicle()` och
-`ParkingSpot.CanPark()`.
-
-Kapacitetsvärdena ska därför inte hårdkodas i `ParkingSpot`.
-
-`ParkingSpot` ansvarar fortfarande för att kontrollera om ett fordon får
-parkeras på platsen. Olika fordonstyper får inte blandas på samma plats i
-den nuvarande G-modellen.
-
-**Verifiering till och med 2026-10-16:** `MoveVehicleView` avgör om det befintliga objektet är `Car` eller `MC` och hämtar motsvarande `VehiclesPerSpot` från `configuration.VehicleTypes`. Innan användaren får bekräfta en flytt kontrolleras destinationsplatsen via `ParkingSpot.CanPark()`. En MC har kunnat flyttas till en plats med en annan MC (två totalt), medan MC på en bilupptagen plats har nekats. Dessutom har en sparad fil med tre MC på samma två-MC-plats avvisats vid uppstart, liksom en fil som blandar Car och MC på samma plats. Dessa är G-regler; de utgör inte stöd för VG-versionens storleksenheter.
-
-> Den generella storleksmodellen med storleksenheter för Bicycle, MC, Car
-> och Bus införs först i Prague Parking 2.1 (VG).
-
-## V2.1 – aktuell driftkonfiguration och Reload Configuration (2026-10-21)
-
-Den tidigare texten som säger att fullständig reload saknas avser **tidigare delsteg**, före eftermiddagens implementation och tester. Nu finns en separat funktion **Administration → Reload Configuration** utöver **Reload Pricing**. `MainMenu` levererar en `Action` som läser config, bygger ett nytt garage från `ParkingDataMapper.ToDocument()` / `ToGarage()` och aktiverar garaget samt prisinställningarna först när återuppbyggnaden godkänts.
-
-`ConfigurationService.LoadConfiguration(createIfMissing: true)` används vid normal start. Då kopieras `Config/config.template.json` till `Config/config.json` om den aktiva filen saknas. Vid manuell reload används `createIfMissing: false`: en saknad aktiv fil avvisas utan att ersätta löpande inställningar.
-
-**Aktuell V2.1-standard (mall):**
+### 3.2 Standardvärden i `config.template.json`
 
 ```json
 {
@@ -354,7 +168,9 @@ Den tidigare texten som säger att fullständig reload saknas avser **tidigare d
     "SpotCapacity": 4,
     "BusMaxParkingSpot": 50
   },
-  "System": { "TimeZone": "Europe/Prague" },
+  "System": {
+    "TimeZone": "Europe/Prague"
+  },
   "VehicleTypes": {
     "Car": { "Size": 4 },
     "MC": { "Size": 2 },
@@ -364,33 +180,147 @@ Den tidigare texten som säger att fullständig reload saknas avser **tidigare d
 }
 ```
 
-Enligt lärarens förtydligande får bussar endast använda platserna **001–050**, både vid incheckning och vid flytt. Standardfilens `BusMaxParkingSpot=50` följer detta. Att egenskapen är konfigurerbar innebär inte att större värden är godkända i inlämningen.
+Mallen är **versionshanterad**, medan den aktiva `config.json` är den fil som administratören ändrar under körning. De båda filerna har samma konfigurationsstruktur, men olika roller.
 
-**Testutfall:** 100→200 platser, därefter navigering i 500 platser, utan omstart och med bevarade fordon. Vid ändring `SpotCapacity=4→2` nekades reload eftersom Car `OEJ989` på 002 inte fick plats. Det gamla garaget användes fortsatt. Vid misslyckad reload ändras inte konfigurationsfilen på disken tillbaka automatiskt: administratören måste återställa giltiga värden innan nästa start. Prisändring via **full** reload, bussens ändrade områdesgräns, tidszonsändring och flera storleksvarianter ska fortfarande testas separat.
+### 3.3 `config.template.json` och aktiv runtime-konfiguration
 
-`VehicleTypes.Size` gäller de fyra existerande fordonstyperna. Att lägga till ett femte namn i JSON skapar inte en ny C#-klass eller UI-stöd. Den gamla egenskapen `VehiclesPerSpot` finns kvar i den kopierade V2.1-konfigurationsklassen för tillfället; ta inte bort den förrän alla referenser är granskade.
+| Fil | Ansvar |
+|---|---|
+| `PragueParkingV2_1/Config/config.template.json` | Projektets standardmall, kopieras till utmatningskatalogen vid byggning med `PreserveNewest` |
+| `Config/config.template.json` under V2.1:s körkatalog | Tillgänglig mall när programmet startar |
+| `Config/config.json` under V2.1:s körkatalog | **Aktiv konfiguration** som laddas, valideras och kan redigeras |
+| `Data/parking-data.json` under V2.1:s körkatalog | Separata parkeringsdata; innehåller inte priser och garageinställningar |
+
+`ConfigurationService.GetConfigurationPath()` och `GetTemplatePath()` bygger sökvägar från `AppContext.BaseDirectory` och `Path.Combine()`, inte från en hårdkodad sökväg på utvecklingsdatorn.
+
+Vid normal start anropas `LoadConfiguration(createIfMissing: true)`. Om den aktiva konfigurationen saknas kopieras `config.template.json` till `config.json` med `File.Copy()` **utan att skriva över en befintlig fil**. En redan befintlig fil läses och valideras. Är den ogiltig visas fel; den ersätts inte med standardvärden.
+
+**Historik 21 oktober:** En äldre G-liknande runtime-konfiguration saknade den nya storleksmodellen och gav felmeddelandet `Vehicle type 'Car' must have a size greater than zero`. Den gamla filen säkerhetskopierades som `config.backup-before-v2.1.json` innan den nya mallen användes. Detta var ett utvecklings- och migreringstest, inte ett fel i den färdiga standardmallen.
+
+### 3.4 Bussens område och fyra platsreservationer
+
+En `Bus` har standardstorleken 16 och behöver **fyra sammanhängande parkeringsplatser** med kapaciteten fyra enheter per plats. Samma buss behandlas som **ett fordon** vid sökning, avgift och JSON-lagring, även om fyra platser markeras som reserverade. Den detaljerade reservationsmodellen beskrivs i [`design-decisions.md`](design-decisions.md) och [`parking-data.md`](parking-data.md).
+
+Enligt lärarens förtydligande får bussar använda **endast platserna 001–050**, både vid incheckning och flytt. Området är inte reserverat enbart för bussar: även andra fordon får parkera där. Standardvärdet `BusMaxParkingSpot = 50` följer denna regel.
+
+`BusMaxParkingSpot` är en tekniskt konfigurerbar inställning, men möjligheten att ange ett annat värde innebär **inte** att en större busszon uppfyller kursens krav. V2.1:s standard- och inlämningskonfiguration använder gränsen 50.
+
+### 3.5 `Reload Configuration` i Administration
+
+V2.1 har en färdig funktion för omläsning av **hela** konfigurationen utan omstart. Utöver prisvärden omfattar den bland annat platsantal, kapacitet, fordonsstorlekar och tidszon. `AdministrationView` anropar en `Action` från `MainMenu` för att samordna omläsningen och bytet av aktivt garage.
+
+```mermaid
+flowchart TD
+    A["Administration → Reload Configuration"] --> B["Läs aktiv config.json"]
+    B --> C["Validera konfigurationen"]
+    C --> D["Exportera nuvarande garage till DTO"]
+    D --> E["Bygg tillfälligt garage med nya regler"]
+    E --> F{"Alla befintliga fordon ryms?"}
+    F -->|Ja| G["Aktivera nytt garage, priser och konfiguration"]
+    F -->|Nej| H["Behåll gamla aktiva objekt i minnet"]
+    C -->|Ogiltiga värden| H
+```
+
+Flödet bygger på följande principer:
+
+1. `LoadConfiguration(createIfMissing: false)` läser runtime-filen. Vid **manuell** omläsning skapas ingen ny fil om `config.json` saknas.
+2. Nya värden valideras utan att den redan aktiva garagemodellen byts ut.
+3. Befintliga parkeringsdata översätts via `ParkingDataMapper.ToDocument()` och återställs i ett **tillfälligt garage** med `ToGarage()` enligt den nya konfigurationen.
+4. Om samtliga fordon och eventuella bussreservationer går att återställa, aktiveras den nya konfigurationen, det nya garaget och prisuppgifterna tillsammans.
+5. Om någon kontroll misslyckas fortsätter programmet använda **tidigare giltigt garage och tidigare aktiva inställningar i minnet**. Ett begripligt felmeddelande visas.
+
+**Viktig begränsning:** Vid misslyckad omläsning återställer programmet **inte** automatiskt innehållet i den redigerade `config.json` på disken. Administratören måste rätta filen innan nästa omläsning eller programstart. Det är skillnad mellan att bevara säkert **aktivt minnestillstånd** och att återställa en användarredigerad fil.
+
+**Verifierat 21 oktober:** Ändring från 100 till 200 och därefter test av 500 parkeringsplatser genomfördes utan omstart, med fungerande garageöversikt och bevarade fordon. Ett försök att ändra `SpotCapacity` från **4 till 2**, medan bilen `OEJ989` var parkerad på plats 002, avvisades. Det gamla aktiva garaget behölls.
+
+### 3.6 Validering före aktivering
+
+`ConfigurationService` validerar konfigurationens struktur och värden innan de används. Dokumenterade kontroller i V2.1 omfattar:
+
+- Obligatoriska konfigurationsavsnitt för priser, garage, system och fordonstyper.
+- `NumberOfParkingSpots` inom intervallet **1–1 000**.
+- Positiv `SpotCapacity`.
+- `BusMaxParkingSpot` minst **4** och högst `NumberOfParkingSpots`.
+- Icke-negativa priser och tillåtet värde för gratisminuter.
+- Angiven, giltig tidszon.
+- De fyra nödvändiga fordonstyperna `Car`, `MC`, `Bicycle` och `Bus`.
+- Positiv `Size` för varje nödvändig fordonstyp.
+- Domänkontroll av att befintliga fordon, kapaciteter och bussreservationer kan återskapas under de nya reglerna.
+
+En giltig JSON-struktur garanterar alltså inte att en **redan belagd** garagekonfiguration går att använda. Därför ingår även återställning av befintlig beläggning i kontrollen före aktivering.
+
+En extra nyckel under `VehicleTypes` skapar inte automatiskt en ny C#-klass. Stöd för en femte fordonstyp skulle också kräva tillämplig fordonsklass, prissättning, UI och persistenshantering. Detta är en avgränsning för den färdiga lösningen, inte ett planerat kursmoment.
 
 ---
 
-### Filer och ansvar
+## 4. Prisregler och tidszon
 
-| Sökväg | Funktion |
-|---|---|
-| `PragueParkingV2_1/Config/config.template.json` | Versionshanterad standardmall i projektet |
-| `PragueParkingV2_1/bin/Debug/net10.0/Config/config.template.json` | Mall kopierad av byggsystemet (`None Update`, `PreserveNewest`) |
-| `PragueParkingV2_1/bin/Debug/net10.0/Config/config.json` | Aktiv, administrerbar runtime-konfiguration |
+### 4.1 Timpriser och gratisgräns
 
-`ConfigurationService.GetConfigurationPath()` använder `AppContext.BaseDirectory/Config/config.json`. `GetTemplatePath()` använder motsvarande `config.template.json`. När den aktiva filen saknas kontrolleras mallen och kopieras med `File.Copy(templatePath, path)` **utan overwrite**. Sedan läses JSON in till `AppConfiguration` och valideras. En befintlig ogiltig konfiguration ska fortfarande orsaka ett tydligt uppstartsfel; den ersätts inte automatiskt med standardvärden.
+| Fordon | Standardpris per påbörjad timme |
+|---|---:|
+| Car | 20 CZK |
+| MC | 10 CZK |
+| Bicycle *(endast VG)* | 5 CZK |
+| Bus *(endast VG)* | 80 CZK |
 
-En äldre runtime-`config.json` från G-liknande struktur orsakade `Vehicle type 'Car' must have a size greater than zero`. Den säkerhetskopierades som `config.backup-before-v2.1.json`; den uppdaterade mallen kunde sedan användas. PowerShell bekräftade att mallen fanns i körkatalogen, och programmet startade efteråt.
+`ParkingFeeCalculator` beräknar avgifter utifrån **aktiva konfigurationsvärden**, inte utifrån en egen hårdkodad prislista. En buss debiteras som **ett** fordon, trots att den reserverar fyra parkeringsplatser. Vid ett dokumenterat VG-test kostade 1 timme och 38 minuters bussparkering **160 CZK** (två påbörjade timmar × 80 CZK).
 
-### Mallens värden
+Den färdiga och testade gratisregeln är **parkering kortare än 10 minuter är gratis** (`duration.TotalMinutes < FreeMinutes`). Vid **exakt 10 minuter** debiteras därför påbörjad timme. Att uppgiftstexten innehåller olika formuleringar (*högst tio minuter* respektive *mindre än tio minuter*) är dokumenterat i [`requirements.md`](requirements.md); detta avsnitt redovisar programmets faktiska, testade beteende.
 
-- `Pricing`: `FreeMinutes = 10`, `CarHourlyPrice = 20`, `MotorcycleHourlyPrice = 10`, `BicycleHourlyPrice = 5`, `BusHourlyPrice = 80`.
-- `Garage`: `NumberOfParkingSpots = 100`, `SpotCapacity = 4`, `BusMaxParkingSpot = 50`.
-- `System.TimeZone = Europe/Prague`.
-- `VehicleTypes`: `Car.Size = 4`, `MC.Size = 2`, `Bicycle.Size = 1`, `Bus.Size = 16`.
+### 4.2 UTC och `Europe/Prague`
 
-**Validering på kodnivå:** Required sections, antal platser 1–1 000, positiv `SpotCapacity`, `BusMaxParkingSpot` minst 4 och högst `NumberOfParkingSpots`, icke-negativa priser, tidszon, fyra obligatoriska fordonstyper och positiv `Size` per typ.
+`System.TimeZone` anger tidszonen vid **presentation** i exempelvis Garage Overview och Spot Details. Standardvärdet är `Europe/Prague`.
 
-**Avgränsning:** Det är fortfarande inte möjligt att få en helt ny fordonsklass i programmet enbart genom en ny JSON-nyckel. `ParkingFeeCalculator` och UI måste också stödja fordonstypen. Full omläsning under körning, inklusive kontroll mot redan parkerade fordon, är implementerad. Förutom verifierade ändringar av antal platser och avvisning av ogiltig kapacitet återstår riktade tester av övriga konfigurationsfält. Storlek för bussens fyra platser kontrolleras för närvarande i `ParkingGarage` som `busSize == spotCapacity * 4`.
+Fordons `ArrivalTime` registreras och sparas i **UTC**. Prisberäkningen utgår från UTC-ankomst och UTC-avgång för att undvika att sommar-/vintertidsomställningar förändrar parkeringslängden. Vid visning konverteras tidpunkten till konfigurerad tidszon. En omladdad tidszon påverkar därmed visningen, inte den ursprungliga UTC-tid som lagrats för fordonet.
+
+---
+
+## 5. Konfiguration jämfört med parkeringsdata
+
+```text
+Config/config.json
+    ├── Pricing: priser och gratisminuter
+    ├── Garage: antal platser och kapacitet
+    ├── System: tidszon
+    └── VehicleTypes: fordonsregler
+
+Data/parking-data.json
+    └── ParkingSpots
+         └── SpotNumber
+              └── Vehicles
+                   ├── Identifier
+                   ├── VehicleType
+                   └── ArrivalTime (UTC)
+```
+
+`ParkingDataMapper.ToGarage()` återskapar parkerade fordon med samma identifierare, fordonstyp, plats och ursprungliga ankomsttid. För buss i V2.1 sparas bussobjektet bara vid primärplatsen; de ytterligare tre reservationerna återskapas genom domänreglerna. Ingen prisinformation eller tillfällig kvittoberäkning lagras i `parking-data.json`.
+
+V2.1:s `TestDataSeeder` är en **separat funktion för parkeringsdata**, inte för konfiguration: om `parking-data.json` saknas vid uppstart skapas och sparas ett giltigt testgarage med Car, MC, Bicycle och Bus. Finns datafilen redan, även med tom lista, läggs inga nya testfordon till. Detta ändrar inte V2.0:s beteende.
+
+---
+
+## 6. Genomförda manuella tester och historik
+
+| Datum | Område | Dokumenterat resultat |
+|---|---|---|
+| **2026-10-13** | G: Garageöversikt | 200 platser kunde visas i ett tillräckligt stort terminalfönster. |
+| **2026-10-14–15** | G: Fordon och data | Incheckning, utcheckning och flytt sparades; beläggning verifierades efter omstart. |
+| **2026-10-16** | G: Storlek på garage | 100, 200 och 1 000 konfigurerade platser; viewport till plats 1000; bevarade fordon vid återgång till 100. |
+| **2026-10-16** | G: `Reload Pricing` | 20 → 30 CZK utan omstart; 630 CZK beräknades för 20 h 20 min; −10 CZK avvisades. |
+| **2026-10-16** | G: Felaktiga parkeringsdata | Korrupt JSON, identifierardubbletter, platsnummer utanför garaget samt otillåten beläggning avvisades. Riktade skrivfel med kompensation testades. |
+| **2026-10-21** | VG: Konfigurationsmall | Saknad aktiv konfiguration skapades från mallen; befintlig fil bevarades och validerades. |
+| **2026-10-21** | VG: `Reload Configuration` | Utökning till 200 respektive 500 platser utan omstart; ändring 4 → 2 i `SpotCapacity` avvisades vid parkerad bil. |
+| **2026-10-21** | VG: Fordons- och bussregler | Blandad MC/Bicycle-kapacitet, bussens fyra platser, JSON-återställning och bussavgift dokumenterades i funktionstester. |
+| **2026-10-22** | VG: Slutkontroll | Föråldrad `VehiclesPerSpot`-konfiguration och äldre kapacitetsöverlagringar togs bort i V2.1; `config.template.json` och `ConfigurationService` kontrollerades och lösningen byggde utan kompileringsfel. G-versionen lämnades oförändrad. |
+
+**Testernas omfattning:** Uppgifterna ovan avser dokumenterade manuella scenarier och byggresultat, inte en automatiserad testsvit eller uttömmande verifiering av alla möjliga kombinationer av priser, tidszoner, terminaler och filsystemsavbrott. Denna avgränsning förändrar inte slutstatusen: **båda kursversionerna är färdigutvecklade och testade.**
+
+## 7. Relaterad dokumentation
+
+- [`README.md`](../README.md) – projektöversikt och startinstruktioner.
+- [`requirements.md`](requirements.md) – spårning och kontroll av G-/VG-krav.
+- [`design-decisions.md`](design-decisions.md) – motivering till arkitektur och konfigurationsregler.
+- [`parking-data.md`](parking-data.md) – JSON-persistens, validering och bussens återställning.
+- [`project-plan.md`](project-plan.md) – milstolpar, genomförande och avslut.
+- [`LOGGBOK.md`](../LOGGBOK.md) – daterade utvecklingsanteckningar och manuella tester.

@@ -69,10 +69,6 @@ namespace PragueParkingV2_1.Data.Configuration
 
     public class VehicleTypeConfiguration
     {
-        public int VehiclesPerSpot
-        {
-            get; set;
-        }
         public int Size
         {
             get; set;

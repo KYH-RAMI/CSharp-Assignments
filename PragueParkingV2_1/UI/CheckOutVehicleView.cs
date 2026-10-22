@@ -27,7 +27,7 @@ namespace PragueParkingV2_1.UI
                 $"[bold {AppTheme.GoldLight}]CHECK OUT VEHICLE[/]\n" +
                 $"[{AppTheme.Muted}]" +
                 $"Enter the vehicle registration number.\n" +
-                $"Leave empty and press Enter to go back." +
+                $"Press ESC or leave empty and press Enter to go back." +
                 $"[/]";
 
             var panel = AppTheme.CreatePanel(
@@ -42,10 +42,9 @@ namespace PragueParkingV2_1.UI
                 leftMargin,
                 Console.CursorTop);
 
-            string identifier = AnsiConsole.Prompt(
-                new TextPrompt<string>(
-                    $"{padding}[{AppTheme.Gold}]Registration ID:[/] ")
-                .AllowEmpty());
+            string? identifier = MenuInput.ReadText(
+                "Registration ID",
+                leftMargin);
 
             if (string.IsNullOrWhiteSpace(identifier))
             {
@@ -102,9 +101,10 @@ namespace PragueParkingV2_1.UI
                 leftMargin,
                 Console.CursorTop);
 
-            bool confirmed = AnsiConsole.Confirm(
-                $"{padding}[{AppTheme.Gold}]Confirm checkout?[/]",
-                defaultValue: false);
+            bool confirmed = MenuInput.Confirm(
+                "Confirm checkout?",
+                leftMargin);
+
             if (!confirmed)
             {
                 MessageService.ShowInfo(

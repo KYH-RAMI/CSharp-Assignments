@@ -26,11 +26,7 @@ namespace PragueParkingV2_1.Data.Configuration
             bool createIfMissing = true)
         {
             var path = GetConfigurationPath();
-
-            /* Debugging load file
-            Console.WriteLine($"Loading config from: {path}");
-            Console.ReadKey(); */
-
+            
             if (!File.Exists(path))
             {
                 if (!createIfMissing)

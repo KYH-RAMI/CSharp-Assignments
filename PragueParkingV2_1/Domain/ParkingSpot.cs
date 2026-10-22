@@ -97,36 +97,7 @@
 
             return usedCapacity;
         }
-        public bool CanPark(IVehicle vehicle, int maxVehiclesPerSpot)
-        {
-            ArgumentNullException.ThrowIfNull(vehicle);
-            if (ReservedByBus is not null)
-            {
-                return false;
-            }
-            if (vehicle is Bus)
-            {
-                return false;
-            }
-            if (maxVehiclesPerSpot <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(maxVehiclesPerSpot),
-                    "Maximum vehicles per spot must be greater than zero.");
-            }
 
-            if (_parkedVehicles.Count == 0)
-            {
-                return true;
-            }
-
-            if (vehicle.GetType() != _parkedVehicles[0].GetType())
-            {
-                return false;
-            }
-
-            return _parkedVehicles.Count < maxVehiclesPerSpot;
-        }
         public bool CanPark(
             IVehicle vehicle,
             int spotCapacity,
@@ -162,18 +133,6 @@
             return vehicleSize <= spotCapacity - usedCapacity;
         }
 
-
-
-        public void ParkVehicle(Vehicle vehicle, int maxVehiclesPerSpot)
-        {
-            if (!CanPark(vehicle, maxVehiclesPerSpot))
-            {
-                throw new InvalidOperationException(
-                    "The vehicle cannot be parked in this parking spot.");
-            }
-
-            _parkedVehicles.Add(vehicle);
-        }
         public void ParkVehicle(
             Vehicle vehicle, 
             int spotCapacity, 
@@ -199,9 +158,7 @@
             }
 
             identifier = identifier.Trim();
-
-
-
+            
             return _parkedVehicles.FirstOrDefault(
                 vehicle => string.Equals(
                     vehicle.Identifier,
