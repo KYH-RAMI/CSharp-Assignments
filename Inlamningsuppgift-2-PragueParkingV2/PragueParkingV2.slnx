@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/class-diagram.md" />
+    <File Path="docs/configuration.md" />
+    <File Path="docs/design-decisions.md" />
+    <File Path="docs/parking-data.md" />
+    <File Path="docs/project-plan.md" />
+    <File Path="docs/requirements.md" />
+  </Folder>
+  <Folder Name="/Documentation/">
+    <File Path="LOGGBOK.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/" />
+  <Project Path="PragueParkingV2.Data/PragueParkingV2.Data.csproj" />
+  <Project Path="PragueParkingV2/PragueParkingV2.csproj" />
+  <Project Path="PragueParkingV2_1.Data/PragueParkingV2_1.Data.csproj" Id="6caff229-554f-4fbc-aa2c-3871241bcf0b" />
+  <Project Path="PragueParkingV2_1/PragueParkingV2_1.csproj" Id="d87f8e2f-34ee-4552-b6e4-c22fedea0f69" />
+</Solution>
